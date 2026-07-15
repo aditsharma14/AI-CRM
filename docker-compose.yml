@@ -1,0 +1,35 @@
+services:
+  client:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+  api:
+    build: ./backend
+    env_file: ./backend/.env
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongo
+      - ai
+
+  ai:
+    build: ./AI
+    env_file: ./AI/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongo
+
+  # Local convenience only — production points MONGO_URI at MongoDB Atlas instead.
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:

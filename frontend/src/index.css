@@ -1,0 +1,24 @@
+/* Tailwind directives and global base styles (wired in Phase 3/5). */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Written with theme() instead of @apply on purpose: Tailwind's JIT compiler
+ * only generates a utility class if it sees that exact class name written
+ * somewhere in a scanned file (see `content` in tailwind.config.js, which
+ * only looks at .html/.jsx files). Since "bg-background" and "text-text"
+ * appear nowhere but here, @apply would fail — theme() reads the color
+ * value straight out of the config instead, so it always works.
+ */
+body {
+  background-color: theme('colors.background.DEFAULT');
+  color: theme('colors.text.DEFAULT');
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark body {
+  background-color: theme('colors.background.dark');
+  color: theme('colors.text.dark');
+}
