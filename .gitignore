@@ -6,4 +6,23 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 *.log
+
+# Env files and anything holding real secrets — never commit these, only
+# the .env.example templates. Covers root and any service directory.
 .env
+.env.*
+!.env.example
+!**/.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*credentials*.json
+*service-account*.json
+
+# Vercel
+.vercel
+
+# Local Mongo data if ever bind-mounted instead of using the named volume
+mongo-data/
