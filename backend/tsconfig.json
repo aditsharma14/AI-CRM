@@ -1,0 +1,24 @@
+{
+  // Type-checker only: tsc never emits. Files opt in with a `// @ts-check`
+  // first line (enforced per folder by scripts/check-ts-optin.js); everything
+  // else is still read for inferred types but its own errors aren't reported.
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src"]
+}
