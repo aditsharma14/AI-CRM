@@ -3,7 +3,11 @@ import morgan from 'morgan'
 import { rateLimit } from 'express-rate-limit'
 import { env } from '../config/index.js'
 
-export const requestLogger = morgan(env.nodeEnv === 'production' ? 'combined' : 'dev')
+// Silent under the test runner — the role matrix makes hundreds of requests
+// per file and a log line for each buries the actual failures.
+export const requestLogger = morgan(env.nodeEnv === 'production' ? 'combined' : 'dev', {
+  skip: () => env.nodeEnv === 'test',
+})
 
 export const apiRateLimiter = rateLimit({
   windowMs: env.rateLimitWindowMs,

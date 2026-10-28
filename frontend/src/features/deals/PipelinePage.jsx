@@ -13,7 +13,8 @@ import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button, Badge } from '../../components/ui.jsx'
 import NotesPanel from '../notes/NotesPanel.jsx'
-import { PIPELINE_STAGE_DEFAULTS } from '../../lib/constants.js'
+import { useSession } from '../../context/SessionContext.jsx'
+import { PIPELINE_STAGE_DEFAULTS, canModifyRecord } from '../../lib/constants.js'
 import { formatCurrency } from '../../lib/utils.js'
 
 const dealSchema = z.object({
@@ -44,6 +45,9 @@ export default function PipelinePage() {
   const { page, limit, setPage } = usePaginationState()
   const [editing, setEditing] = useState(null)
   const confirmDelete = useDisclosure()
+  const { user, can } = useSession()
+  // Members can open anyone's deal but only change (or move) their own.
+  const readOnly = Boolean(editing?._id) && !canModifyRecord(user, editing)
 
   const deals = useCrudQuery('deals')
   const { data, isLoading, isError } = deals.useList({ page, limit, sort: '-createdAt' })
@@ -120,12 +124,12 @@ export default function PipelinePage() {
             <Button variant="secondary" onClick={close}>
               Cancel
             </Button>
-            {editing?._id && (
+            {editing?._id && can('crm', 'delete') && (
               <Button variant="danger" onClick={confirmDelete.open}>
                 Delete
               </Button>
             )}
-            <Button type="submit" form="deal-form" disabled={isSubmitting}>
+            <Button type="submit" form="deal-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the owner can edit this deal' : undefined}>
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>

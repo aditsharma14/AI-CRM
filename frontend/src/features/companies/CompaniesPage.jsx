@@ -9,6 +9,8 @@ import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button } from '../../components/ui.jsx'
 import NotesPanel from '../notes/NotesPanel.jsx'
+import { useSession } from '../../context/SessionContext.jsx'
+import { canModifyRecord } from '../../lib/constants.js'
 
 const SIZES = ['1-10', '11-50', '51-200', '201-1000', '1000+']
 
@@ -25,6 +27,8 @@ export default function CompaniesPage() {
   const { page, limit, setPage } = usePaginationState()
   const [editing, setEditing] = useState(null)
   const confirmDelete = useDisclosure()
+  const { user, can } = useSession()
+  const readOnly = Boolean(editing?._id) && !canModifyRecord(user, editing)
 
   const companies = useCrudQuery('companies')
   const { data, isLoading, isError } = companies.useList({ page, limit, q: q || undefined })
@@ -98,12 +102,12 @@ export default function CompaniesPage() {
             <Button variant="secondary" onClick={close}>
               Cancel
             </Button>
-            {editing?._id && (
+            {editing?._id && can('crm', 'delete') && (
               <Button variant="danger" onClick={confirmDelete.open}>
                 Delete
               </Button>
             )}
-            <Button type="submit" form="company-form" disabled={isSubmitting}>
+            <Button type="submit" form="company-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the owner can edit this company' : undefined}>
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>

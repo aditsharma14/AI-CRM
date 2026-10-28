@@ -9,6 +9,8 @@ import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button } from '../../components/ui.jsx'
 import NotesPanel from '../notes/NotesPanel.jsx'
+import { useSession } from '../../context/SessionContext.jsx'
+import { canModifyRecord } from '../../lib/constants.js'
 
 const contactSchema = z.object({
   name: z.string().trim().min(1, 'Name is required'),
@@ -24,6 +26,8 @@ export default function ContactsPage() {
   const { page, limit, setPage } = usePaginationState()
   const [editing, setEditing] = useState(null)
   const confirmDelete = useDisclosure()
+  const { user, can } = useSession()
+  const readOnly = Boolean(editing?._id) && !canModifyRecord(user, editing)
 
   const contacts = useCrudQuery('contacts')
   const { data, isLoading, isError } = contacts.useList({ page, limit, q: q || undefined })
@@ -100,12 +104,12 @@ export default function ContactsPage() {
             <Button variant="secondary" onClick={close}>
               Cancel
             </Button>
-            {editing?._id && (
+            {editing?._id && can('crm', 'delete') && (
               <Button variant="danger" onClick={confirmDelete.open}>
                 Delete
               </Button>
             )}
-            <Button type="submit" form="contact-form" disabled={isSubmitting}>
+            <Button type="submit" form="contact-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the owner can edit this contact' : undefined}>
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>

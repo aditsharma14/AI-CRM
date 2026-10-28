@@ -15,6 +15,24 @@ export function hasPermission(role, resource, action) {
   return Boolean(MATRIX[role]?.[resource]?.includes(action))
 }
 
+// Mirrors backend/src/policies/ownership.js: managers and above change any
+// record in the org; members only records they own. Again UI-only — the API
+// answers 403 regardless.
+const ORG_WIDE_ROLES = [ROLES.OWNER, ROLES.ADMIN, ROLES.MANAGER]
+
+/**
+ * Whether `user` may change `record`. `ownerField` is 'ownerId' for leads,
+ * deals, contacts and companies, 'assigneeId' for activities. Works whether
+ * the field came back as a raw id or populated ({ _id, name }).
+ */
+export function canModifyRecord(user, record, ownerField = 'ownerId') {
+  if (!user || !record) return false
+  if (ORG_WIDE_ROLES.includes(user.role)) return true
+  const owner = record[ownerField]
+  const ownerId = owner && typeof owner === 'object' ? owner._id : owner
+  return ownerId != null && String(ownerId) === String(user.id)
+}
+
 export const PIPELINE_STAGE_DEFAULTS = [
   { key: 'new', label: 'New', order: 0 },
   { key: 'qualified', label: 'Qualified', order: 1 },

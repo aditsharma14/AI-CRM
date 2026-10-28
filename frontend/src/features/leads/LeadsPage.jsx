@@ -11,7 +11,8 @@ import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button, Badge } from '../../components/ui.jsx'
 import NotesPanel from '../notes/NotesPanel.jsx'
-import { LEAD_STATUSES } from '../../lib/constants.js'
+import { useSession } from '../../context/SessionContext.jsx'
+import { LEAD_STATUSES, canModifyRecord } from '../../lib/constants.js'
 import { formatDate } from '../../lib/utils.js'
 
 const leadSchema = z.object({
@@ -42,6 +43,9 @@ export default function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [editing, setEditing] = useState(null) // null = closed, {} = new, {...} = editing
   const confirmDelete = useDisclosure()
+  const { user, can } = useSession()
+  // Members can open anyone's lead but only change their own.
+  const readOnly = Boolean(editing?._id) && !canModifyRecord(user, editing)
 
   const leads = useCrudQuery('leads')
   const { data, isLoading, isError } = leads.useList({ page, limit, q: q || undefined, status: statusFilter || undefined })
@@ -127,7 +131,7 @@ export default function LeadsPage() {
             <Button variant="secondary" onClick={close}>
               Cancel
             </Button>
-            {editing?._id && editing.status !== 'converted' && (
+            {editing?._id && editing.status !== 'converted' && !readOnly && (
               <Button
                 variant="secondary"
                 disabled={convertLead.isPending}
@@ -136,12 +140,12 @@ export default function LeadsPage() {
                 Convert to deal
               </Button>
             )}
-            {editing?._id && (
+            {editing?._id && can('crm', 'delete') && (
               <Button variant="danger" onClick={confirmDelete.open}>
                 Delete
               </Button>
             )}
-            <Button type="submit" form="lead-form" disabled={isSubmitting}>
+            <Button type="submit" form="lead-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the owner can edit this lead' : undefined}>
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>

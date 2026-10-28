@@ -20,6 +20,8 @@ const dealCreate = z.object({
   probability: z.number().min(0).max(100).optional(),
   companyId: optionalObjectId,
   contactIds: z.array(objectId).optional(),
+  // Accepted from everyone; the ownership policy drops it for members.
+  ownerId: optionalObjectId,
 })
 
 router.get(
@@ -27,7 +29,7 @@ router.get(
   requirePermission('crm', 'read'),
   validate({ query: paginationQuery }),
   asyncHandler(async (req, res) => {
-    const { items, meta } = await dealsService.crud.list(req.user.orgId, req.query)
+    const { items, meta } = await dealsService.crud.list(req.user, req.query)
     apiResponse(res, items, meta)
   }),
 )
@@ -36,7 +38,7 @@ router.get(
   '/:id',
   requirePermission('crm', 'read'),
   validate({ params: idParam }),
-  asyncHandler(async (req, res) => apiResponse(res, await dealsService.crud.getById(req.user.orgId, req.params.id))),
+  asyncHandler(async (req, res) => apiResponse(res, await dealsService.crud.getById(req.user, req.params.id))),
 )
 
 router.post(
@@ -44,7 +46,7 @@ router.post(
   requirePermission('crm', 'write'),
   validate({ body: dealCreate }),
   asyncHandler(async (req, res) => {
-    apiResponse(res, await dealsService.crud.create(req.user.orgId, req.user.id, req.body), null, 201)
+    apiResponse(res, await dealsService.crud.create(req.user, req.body), null, 201)
   }),
 )
 
@@ -52,7 +54,7 @@ router.patch(
   '/:id',
   requirePermission('crm', 'write'),
   validate({ params: idParam, body: dealCreate.partial() }),
-  asyncHandler(async (req, res) => apiResponse(res, await dealsService.crud.update(req.user.orgId, req.user.id, req.params.id, req.body))),
+  asyncHandler(async (req, res) => apiResponse(res, await dealsService.crud.update(req.user, req.params.id, req.body))),
 )
 
 router.delete(
@@ -60,7 +62,7 @@ router.delete(
   requirePermission('crm', 'delete'),
   validate({ params: idParam }),
   asyncHandler(async (req, res) => {
-    await dealsService.crud.remove(req.user.orgId, req.user.id, req.params.id)
+    await dealsService.crud.remove(req.user, req.params.id)
     apiResponse(res, null)
   }),
 )
@@ -71,7 +73,7 @@ router.patch(
   validate({ params: idParam, body: z.object({ stageKey: z.string().trim().min(1), wonLostReason: z.string().trim().optional() }) }),
   asyncHandler(async (req, res) => {
     const { stageKey, wonLostReason } = req.body
-    apiResponse(res, await dealsService.moveStage(req.user.orgId, req.user.id, req.params.id, stageKey, wonLostReason))
+    apiResponse(res, await dealsService.moveStage(req.user, req.params.id, stageKey, wonLostReason))
   }),
 )
 

@@ -21,7 +21,7 @@ function mountCrud(path, service, { createSchema, updateSchema }) {
     requirePermission('crm', 'read'),
     validate({ query: paginationQuery }),
     asyncHandler(async (req, res) => {
-      const { items, meta } = await service.list(req.user.orgId, req.query)
+      const { items, meta } = await service.list(req.user, req.query)
       apiResponse(res, items, meta)
     }),
   )
@@ -30,7 +30,7 @@ function mountCrud(path, service, { createSchema, updateSchema }) {
     `/${path}/:id`,
     requirePermission('crm', 'read'),
     validate({ params: idParam }),
-    asyncHandler(async (req, res) => apiResponse(res, await service.getById(req.user.orgId, req.params.id))),
+    asyncHandler(async (req, res) => apiResponse(res, await service.getById(req.user, req.params.id))),
   )
 
   router.post(
@@ -38,7 +38,7 @@ function mountCrud(path, service, { createSchema, updateSchema }) {
     requirePermission('crm', 'write'),
     validate({ body: createSchema }),
     asyncHandler(async (req, res) => {
-      apiResponse(res, await service.create(req.user.orgId, req.user.id, req.body), null, 201)
+      apiResponse(res, await service.create(req.user, req.body), null, 201)
     }),
   )
 
@@ -46,7 +46,7 @@ function mountCrud(path, service, { createSchema, updateSchema }) {
     `/${path}/:id`,
     requirePermission('crm', 'write'),
     validate({ params: idParam, body: updateSchema }),
-    asyncHandler(async (req, res) => apiResponse(res, await service.update(req.user.orgId, req.user.id, req.params.id, req.body))),
+    asyncHandler(async (req, res) => apiResponse(res, await service.update(req.user, req.params.id, req.body))),
   )
 
   router.delete(
@@ -54,7 +54,7 @@ function mountCrud(path, service, { createSchema, updateSchema }) {
     requirePermission('crm', 'delete'),
     validate({ params: idParam }),
     asyncHandler(async (req, res) => {
-      await service.remove(req.user.orgId, req.user.id, req.params.id)
+      await service.remove(req.user, req.params.id)
       apiResponse(res, null)
     }),
   )
@@ -67,10 +67,13 @@ const contactCreate = z.object({
   title: z.string().trim().optional(),
   companyId: optionalObjectId,
   tags: z.array(z.string()).optional(),
+  // Accepted from everyone; the ownership policy drops it for members.
+  ownerId: optionalObjectId,
 })
 mountCrud(
   'contacts',
   createCrudService(Contact, {
+    resource: 'contact',
     filterableFields: ['companyId', 'ownerId'],
     searchFields: ['name', 'email'],
     sortableFields: ['name', 'createdAt'],
@@ -85,10 +88,12 @@ const companyCreate = z.object({
   domain: z.string().trim().toLowerCase().optional(),
   industry: z.string().trim().optional(),
   size: z.enum(['1-10', '11-50', '51-200', '201-1000', '1000+']).optional(),
+  ownerId: optionalObjectId,
 })
 mountCrud(
   'companies',
   createCrudService(Company, {
+    resource: 'company',
     filterableFields: ['ownerId'],
     searchFields: ['name'],
     sortableFields: ['name', 'createdAt'],
@@ -105,10 +110,11 @@ const noteCreate = z.object({
 mountCrud(
   'notes',
   createCrudService(Note, {
+    // authorId is the note's owner field: set to the writer on create, never reassignable.
+    resource: 'note',
     filterableFields: ['entityType', 'entityId'],
     sortableFields: ['createdAt'],
     populate: { path: 'authorId', select: 'name avatarUrl' },
-    extraCreateFields: (orgId, actorId) => ({ orgId, authorId: actorId }),
   }),
   { createSchema: noteCreate, updateSchema: z.object({ body: z.string().trim().min(1).max(5000) }) },
 )

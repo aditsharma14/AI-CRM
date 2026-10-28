@@ -19,6 +19,8 @@ const leadCreate = z.object({
   source: z.string().trim().optional(),
   status: z.enum(['new', 'contacted', 'qualified', 'unqualified', 'converted']).optional(),
   companyId: optionalObjectId,
+  // Accepted from everyone; the ownership policy drops it for members.
+  ownerId: optionalObjectId,
 })
 
 router.get(
@@ -26,7 +28,7 @@ router.get(
   requirePermission('crm', 'read'),
   validate({ query: paginationQuery }),
   asyncHandler(async (req, res) => {
-    const { items, meta } = await leadsService.crud.list(req.user.orgId, req.query)
+    const { items, meta } = await leadsService.crud.list(req.user, req.query)
     apiResponse(res, items, meta)
   }),
 )
@@ -35,7 +37,7 @@ router.get(
   '/:id',
   requirePermission('crm', 'read'),
   validate({ params: idParam }),
-  asyncHandler(async (req, res) => apiResponse(res, await leadsService.crud.getById(req.user.orgId, req.params.id))),
+  asyncHandler(async (req, res) => apiResponse(res, await leadsService.crud.getById(req.user, req.params.id))),
 )
 
 router.post(
@@ -43,7 +45,7 @@ router.post(
   requirePermission('crm', 'write'),
   validate({ body: leadCreate }),
   asyncHandler(async (req, res) => {
-    apiResponse(res, await leadsService.crud.create(req.user.orgId, req.user.id, req.body), null, 201)
+    apiResponse(res, await leadsService.crud.create(req.user, req.body), null, 201)
   }),
 )
 
@@ -51,7 +53,7 @@ router.patch(
   '/:id',
   requirePermission('crm', 'write'),
   validate({ params: idParam, body: leadCreate.partial() }),
-  asyncHandler(async (req, res) => apiResponse(res, await leadsService.crud.update(req.user.orgId, req.user.id, req.params.id, req.body))),
+  asyncHandler(async (req, res) => apiResponse(res, await leadsService.crud.update(req.user, req.params.id, req.body))),
 )
 
 router.delete(
@@ -59,7 +61,7 @@ router.delete(
   requirePermission('crm', 'delete'),
   validate({ params: idParam }),
   asyncHandler(async (req, res) => {
-    await leadsService.crud.remove(req.user.orgId, req.user.id, req.params.id)
+    await leadsService.crud.remove(req.user, req.params.id)
     apiResponse(res, null)
   }),
 )
@@ -74,7 +76,7 @@ router.post(
     body: z.object({ title: z.string().trim().optional(), value: z.number().min(0).optional(), stageKey: z.string().optional() }).optional(),
   }),
   asyncHandler(async (req, res) => {
-    apiResponse(res, await leadsService.convertToDeal(req.user.orgId, req.user.id, req.params.id, req.body), null, 201)
+    apiResponse(res, await leadsService.convertToDeal(req.user, req.params.id, req.body), null, 201)
   }),
 )
 

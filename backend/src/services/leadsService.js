@@ -4,9 +4,11 @@ import Deal from '../models/Deal.js'
 import Organization from '../models/Organization.js'
 import { createCrudService } from './crudService.js'
 import { logActivity, notify } from './activityService.js'
-import { badRequest, notFound } from '../utils/http.js'
+import { badRequest } from '../utils/http.js'
+import { missOrForbidden, scopeFor } from '../policies/ownership.js'
 
 export const crud = createCrudService(Lead, {
+  resource: 'lead',
   filterableFields: ['status', 'ownerId', 'companyId'],
   searchFields: ['name', 'email'],
   sortableFields: ['name', 'score', 'createdAt'],
@@ -14,9 +16,12 @@ export const crud = createCrudService(Lead, {
   activityLabel: 'Lead',
 })
 
-export async function convertToDeal(orgId, actorId, leadId, dealInput = {}) {
-  const lead = await Lead.findOne({ _id: leadId, orgId })
-  if (!lead) throw notFound('Lead not found.')
+export async function convertToDeal(actor, leadId, dealInput = {}) {
+  const { orgId, id: actorId } = actor
+  // Converting changes the lead, so it's a write: members may convert only
+  // their own. The new deal goes to the lead's owner, as before.
+  const lead = await Lead.findOne({ _id: leadId, orgId, ...scopeFor(actor, 'lead', 'write') })
+  if (!lead) throw await missOrForbidden(Lead, actor, leadId)
   if (lead.status === 'converted') throw badRequest('This lead has already been converted.', 'ALREADY_CONVERTED')
 
   const org = await Organization.findById(orgId).select('pipelineStages')

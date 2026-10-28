@@ -12,6 +12,8 @@ import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button, Badge } from '../../components/ui.jsx'
 import { formatDate, cn } from '../../lib/utils.js'
+import { useSession } from '../../context/SessionContext.jsx'
+import { canModifyRecord } from '../../lib/constants.js'
 
 const taskSchema = z.object({
   title: z.string().trim().min(1, 'Title is required'),
@@ -34,6 +36,10 @@ export default function TasksPage() {
   const { page, limit, setPage } = usePaginationState()
   const [editing, setEditing] = useState(null)
   const confirmDelete = useDisclosure()
+  const { user, can } = useSession()
+  // Tasks belong to their assignee: members can only change their own.
+  const canChange = (task) => canModifyRecord(user, task, 'assigneeId')
+  const readOnly = Boolean(editing?._id) && !canChange(editing)
 
   const activities = useCrudQuery('activities')
   const { data, isLoading, isError } = activities.useList({ type: 'task', page, limit })
@@ -73,12 +79,13 @@ export default function TasksPage() {
       render: (row) => (
         <button
           type="button"
+          disabled={!canChange(row)}
           onClick={(e) => {
             e.stopPropagation()
             toggleStatus.mutate(row._id)
           }}
           aria-label={row.status === 'done' ? 'Mark as open' : 'Mark as done'}
-          className="text-muted hover:text-primary dark:text-muted-dark"
+          className="text-muted hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted dark:text-muted-dark"
         >
           {row.status === 'done' ? <CheckCircle2 size={18} strokeWidth={1.75} className="text-success" /> : <Circle size={18} strokeWidth={1.75} />}
         </button>
@@ -126,12 +133,12 @@ export default function TasksPage() {
             <Button variant="secondary" onClick={close}>
               Cancel
             </Button>
-            {editing?._id && (
+            {editing?._id && can('crm', 'delete') && (
               <Button variant="danger" onClick={confirmDelete.open}>
                 Delete
               </Button>
             )}
-            <Button type="submit" form="task-form" disabled={isSubmitting}>
+            <Button type="submit" form="task-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the assignee can edit this task' : undefined}>
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>
