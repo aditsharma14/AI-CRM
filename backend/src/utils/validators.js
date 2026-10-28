@@ -1,3 +1,4 @@
+// @ts-check
 // Shared Zod schema fragments (pagination, ObjectId, email/phone).
 import { z } from 'zod'
 import mongoose from 'mongoose'
@@ -5,7 +6,17 @@ import mongoose from 'mongoose'
 // RHF always sends '' for an untouched optional text input, never undefined —
 // so a plain `.optional()` (which only accepts undefined) rejects it. These
 // preprocess '' to undefined first, so "left blank" behaves as "omitted".
+/**
+ * @param {unknown} v
+ * @returns {unknown}
+ */
 const emptyToUndefined = (v) => (v === '' ? undefined : v)
+
+/**
+ * @template {z.ZodType} S
+ * @param {S} schema
+ * @returns The same output type as `schema.optional()` (inferred: z.ZodPreprocess<z.ZodOptional<S>>).
+ */
 const optional = (schema) => z.preprocess(emptyToUndefined, schema.optional())
 
 export const objectId = z.string().refine((v) => mongoose.isValidObjectId(v), 'Invalid id')
