@@ -197,9 +197,18 @@ describe('teams', () => {
     expect((await Organization.findById(other.org._id)).teams[0].name).toBe('Theirs')
   })
 
-  it('pins current behaviour: deleting an unknown team id returns 200', async () => {
-    // suspect: should be 404. Recorded in CLAUDE.md §9.
-    expect((await request(app).delete(`${api}/teams/0123456789abcdef01234567`).set(as('owner'))).status).toBe(200)
+  it('answers 404 when deleting a team id that does not exist', async () => {
+    const res = await request(app).delete(`${api}/teams/0123456789abcdef01234567`).set(as('owner'))
+    expect(res.status).toBe(404)
+    expect(res.body).toMatchObject({ success: false, error: { code: 'NOT_FOUND', message: 'Team not found.' } })
+  })
+
+  it("answers 404 when deleting another org's team, and leaves it intact", async () => {
+    const other = await seedOrg('Other')
+    const theirs = await request(app).post(`${api}/teams`).set(bearer(other.tokens.owner)).send({ name: 'Theirs' })
+    const res = await request(app).delete(`${api}/teams/${theirs.body.data._id}`).set(as('owner'))
+    expect(res.status).toBe(404)
+    expect((await Organization.findById(other.org._id)).teams).toHaveLength(1)
   })
 })
 
@@ -224,9 +233,10 @@ describe('email templates', () => {
     expect(res.status).toBe(403)
   })
 
-  it('pins current behaviour: deleting an unknown template id returns 200', async () => {
-    // suspect: should be 404. Recorded in CLAUDE.md §9.
-    expect((await request(app).delete(`${api}/email-templates/0123456789abcdef01234567`).set(as('owner'))).status).toBe(200)
+  it('answers 404 when deleting a template id that does not exist', async () => {
+    const res = await request(app).delete(`${api}/email-templates/0123456789abcdef01234567`).set(as('owner'))
+    expect(res.status).toBe(404)
+    expect(res.body).toMatchObject({ success: false, error: { code: 'NOT_FOUND', message: 'Email template not found.' } })
   })
 })
 

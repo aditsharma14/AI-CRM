@@ -171,8 +171,10 @@ export async function updateTeam(orgId, teamId, { name, memberIds }) {
  * @throws {AppError} 404
  */
 export async function deleteTeam(orgId, teamId) {
-  const org = await Organization.findByIdAndUpdate(orgId, { $pull: { teams: { _id: teamId } } })
-  if (!org) throw notFound('Organization not found.')
+  // Matching on the team id too makes "no such team in this org" a miss
+  // (404) in the same atomic write, instead of a silent no-op 200.
+  const org = await Organization.findOneAndUpdate({ _id: orgId, 'teams._id': teamId }, { $pull: { teams: { _id: teamId } } })
+  if (!org) throw notFound('Team not found.')
 }
 
 // ---- Pipeline stages ----
@@ -250,8 +252,12 @@ export async function updateEmailTemplate(orgId, templateId, updates) {
  * @throws {AppError} 404
  */
 export async function deleteEmailTemplate(orgId, templateId) {
-  const org = await Organization.findByIdAndUpdate(orgId, { $pull: { emailTemplates: { _id: templateId } } })
-  if (!org) throw notFound('Organization not found.')
+  // Same as deleteTeam: an unknown template id is a 404, not a no-op.
+  const org = await Organization.findOneAndUpdate(
+    { _id: orgId, 'emailTemplates._id': templateId },
+    { $pull: { emailTemplates: { _id: templateId } } },
+  )
+  if (!org) throw notFound('Email template not found.')
 }
 
 // ---- "Me" — the signed-in user's own profile ----
