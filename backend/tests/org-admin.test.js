@@ -67,6 +67,20 @@ describe('members and roles', () => {
     }
   })
 
+  // Inviting with a role is granting it: the owner-only admin rule (membership.js)
+  // would be moot if an admin could mint admins by invite.
+  it('lets only the owner invite an admin', async () => {
+    const byOwner = await request(app).post(`${api}/members/invite`).set(as('owner')).send({ email: uniqueEmail('adm'), role: 'admin' })
+    expect(byOwner.status).toBe(201)
+
+    const email = uniqueEmail('adm-by-admin')
+    const byAdmin = await request(app).post(`${api}/members/invite`).set(as('admin')).send({ email, role: 'admin' })
+    expect(byAdmin.status).toBe(403)
+    expect(byAdmin.body.error.code).toBe('FORBIDDEN')
+    const org = await Organization.findById(ctx.org._id).select('+inviteTokens')
+    expect(org.inviteTokens.find((t) => t.email === email)).toBeUndefined()
+  })
+
   it('forbids managers and members from inviting', async () => {
     for (const role of ['manager', 'member']) {
       const res = await request(app).post(`${api}/members/invite`).set(as(role)).send({ email: uniqueEmail('x'), role: 'member' })

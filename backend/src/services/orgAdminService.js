@@ -54,12 +54,15 @@ export async function listMembers(orgId) {
 }
 
 /**
- * @param {string} orgId
+ * Inviting with a role grants it, so the same owner-only admin rule applies.
+ * @param {AuthUser} actor
  * @param {import('../schemas/org.js').MemberInviteInput} input
  * @returns {Promise<void>}
- * @throws {AppError} 400 EMAIL_TAKEN, 404
+ * @throws {AppError} 400 EMAIL_TAKEN, 403, 404
  */
-export async function inviteMember(orgId, { email, role }) {
+export async function inviteMember(actor, { email, role }) {
+  assertCanAssign(actor, role)
+  const orgId = actor.orgId
   const existing = await User.findOne({ email })
   if (existing) throw badRequest('An account with this email already exists.', 'EMAIL_TAKEN')
 
