@@ -4,7 +4,7 @@ import Deal from '../models/Deal.js'
 import Organization from '../models/Organization.js'
 import { createCrudService } from './crudService.js'
 import { logActivity, notify } from './activityService.js'
-import { badRequest } from '../utils/http.js'
+import { badRequest, notFound } from '../utils/http.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
 
 export const crud = createCrudService(Lead, {
@@ -25,6 +25,7 @@ export async function convertToDeal(actor, leadId, dealInput = {}) {
   if (lead.status === 'converted') throw badRequest('This lead has already been converted.', 'ALREADY_CONVERTED')
 
   const org = await Organization.findById(orgId).select('pipelineStages')
+  if (!org) throw notFound('Organization not found.')
   const [firstStage] = [...org.pipelineStages].sort((a, b) => a.order - b.order)
 
   const deal = await Deal.create({

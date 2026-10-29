@@ -3,7 +3,7 @@ import Deal from '../models/Deal.js'
 import Organization from '../models/Organization.js'
 import { createCrudService } from './crudService.js'
 import { logActivity, notify } from './activityService.js'
-import { badRequest } from '../utils/http.js'
+import { badRequest, notFound } from '../utils/http.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
 
 export const crud = createCrudService(Deal, {
@@ -24,6 +24,7 @@ export async function moveStage(actor, dealId, stageKey, wonLostReason) {
   if (!deal) throw await missOrForbidden(Deal, actor, dealId)
 
   const org = await Organization.findById(orgId).select('pipelineStages')
+  if (!org) throw notFound('Organization not found.')
   const stage = org.pipelineStages.find((s) => s.key === stageKey)
   if (!stage) throw badRequest(`Unknown pipeline stage "${stageKey}".`, 'INVALID_STAGE')
 
