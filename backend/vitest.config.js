@@ -30,6 +30,9 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/services/**', 'src/policies/**', 'src/utils/**'],
+      // Empty stub until S2.2 builds the AI proxy; it would report a
+      // meaningless 100% and inflate the services total.
+      exclude: ['src/services/aiProxyService.js'],
       reporter: ['text', 'json-summary'],
     },
   },
