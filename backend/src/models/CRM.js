@@ -1,3 +1,4 @@
+// @ts-check
 // Lead, Contact, and Company schemas/models.
 import mongoose from 'mongoose'
 
@@ -56,6 +57,11 @@ const leadSchema = new Schema(
 leadSchema.index({ orgId: 1, status: 1 })
 leadSchema.index({ orgId: 1, ownerId: 1 })
 leadSchema.index({ name: 'text', email: 'text' })
+
+/** Plain field shapes inferred from the schemas — what services read and write. */
+/** @typedef {import('mongoose').InferSchemaType<typeof companySchema>} CompanyRecord */
+/** @typedef {import('mongoose').InferSchemaType<typeof contactSchema>} ContactRecord */
+/** @typedef {import('mongoose').InferSchemaType<typeof leadSchema>} LeadRecord */
 
 export const Company = mongoose.model('Company', companySchema)
 export const Contact = mongoose.model('Contact', contactSchema)

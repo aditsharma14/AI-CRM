@@ -1,3 +1,4 @@
+// @ts-check
 // Pipeline opportunity: value, stage, probability, forecast fields.
 import mongoose from 'mongoose'
 
@@ -30,5 +31,8 @@ const dealSchema = new Schema(
 dealSchema.index({ orgId: 1, stageKey: 1 })
 dealSchema.index({ orgId: 1, ownerId: 1 })
 dealSchema.index({ orgId: 1, closedAt: 1 })
+
+/** Plain field shape inferred from the schema — what services read and write. */
+/** @typedef {import('mongoose').InferSchemaType<typeof dealSchema>} DealRecord */
 
 export default mongoose.model('Deal', dealSchema)

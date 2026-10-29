@@ -1,3 +1,4 @@
+// @ts-check
 // Tenant root: profile, embedded teams[], pipelineStages[], emailTemplates[].
 import mongoose from 'mongoose'
 
@@ -65,5 +66,8 @@ const organizationSchema = new Schema(
 )
 
 organizationSchema.index({ 'inviteTokens.tokenHash': 1 })
+
+/** Plain field shape inferred from the schema — what services read and write. */
+/** @typedef {import('mongoose').InferSchemaType<typeof organizationSchema>} OrganizationRecord */
 
 export default mongoose.model('Organization', organizationSchema)

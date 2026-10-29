@@ -1,3 +1,4 @@
+// @ts-check
 // Account schema: credentials, org ref, role, refresh-token hashes, profile.
 import mongoose from 'mongoose'
 import bcrypt from 'bcryptjs'
@@ -30,7 +31,21 @@ const userSchema = new Schema(
     passwordResetTokenHash: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    // Declared here rather than assigned to userSchema.methods afterwards so
+    // the type checker sees comparePassword on User documents.
+    methods: {
+      /**
+       * Only meaningful on a document loaded with .select('+password').
+       * @param {string} candidate Plaintext password from the login form.
+       * @returns {Promise<boolean>}
+       */
+      comparePassword(candidate) {
+        return bcrypt.compare(candidate, this.password)
+      },
+    },
+  },
 )
 
 userSchema.index({ orgId: 1, role: 1 })
@@ -43,8 +58,7 @@ userSchema.pre('save', async function hashPasswordIfChanged() {
   this.password = await bcrypt.hash(this.password, 10)
 })
 
-userSchema.methods.comparePassword = function comparePassword(candidate) {
-  return bcrypt.compare(candidate, this.password)
-}
+/** Plain field shape inferred from the schema — what services read and write. */
+/** @typedef {import('mongoose').InferSchemaType<typeof userSchema>} UserRecord */
 
 export default mongoose.model('User', userSchema)

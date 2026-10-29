@@ -1,3 +1,4 @@
+// @ts-check
 // Discriminated Task/CalendarEvent schema via a type enum.
 import mongoose from 'mongoose'
 
@@ -34,5 +35,8 @@ const activitySchema = new Schema(
 
 activitySchema.index({ orgId: 1, assigneeId: 1, dueDate: 1 })
 activitySchema.index({ orgId: 1, type: 1, startAt: 1 })
+
+/** Plain field shape inferred from the schema — what services read and write. */
+/** @typedef {import('mongoose').InferSchemaType<typeof activitySchema>} ActivityRecord */
 
 export default mongoose.model('Activity', activitySchema)
