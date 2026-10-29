@@ -1,3 +1,4 @@
+// @ts-check
 // Convert-to-deal transaction; triggers an AI rescoring call.
 import { Lead } from '../models/CRM.js'
 import Deal from '../models/Deal.js'
@@ -16,6 +17,15 @@ export const crud = createCrudService(Lead, {
   activityLabel: 'Lead',
 })
 
+/** @typedef {import('../types/index.js').AuthUser} AuthUser */
+
+/**
+ * @param {AuthUser} actor
+ * @param {string} leadId
+ * @param {import('../schemas/leads.js').LeadConvertInput} [dealInput]
+ * @returns {Promise<import('mongoose').HydratedDocument<import('../models/Deal.js').DealRecord>>} The new deal.
+ * @throws {import('../utils/http.js').AppError} 400 ALREADY_CONVERTED, 403, 404
+ */
 export async function convertToDeal(actor, leadId, dealInput = {}) {
   const { orgId, id: actorId } = actor
   // Converting changes the lead, so it's a write: members may convert only

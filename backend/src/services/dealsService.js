@@ -1,3 +1,4 @@
+// @ts-check
 // Stage-transition validation, win/loss side effects, logging/notifying.
 import Deal from '../models/Deal.js'
 import Organization from '../models/Organization.js'
@@ -17,6 +18,16 @@ export const crud = createCrudService(Deal, {
   activityLabel: 'Deal',
 })
 
+/** @typedef {import('../types/index.js').AuthUser} AuthUser */
+
+/**
+ * @param {AuthUser} actor
+ * @param {string} dealId
+ * @param {string} stageKey Must be one of the org's pipeline stage keys.
+ * @param {string} [wonLostReason] Kept only when moving to 'won' or 'lost'.
+ * @returns {Promise<import('mongoose').HydratedDocument<import('../models/Deal.js').DealRecord>>}
+ * @throws {import('../utils/http.js').AppError} 400 INVALID_STAGE, 403, 404
+ */
 export async function moveStage(actor, dealId, stageKey, wonLostReason) {
   const { orgId, id: actorId } = actor
   // Access first, so a 403/404 never depends on what stage was asked for.
