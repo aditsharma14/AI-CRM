@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'coverage', 'playwright-report', 'test-results']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -17,5 +17,12 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+  },
+  {
+    // Test helpers, specs and tool configs run in Node (vitest, Playwright).
+    files: ['tests/**', 'e2e/**', '*.config.js'],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+    // Helpers export plain functions next to components; Fast Refresh doesn't apply.
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
 ])

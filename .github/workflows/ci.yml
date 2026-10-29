@@ -1,4 +1,4 @@
-# Runs on every push and PR. Make "backend" a required status check in the
+# Runs on every push and PR. Make "backend" and "frontend" required status checks in the
 # branch protection rule for main so a failing lint/typecheck/test blocks merges.
 name: CI
 
@@ -24,4 +24,21 @@ jobs:
       - run: npm run typecheck
       # mongodb-memory-server downloads a mongod binary on first use; the
       # runner has network access, so no service container is needed.
+      - run: npm test
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
       - run: npm test
