@@ -119,3 +119,64 @@ Each entry: **date · goal · changed · verified · next**. Rules for working i
   - 151 backend tests, including the 64-case matrix, 24 custom-action cases and 22 cross-org cases. Every write path is covered.
   - A grep confirms no unscoped writes remain, and a live curl shows the 403 envelope.
   - The fix also introduced the project's first test framework and removed a route that held business logic.
+
+---
+
+## 2026-10-29 · S1.5: Type-safe JavaScript for the backend core (JSDoc + checkJs)
+
+**Goal:** compile-time safety for the backend core using JSDoc checked by `tsc --checkJs` under `strict`, with no build step, no renames and no runtime dependencies.
+
+**Setup decisions (yours):**
+- N0 and S1.2 were committed first.
+- Work is on branch `chore/jsdoc-typecheck`.
+- A minimal backend CI job was added.
+- lint-staged is deferred to S1.4.
+- Zod schemas moved out of routes into `src/schemas/`.
+
+**Folders covered, one commit each, all with typecheck clean and tests green**
+
+| Folder | tsc errors fixed | Notes |
+|---|---|---|
+| setup | – | `tsconfig.json`, `src/types` (AuthUser, ApiResponse&lt;T&gt;, …), `express.d.ts`, opt-in guard script, eslint-plugin-jsdoc, `.github/workflows/ci.yml` |
+| `src/utils` | 29 | generic `apiResponse` / `paginate`; typed permission matrix |
+| `src/policies` | 13 | literal unions for resource, owner field and action |
+| `src/schemas` | – (new) | all 20+ route schemas moved verbatim; `idParam` 6 copies → 1; each exports a `z.infer` type |
+| `src/models` | 1 | Mongoose 9 infers types from schema literals; `InferSchemaType` typedefs; `comparePassword` moved into `methods` |
+| `src/services` | 133 | `crudService` is generic over the model's document type; services take the typed actor |
+| **Total** | **176** | 31 files checked |
+
+**Escape hatches:**
+- 0 `any`, 0 `@ts-ignore`, 0 `@ts-expect-error`, 0 `@ts-nocheck`.
+- 4 commented boundary casts (generic `T` in `crudService` ×2, env-sourced JWT secret and TTL).
+- Plus 8 narrowing casts: 5 aggregate row types, the populated `orgId`, and `activityLabel`.
+
+**Real bug found by the checker:**
+- `leadsService.convertToDeal` and `dealsService.moveStage` read `org.pipelineStages` without checking that the org exists. A valid token whose org document is gone crashed with `TypeError` → 500.
+- Fixed in its own commit (`fix(deals,leads)`), test first: `tests/missing-org.test.js` was red (500) and is now green (404).
+
+**Verified**
+- **After every folder:** `npm run typecheck` (exit 0), `npm run lint` (clean) and `npm test`. The suite was 151 tests until the missing-org fix added 2; it now stands at 153.
+- **Deliberate error:** passing `orgId: 42` to `crud.create` gave `TS2322: Type 'number' is not assignable to type 'string'`. `npm run typecheck` exited 2; after the revert it exits 0.
+- **Opt-in guard:** removing a `// @ts-check` header made `npm run typecheck` fail and name the file.
+- **Smoke check:** auth, org admin and insights have no tests, so a one-off end-to-end run over HTTP covered register, login, refresh, invite/accept, teams, templates, dashboards, search, change and reset password. It passed, and the temporary file was deleted.
+- **Not done:** `docker build` (Docker isn't installed here, and there's no build step to verify).
+
+**Next**
+- Check `src/middleware` and `src/routes` (the routes still destructure untyped `req.query`).
+- Add a typecheck pre-commit hook in S1.4.
+- Turn on branch protection so the `backend` check is required.
+- Add permanent tests for auth and org admin.
+
+### Interview angles
+- **"Why not migrate to TypeScript?"**
+  - We get the same compiler and the same `strict` checks, with zero build step: `node src/server.js` still runs the source, so deploys, Docker and stack traces are unchanged.
+  - Each folder can still be renamed to `.ts` later, one folder at a time, because the types already exist.
+- **"What does strict mode catch?"**
+  - Implicit `any` (most of the 176), and nulls you didn't handle. That's the real bug: a `findById` result was used without a check.
+  - Indexing that can miss (`noUncheckedIndexedAccess`), and literal-union misuse such as a typo'd role or resource.
+- **"How do you keep types and validation in sync?"**
+  - Zod is the single source of truth. Each schema in `src/schemas/` exports `z.infer<typeof schema>`, and services take that type.
+  - Change the schema and the service signature changes with it, so the two can't drift.
+- **"What are the limits of JSDoc types?"**
+  - It's more verbose. You can't pass type arguments at call sites (hence the casts on `aggregate(...).exec()`), and generic library types like Mongoose's need occasional boundary casts.
+  - Global augmentation still needs one `.d.ts`.

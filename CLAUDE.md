@@ -35,6 +35,8 @@ Read this before changing anything. User-facing overview: [readme.md](readme.md)
 | [backend/src/policies/](backend/src/policies/) | `ownership.js`: who may change which record (§5). Pure functions + one 403/404 helper |
 | [backend/tests/](backend/tests/) | Vitest + supertest + in-memory Mongo. `helpers.js` seeds orgs/users/records and signs tokens |
 | [backend/src/models/](backend/src/models/) | Mongoose schemas. `Organization` is the tenant root; `CRM.js` = Lead/Contact/Company; `Logs.js` = audit + notification |
+| [backend/src/schemas/](backend/src/schemas/) | Every Zod request schema plus its `z.infer` typedef. Routes import them; services use the types |
+| [backend/src/types/](backend/src/types/) | Shared JSDoc typedefs (`AuthUser`, `ApiResponse<T>`, …) and the `Express.Request` augmentation |
 | [backend/src/utils/](backend/src/utils/) | `http.js` envelope + errors, `validators.js` Zod fragments, `queryBuilder.js`, `permissions.js` |
 | [frontend/src/api/](frontend/src/api/) | Axios instance, in-memory access token, refresh-on-401 |
 | [frontend/src/context/](frontend/src/context/) | `SessionContext`: bootstrap, login/logout, `can()` |
@@ -173,13 +175,17 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
   about 70 MB) and `npm test` in `frontend/` (Vitest). Test env vars live in [backend/vitest.config.js](backend/vitest.config.js),
   so no `.env` is needed. There are no AI tests yet.
 - **Lint:** `npm run lint` in both `frontend/` and `backend/`. Both pass.
+- **Typecheck:** `npm run typecheck` in `backend/` (JSDoc checked by `tsc`, no build step; see §7a).
+- **CI:** [.github/workflows/ci.yml](.github/workflows/ci.yml) runs backend lint, typecheck and tests on every push and PR.
+  To make it block merges, a repo admin adds a branch protection rule for `main` with the `backend` check required.
 - **Docker caveat:** the `.env.example` values use `localhost`. Under Compose, set `MONGO_URI=mongodb://mongo:27017/nimbus-crm`,
   `AI_SERVICE_URL=http://ai:8000` and `CLIENT_ORIGIN=http://localhost:8080`. There is no `.dockerignore`, so local `.env`
   files and `node_modules` get copied into images.
 
 ## 7. Coding rules
 
-1. **Zod at every boundary.** Every route validates `body`/`query`/`params` with `validate({...})` using fragments from
+1. **Zod at every boundary.** Every route validates `body`/`query`/`params` with `validate({...})` using schemas from
+   [backend/src/schemas/](backend/src/schemas/) (never defined inline in routes) built from fragments in
    [validators.js](backend/src/utils/validators.js). Forms use React Hook Form + `zodResolver` (exceptions: `NotesPanel`,
    the Settings team and stage editors). AI I/O uses Pydantic in `AI/app/schemas.py`, and Express re-validates AI responses.
    **`validate({ query })` strips unknown keys**, so any list filter must be declared in the route's query schema.
@@ -193,11 +199,40 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
 4. **Never bypass `orgId` or the ownership policy** (§4, §5). New tenant models get a required, indexed `orgId`; new
    owned resources get an `OWNER_FIELD` entry and matrix tests.
 5. **Never log secrets or tokens** (raw tokens, passwords, JWTs, API keys, cookies).
-   *Known dev-only violations, to be removed once email exists:* [authService.js:128](backend/src/services/authService.js#L128)
-   (reset token) and [orgAdminService.js:47](backend/src/services/orgAdminService.js#L47) (invite token). Do not add more.
+   *Known dev-only violations, to be removed once email exists:* [authService.js:200](backend/src/services/authService.js#L200)
+   (reset token) and [orgAdminService.js:78](backend/src/services/orgAdminService.js#L78) (invite token). Do not add more.
 6. CRM mutations go through `activityService.logActivity` (the CRUD factory does this when given `activityLabel`).
 7. Keep the envelope: throw `AppError` helpers and never hand-build error JSON or call `res.json` in routes.
 8. Style: ESM, 2-space indent, no semicolons, single quotes, a one-line purpose comment at the top of each file, comments that explain *why*.
+
+## 7a. Types (JSDoc checked by `tsc --checkJs`)
+
+The backend stays JavaScript and has no build step. [tsconfig.json](backend/tsconfig.json) (`strict`, `noUncheckedIndexedAccess`,
+`noEmit`) checks only files whose first line is `// @ts-check`. [checked-folders.js](backend/scripts/checked-folders.js)
+lists the folders where *every* file must have it. `npm run typecheck` enforces that list, and ESLint applies the JSDoc rules there.
+
+**Type-checking status:**
+- **Checked:** `src/types`, `src/utils`, `src/policies`, `src/schemas`, `src/models`, `src/services`.
+- **Not yet checked:** `src/routes`, `src/middleware`, `src/config`, `src/app.js`, `src/server.js`.
+- **To migrate a folder:** add `// @ts-check` to each file, add the folder to `CHECKED_FOLDERS`, make `npm run typecheck` pass,
+  and commit one folder at a time.
+
+**Conventions (one example each):**
+- **Shared typedef.** Shared types live in [src/types/index.js](backend/src/types/index.js); import them where used:
+  `/** @typedef {import('../types/index.js').AuthUser} AuthUser */`
+- **Types from Zod (z.infer).** Never hand-write a request type. Each schema file exports one:
+  `/** @typedef {z.infer<typeof leadCreate>} LeadCreateInput */` ([schemas/leads.js](backend/src/schemas/leads.js)).
+  Services take `@param {import('../schemas/leads.js').LeadConvertInput} input`.
+- **Generics (@template).** See `createCrudService` in [crudService.js](backend/src/services/crudService.js):
+  `@template T` plus `@param {import('mongoose').Model<T>} Model`, returning `HydratedDocument<T>`. Model typedefs use
+  `InferSchemaType<typeof leadSchema>` (`LeadRecord`, etc.).
+- **Request extension.** [src/types/express.d.ts](backend/src/types/express.d.ts) is the only `.d.ts`. It adds `user?: AuthUser`
+  to `Express.Request` via `declare global`.
+- **Escape hatches.** No `any`, `@ts-ignore` or `@ts-nocheck`. If something must be forced, use a cast
+  `/** @type {X} */ (expr)` with a `// Boundary cast:` comment saying why. Prefer `@ts-expect-error <reason>` over
+  `@ts-ignore`. Today: 0 `any`, 0 ignores, 0 expect-errors, 4 boundary casts.
+- **Mongoose quirks.** Assign DocumentArrays with `doc.set('field', value)`. Declare instance methods in the schema's
+  `methods` option, so the types can see them. Type aggregate rows with a cast on `aggregate(...).exec()`.
 
 ## 8. Workflow rules for Claude
 
@@ -225,8 +260,9 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
    [AuthLayout.jsx](frontend/src/layouts/AuthLayout.jsx) and [index.html](frontend/index.html).
 7. **Deployment config disagrees with docs.** [vercel.json](vercel.json) declares the backend as a Vercel service, while the readme
    says it's hosted elsewhere. Its rewrite `"/api/(/.*)?"` likely doesn't match `/api/v1/...` (`"/api(/.*)?"` intended?).
-8. **Thin test coverage.** A test framework now exists (§6), but it only covers ownership, tenancy isolation and
-   `canModifyRecord`. Auth, the remaining services and the AI service have no tests yet.
+8. **Thin test coverage.** A test framework now exists (§6), but it only covers ownership, tenancy isolation, the
+   missing-org 404 and `canModifyRecord`. `authService`, `orgAdminService` and `insightsService` have no permanent tests.
+   They were smoke-checked end to end once (2026-10-29, S1.5). The AI service has no tests.
 
 ### Other findings (verified 2026-10-29)
 - **List filters are silently dropped.** `paginationQuery` in [validators.js](backend/src/utils/validators.js) strips `status`,
@@ -238,10 +274,11 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
 - **`stageKey` is only validated by `move-stage`.** `POST`/`PATCH` in [deals.routes.js](backend/src/routes/deals.routes.js) accept any string.
   [dealsService.js](backend/src/services/dealsService.js) hardcodes the `won`/`lost` keys.
 - **`JWT_REFRESH_SECRET`, `AI_SERVICE_URL` and `REFRESH_TOKEN_TTL` are dead config** (§6). The Docker issues are noted in the §6 caveat.
+- **Typecheck isn't in a pre-commit hook yet.** That's deferred to S1.4 (husky + lint-staged). Until then CI is the gate.
 
 ### Open questions
-- What exactly happens if a token lacked `orgId`? Mongoose likely casts it to `null` and matches nothing, but the
-  `org.pipelineStages` lookups in `leadsService`/`dealsService` would throw a 500. Not tested.
+- What exactly happens if a token lacked `orgId`? Mongoose likely casts it to `null` and matches nothing. (A token whose
+  org *document* is gone now gets a 404; see `tests/missing-org.test.js`.) Not tested.
 - Does the `vercel.json` rewrite really fail on `/api/v1/...`? Reasoned from path-to-regexp; not deployed.
 - Is "Clarion" a deliberate rebrand, or should it be "Nimbus"?
 - Docker Compose has not been run (Docker isn't installed on the dev machine used for this audit).
