@@ -33,7 +33,7 @@ Read this before changing anything. User-facing overview: [readme.md](readme.md)
 | [backend/src/routes/](backend/src/routes/) | HTTP wiring: permission → validation → service → `apiResponse` |
 | [backend/src/services/](backend/src/services/) | Business logic. `crudService` factory, `activityService` (sole writer of audit log + notifications) |
 | [backend/src/policies/](backend/src/policies/) | `ownership.js`: who may change which record (§5). Pure functions + one 403/404 helper |
-| [backend/tests/](backend/tests/) | Vitest + supertest + in-memory Mongo. `helpers.js` seeds orgs/users/records and signs tokens |
+| [backend/tests/](backend/tests/) | Vitest + supertest + in-memory Mongo. `helpers.js` seeds orgs/records; `factories.js` (typed) does auth fixtures |
 | [backend/src/models/](backend/src/models/) | Mongoose schemas. `Organization` is the tenant root; `CRM.js` = Lead/Contact/Company; `Logs.js` = audit + notification |
 | [backend/src/schemas/](backend/src/schemas/) | Every Zod request schema plus its `z.infer` typedef. Routes import them; services use the types |
 | [backend/src/types/](backend/src/types/) | Shared JSDoc typedefs (`AuthUser`, `ApiResponse<T>`, …) and the `Express.Request` augmentation |
@@ -174,6 +174,11 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
 - **Tests:** `npm test` in `backend/` (Vitest + supertest + mongodb-memory-server; the first run downloads a mongod binary,
   about 70 MB) and `npm test` in `frontend/` (Vitest). Test env vars live in [backend/vitest.config.js](backend/vitest.config.js),
   so no `.env` is needed. There are no AI tests yet.
+- **Coverage:** `npm run test:coverage` in `backend/` (v8, over services, policies and utils). As of 2026-10-29,
+  `src/services` is at 91.9% lines, 69.0% branches and 98.3% functions.
+- **Test helpers:** [helpers.js](backend/tests/helpers.js) (`seedOrg`, `makeRecord`, signed tokens) and the strict-checked
+  [factories.js](backend/tests/factories.js) (real-password users, planted invite/reset tokens, `login`, `sessionCount`).
+  Plant tokens with the factories; never scrape them from `console.log`.
 - **Lint:** `npm run lint` in both `frontend/` and `backend/`. Both pass.
 - **Typecheck:** `npm run typecheck` in `backend/` (JSDoc checked by `tsc`, no build step; see §7a).
 - **CI:** [.github/workflows/ci.yml](.github/workflows/ci.yml) runs backend lint, typecheck and tests on every push and PR.
@@ -260,9 +265,10 @@ lists the folders where *every* file must have it. `npm run typecheck` enforces 
    [AuthLayout.jsx](frontend/src/layouts/AuthLayout.jsx) and [index.html](frontend/index.html).
 7. **Deployment config disagrees with docs.** [vercel.json](vercel.json) declares the backend as a Vercel service, while the readme
    says it's hosted elsewhere. Its rewrite `"/api/(/.*)?"` likely doesn't match `/api/v1/...` (`"/api(/.*)?"` intended?).
-8. **Thin test coverage.** A test framework now exists (§6), but it only covers ownership, tenancy isolation, the
-   missing-org 404 and `canModifyRecord`. `authService`, `orgAdminService` and `insightsService` have no permanent tests.
-   They were smoke-checked end to end once (2026-10-29, S1.5). The AI service has no tests.
+8. ~~Thin test coverage.~~ **Closed 2026-10-29 (S1.1).** Auth, org admin and dashboards have permanent tests:
+   [auth.test.js](backend/tests/auth.test.js), [org-admin.test.js](backend/tests/org-admin.test.js) and
+   [insights.test.js](backend/tests/insights.test.js), 49 tests, mutation-checked. Remaining thin spots:
+   `activitiesService.list` (task/calendar filtering, 40.9% lines), the frontend (one test file) and the AI service (none).
 
 ### Other findings (verified 2026-10-29)
 - **List filters are silently dropped.** `paginationQuery` in [validators.js](backend/src/utils/validators.js) strips `status`,
@@ -275,6 +281,10 @@ lists the folders where *every* file must have it. `npm run typecheck` enforces 
   [dealsService.js](backend/src/services/dealsService.js) hardcodes the `won`/`lost` keys.
 - **`JWT_REFRESH_SECRET`, `AI_SERVICE_URL` and `REFRESH_TOKEN_TTL` are dead config** (§6). The Docker issues are noted in the §6 caveat.
 - **Typecheck isn't in a pre-commit hook yet.** That's deferred to S1.4 (husky + lint-staged). Until then CI is the gate.
+- **Suspect org-admin behaviour, pinned by tests as-is** (each test is marked `// suspect:` in
+  [org-admin.test.js](backend/tests/org-admin.test.js)). If you fix one, flip its test:
+  - `DELETE /org/teams/:id` and `DELETE /org/email-templates/:id` return 200 for ids that don't exist; they should return 404.
+  - An admin can change another admin's role, or their own (`updateMemberRole` only protects the owner).
 
 ### Open questions
 - What exactly happens if a token lacked `orgId`? Mongoose likely casts it to `null` and matches nothing. (A token whose

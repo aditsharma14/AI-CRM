@@ -180,3 +180,54 @@ Each entry: **date · goal · changed · verified · next**. Rules for working i
 - **"What are the limits of JSDoc types?"**
   - It's more verbose. You can't pass type arguments at call sites (hence the casts on `aggregate(...).exec()`), and generic library types like Mongoose's need occasional boundary casts.
   - Global augmentation still needs one `.d.ts`.
+
+---
+
+## 2026-10-29 · S1.1: Permanent tests for auth, org admin and dashboards
+
+**Goal:** close Known Gap #8 by turning every flow smoke-checked by hand in S1.5 into permanent tests, reusing the existing harness. Tests only; no service changes.
+
+**Changed** (branch `test/auth-orgadmin-insights`, cut from `chore/jsdoc-typecheck`)
+- `@vitest/coverage-v8` and `npm run test:coverage`; `@types/supertest`; `tsconfig` now includes `tests/`, still opt-in per file.
+- `tests/factories.js`, strict-checked with `// @ts-check`:
+  - real-password users;
+  - planted invite and reset tokens, stored hash-only exactly as the services do, so no test scrapes the dev-only `console.log` links;
+  - refresh-cookie helpers, API `login`, and `sessionCount`.
+- `tests/auth.test.js` (18), `tests/org-admin.test.js` (23), `tests/insights.test.js` (8).
+- **Suspect behaviour pinned as-is (your call)**, marked `// suspect:` and listed in CLAUDE.md §9:
+  - deleting an unknown team or template id returns 200;
+  - an admin can change a peer admin's role, or their own.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| `npm test` | **202 passed** in 10 files (was 153) |
+| `npm run lint`, `npm run typecheck` | clean; a planted error in `factories.js` was caught, then removed |
+| Mutation: `refresh` made non-atomic (with a 20 ms window) | the concurrent-refresh test fails: `[200, 200]` instead of `[200, 401]` |
+| Mutation: `resetPassword` stops wiping refresh tokens | the all-devices test fails: 2 sessions instead of 0 |
+| Mutation: `removeMember` loses its owner guard | the owner-removal test fails: 200 instead of 404 |
+| Mutation: open-pipeline `$match` loses `orgId` | totals and isolation tests fail: 10449 vs 450 / 9999 |
+
+**Coverage, `src/services`** (`npm run test:coverage`)
+
+| File | Lines before → after | Branches | Functions |
+|---|---|---|---|
+| authService.js | 1.8% → **100%** | 93.5% | 100% |
+| orgAdminService.js | 1.5% → **100%** | 62.5% | 100% |
+| insightsService.js | 5.9% → **100%** | 81.8% | 100% |
+| crudService.js | 100% | 100% | 100% |
+| leadsService.js | 100% | 85.7% | 100% |
+| dealsService.js | 80.0% | 68.8% | 100% |
+| activityService.js | 66.7% | 30.0% | 100% |
+| activitiesService.js | 40.9% | 15.0% | 66.7% |
+| **src/services total** | **91.9%** | **69.0%** | **98.3%** |
+
+`aiProxyService.js` shows 100% because it's an empty stub, so it's left out of the table.
+
+**Next**
+- Test `activitiesService.list` (type, status, assignee and date-range filtering for tasks and calendar).
+- Fix the pinned suspect behaviour test-first (flip each test), and fix the list-filter stripping from CLAUDE.md §9.
+
+### Interview angle: "How do you know your tests actually test something?"
+> Coverage only says a line ran, not that a wrong line would be caught. So for the properties that matter (refresh-token rotation under a race, logout-everywhere on password reset, owner protection, tenant isolation in aggregations), I deliberately broke the service code and watched the specific test go red with a meaningful diff, then reverted. Four mutations, four catches.
