@@ -231,3 +231,56 @@ Each entry: **date · goal · changed · verified · next**. Rules for working i
 
 ### Interview angle: "How do you know your tests actually test something?"
 > Coverage only says a line ran, not that a wrong line would be caught. So for the properties that matter (refresh-token rotation under a race, logout-everywhere on password reset, owner protection, tenant isolation in aggregations), I deliberately broke the service code and watched the specific test go red with a meaningful diff, then reverted. Four mutations, four catches.
+
+---
+
+## 2026-10-30 · S1.1b: Close the S1.1 suspects
+
+**Goal:** fix the three behaviours S1.1 pinned as suspect, cover `activitiesService.list`, drop the empty AI stub from coverage, and get CLAUDE.md under 250 lines.
+
+**Policy decisions (yours):**
+- Granting admin is owner-only, like revoking it.
+- Removing yourself is blocked, like changing your own role.
+- Targeting the owner stays 404.
+
+**Changed** (branch `fix/s1.1b-suspects`, cut from `test/auth-orgadmin-insights`)
+- **New `backend/src/policies/membership.js`:**
+  - Only the owner grants, revokes or removes admin; nobody acts on themselves.
+  - `orgAdminService.updateMemberRole` and `removeMember` now take `actor`, and each does one role-scoped atomic write.
+  - On a miss, `memberMissOrForbidden` returns 404 (no such member, or the owner) or 403. Routes only pass `req.user`.
+- **Deletes:** `deleteTeam` and `deleteEmailTemplate` match the sub-document id inside the `$pull` write, so an unknown id is a 404.
+- **New tests:**
+  - `tests/activities-list.test.js` (13);
+  - a role-policy table in `tests/org-admin.test.js` (10 role changes + 6 removals);
+  - `tests/membership.unit.test.js` (6).
+- `aiProxyService.js` is excluded from coverage until S2.2.
+- **Docs split:** the JSDoc and testing conventions moved to `docs/conventions.md`; findings, open questions and a dated "Resolved" table moved to `docs/known-issues.md`. CLAUDE.md is 294 → 246 lines.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Role policy, red first | 7 failed before the fix (every denial case), all green after |
+| Deletes, red first | 3 failed (200 instead of 404), all green after |
+| Mutation: `list` always uses `startAt` | 5 activities tests fail, then reverted |
+| `npm test` | **237 passed** in 12 files (was 202) |
+| `npm run lint`, `npm run typecheck` | clean |
+| `grep suspect` in `src/` and `tests/` | nothing left |
+
+**Coverage, `src/services`** (`aiProxyService.js` excluded)
+
+| File | Lines | Branches | Functions |
+|---|---|---|---|
+| activitiesService.js | 40.9% → **100%** | 95.0% | 100% |
+| authService.js | 100% | 93.5% | 100% |
+| crudService.js | 100% | 100% | 100% |
+| insightsService.js | 100% | 81.8% | 100% |
+| leadsService.js | 100% | 85.7% | 100% |
+| orgAdminService.js | 100% | 66.7% | 100% |
+| dealsService.js | 80.0% | 68.8% | 100% |
+| activityService.js | 66.7% | 30.0% | 100% |
+| **total** | **97.5%** (was 91.9%) | **79.5%** (was 69.0%) | **100%** (was 98.3%) |
+
+**Next**
+- The list-filter stripping bug (`docs/known-issues.md`) is the most user-visible open bug.
+- Branch coverage is still lowest in `activityService.labelFor` and `dealsService`'s won/lost paths.

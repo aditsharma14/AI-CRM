@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Project memory for **Nimbus CRM**: a multi-tenant sales CRM with an AI assistant layer.
-Read this before changing anything. User-facing overview: [readme.md](readme.md). Session history: [WORKLOG.md](WORKLOG.md).
+Read this before changing anything. Overview: [readme.md](readme.md). History: [WORKLOG.md](WORKLOG.md). Detail: [docs/conventions.md](docs/conventions.md), [docs/known-issues.md](docs/known-issues.md).
 
 ## 1. Architecture
 
@@ -32,7 +32,7 @@ Read this before changing anything. User-facing overview: [readme.md](readme.md)
 | [backend/src/middleware/](backend/src/middleware/) | `auth` (JWT → `req.user`), `guards` (`requirePermission`, `validate`), `errorHandler`, `observability` |
 | [backend/src/routes/](backend/src/routes/) | HTTP wiring: permission → validation → service → `apiResponse` |
 | [backend/src/services/](backend/src/services/) | Business logic. `crudService` factory, `activityService` (sole writer of audit log + notifications) |
-| [backend/src/policies/](backend/src/policies/) | `ownership.js`: who may change which record (§5). Pure functions + one 403/404 helper |
+| [backend/src/policies/](backend/src/policies/) | `ownership.js` (which records) and `membership.js` (which members), §5. Pure rules + a 403/404 helper each |
 | [backend/tests/](backend/tests/) | Vitest + supertest + in-memory Mongo. `helpers.js` seeds orgs/records; `factories.js` (typed) does auth fixtures |
 | [backend/src/models/](backend/src/models/) | Mongoose schemas. `Organization` is the tenant root; `CRM.js` = Lead/Contact/Company; `Logs.js` = audit + notification |
 | [backend/src/schemas/](backend/src/schemas/) | Every Zod request schema plus its `z.infer` typedef. Routes import them; services use the types |
@@ -88,9 +88,8 @@ The client reads `response.data.data`. `useList` in [hooks.js](frontend/src/hook
   Aggregations in [insightsService.js](backend/src/services/insightsService.js) `$match` it first.
 - **Intentional global lookups:** only in [authService.js](backend/src/services/authService.js) (login by email, refresh/reset/invite
   by token hash). Email is globally unique ([User.js](backend/src/models/User.js)).
-- **If `orgId` is missing:** there is no explicit guard. Tokens always carry it today. Exact failure mode is an open question (§9).
-- **Known hole:** referenced ids (`companyId`, `contactIds`, team `memberIds`, note `entityId`) are not checked to belong to
-  the caller's org, and `populate()` isn't org-filtered. Owner fields (`ownerId`, `assigneeId`) *are* checked (§5).
+- **Gaps:** there's no explicit guard for a token without `orgId`, and referenced ids (`companyId`, team `memberIds`, …)
+  aren't checked against the org. Both are in [docs/known-issues.md](docs/known-issues.md). Owner fields *are* checked (§5).
 
 ## 5. Permissions
 
@@ -133,8 +132,16 @@ decides *which records*. It is enforced in services, never routes, and mirrored 
   throws for unknown resources on purpose.
 - **Proof:** [backend/tests/](backend/tests/) holds a 64-case role × action × ownership matrix for leads and deals, the custom
   actions, cross-org 404s on every `:id` route, and mass assignment.
-- The `owner` role can't be assigned or removed through member management ([orgAdminService.js](backend/src/services/orgAdminService.js)).
-- Auth details: 15m access JWT (`sub`, `orgId`, `role`) kept in memory only. 7d refresh token in an httpOnly
+
+### Member management (who may re-role or remove whom)
+[membership.js](backend/src/policies/membership.js), enforced in [orgAdminService.js](backend/src/services/orgAdminService.js):
+- **Admins are owner-managed:** only the owner grants, revokes or removes admin. Admins manage managers and members.
+- **Nobody acts on themselves:** changing your own role or removing yourself → 403.
+- **The owner is never a target:** 404. `owner` can't be assigned (400).
+- **Same pattern as ownership:** one role-scoped atomic write; on a miss, `memberMissOrForbidden` picks 404 or 403.
+
+### Auth
+15m access JWT (`sub`, `orgId`, `role`) kept in memory only. 7d refresh token in an httpOnly
   `SameSite=strict` cookie scoped to `/api/v1/auth`, stored hashed and rotated on every use with atomic `$push`/`$pull`
   (see the comments in `authService.js`; keep them atomic). Role changes take effect when the access token expires.
 
@@ -174,13 +181,10 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
 - **Tests:** `npm test` in `backend/` (Vitest + supertest + mongodb-memory-server; the first run downloads a mongod binary,
   about 70 MB) and `npm test` in `frontend/` (Vitest). Test env vars live in [backend/vitest.config.js](backend/vitest.config.js),
   so no `.env` is needed. There are no AI tests yet.
-- **Coverage:** `npm run test:coverage` in `backend/` (v8, over services, policies and utils). As of 2026-10-29,
-  `src/services` is at 91.9% lines, 69.0% branches and 98.3% functions.
-- **Test helpers:** [helpers.js](backend/tests/helpers.js) (`seedOrg`, `makeRecord`, signed tokens) and the strict-checked
-  [factories.js](backend/tests/factories.js) (real-password users, planted invite/reset tokens, `login`, `sessionCount`).
-  Plant tokens with the factories; never scrape them from `console.log`.
+- **Coverage:** `npm run test:coverage` in `backend/`. As of 2026-10-30, `src/services` is at 97.5% lines,
+  79.5% branches and 100% functions. Test helpers and conventions are in [docs/conventions.md](docs/conventions.md).
 - **Lint:** `npm run lint` in both `frontend/` and `backend/`. Both pass.
-- **Typecheck:** `npm run typecheck` in `backend/` (JSDoc checked by `tsc`, no build step; see §7a).
+- **Typecheck:** `npm run typecheck` in `backend/` (JSDoc checked by `tsc`, no build step; see §7).
 - **CI:** [.github/workflows/ci.yml](.github/workflows/ci.yml) runs backend lint, typecheck and tests on every push and PR.
   To make it block merges, a repo admin adds a branch protection rule for `main` with the `backend` check required.
 - **Docker caveat:** the `.env.example` values use `localhost`. Under Compose, set `MONGO_URI=mongodb://mongo:27017/nimbus-crm`,
@@ -205,39 +209,14 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
    owned resources get an `OWNER_FIELD` entry and matrix tests.
 5. **Never log secrets or tokens** (raw tokens, passwords, JWTs, API keys, cookies).
    *Known dev-only violations, to be removed once email exists:* [authService.js:200](backend/src/services/authService.js#L200)
-   (reset token) and [orgAdminService.js:78](backend/src/services/orgAdminService.js#L78) (invite token). Do not add more.
+   (reset token) and [orgAdminService.js:80](backend/src/services/orgAdminService.js#L80) (invite token). Do not add more.
 6. CRM mutations go through `activityService.logActivity` (the CRUD factory does this when given `activityLabel`).
 7. Keep the envelope: throw `AppError` helpers and never hand-build error JSON or call `res.json` in routes.
 8. Style: ESM, 2-space indent, no semicolons, single quotes, a one-line purpose comment at the top of each file, comments that explain *why*.
-
-## 7a. Types (JSDoc checked by `tsc --checkJs`)
-
-The backend stays JavaScript and has no build step. [tsconfig.json](backend/tsconfig.json) (`strict`, `noUncheckedIndexedAccess`,
-`noEmit`) checks only files whose first line is `// @ts-check`. [checked-folders.js](backend/scripts/checked-folders.js)
-lists the folders where *every* file must have it. `npm run typecheck` enforces that list, and ESLint applies the JSDoc rules there.
-
-**Type-checking status:**
-- **Checked:** `src/types`, `src/utils`, `src/policies`, `src/schemas`, `src/models`, `src/services`.
-- **Not yet checked:** `src/routes`, `src/middleware`, `src/config`, `src/app.js`, `src/server.js`.
-- **To migrate a folder:** add `// @ts-check` to each file, add the folder to `CHECKED_FOLDERS`, make `npm run typecheck` pass,
-  and commit one folder at a time.
-
-**Conventions (one example each):**
-- **Shared typedef.** Shared types live in [src/types/index.js](backend/src/types/index.js); import them where used:
-  `/** @typedef {import('../types/index.js').AuthUser} AuthUser */`
-- **Types from Zod (z.infer).** Never hand-write a request type. Each schema file exports one:
-  `/** @typedef {z.infer<typeof leadCreate>} LeadCreateInput */` ([schemas/leads.js](backend/src/schemas/leads.js)).
-  Services take `@param {import('../schemas/leads.js').LeadConvertInput} input`.
-- **Generics (@template).** See `createCrudService` in [crudService.js](backend/src/services/crudService.js):
-  `@template T` plus `@param {import('mongoose').Model<T>} Model`, returning `HydratedDocument<T>`. Model typedefs use
-  `InferSchemaType<typeof leadSchema>` (`LeadRecord`, etc.).
-- **Request extension.** [src/types/express.d.ts](backend/src/types/express.d.ts) is the only `.d.ts`. It adds `user?: AuthUser`
-  to `Express.Request` via `declare global`.
-- **Escape hatches.** No `any`, `@ts-ignore` or `@ts-nocheck`. If something must be forced, use a cast
-  `/** @type {X} */ (expr)` with a `// Boundary cast:` comment saying why. Prefer `@ts-expect-error <reason>` over
-  `@ts-ignore`. Today: 0 `any`, 0 ignores, 0 expect-errors, 4 boundary casts.
-- **Mongoose quirks.** Assign DocumentArrays with `doc.set('field', value)`. Declare instance methods in the schema's
-  `methods` option, so the types can see them. Type aggregate rows with a cast on `aggregate(...).exec()`.
+9. **Types are JSDoc checked by `tsc` under `strict`.** No build step and no `any`. Files in `src/types`, `utils`,
+   `policies`, `schemas`, `models` and `services` must start with `// @ts-check`; routes, middleware and config aren't checked yet.
+   Request types come from Zod via `z.infer`. Patterns, escape hatches and the migration steps are in
+   [docs/conventions.md](docs/conventions.md).
 
 ## 8. Workflow rules for Claude
 
@@ -247,48 +226,21 @@ lists the folders where *every* file must have it. `npm run typecheck` enforces 
 4. **Never commit to `main`.** Create a branch first. Commit only when asked.
 5. When editing this file, re-run the path check so every referenced path exists.
 
-## 9. Known gaps, other findings, open questions
+## 9. Known gaps
 
-### Known gaps
-1. ~~"Own records only" isn't enforced.~~ **Fixed 2026-10-29** on branch `fix/own-records-only`; see §5
-   [ownership.js](backend/src/policies/ownership.js).
-2. **No reset-password page or email verification.** [authService.js](backend/src/services/authService.js) issues
+Open gaps only. Smaller findings, open questions and everything resolved (with dates and commits) are in
+[docs/known-issues.md](docs/known-issues.md). There are no open `// suspect:` tests.
+
+1. **No reset-password page or email verification.** [authService.js](backend/src/services/authService.js) issues
    `/reset-password?token=`, but [App.jsx](frontend/src/App.jsx) has no such route. All users are created with `isEmailVerified: true`.
-3. **No email sending.** Links are only logged ([authService.js](backend/src/services/authService.js), [orgAdminService.js](backend/src/services/orgAdminService.js)).
-4. **AI layer is unbuilt.** The rescore promised in [leadsService.js](backend/src/services/leadsService.js) doesn't exist.
+2. **No email sending.** Links are only logged ([authService.js](backend/src/services/authService.js), [orgAdminService.js](backend/src/services/orgAdminService.js)).
+3. **AI layer is unbuilt.** The rescore promised in [leadsService.js](backend/src/services/leadsService.js) doesn't exist.
    Stub files: everything in [AI/app/](AI/app/), [aiProxyService.js](backend/src/services/aiProxyService.js),
    [ai.routes.js](backend/src/routes/ai.routes.js), [upload.js](backend/src/middleware/upload.js),
    [cloudinaryUpload.js](backend/src/utils/cloudinaryUpload.js), [FileUploader.jsx](frontend/src/components/FileUploader.jsx),
    [AIChatWidget.jsx](frontend/src/features/ai/AIChatWidget.jsx) and [AIActionsMenu.jsx](frontend/src/features/ai/AIActionsMenu.jsx).
-5. **No Kanban board.** [PipelinePage.jsx](frontend/src/features/deals/PipelinePage.jsx) renders a table.
-6. **Product name inconsistent.** "Nimbus CRM" in [readme.md](readme.md); "Clarion" in [AppLayout.jsx](frontend/src/layouts/AppLayout.jsx),
+4. **No Kanban board.** [PipelinePage.jsx](frontend/src/features/deals/PipelinePage.jsx) renders a table.
+5. **Product name inconsistent.** "Nimbus CRM" in [readme.md](readme.md); "Clarion" in [AppLayout.jsx](frontend/src/layouts/AppLayout.jsx),
    [AuthLayout.jsx](frontend/src/layouts/AuthLayout.jsx) and [index.html](frontend/index.html).
-7. **Deployment config disagrees with docs.** [vercel.json](vercel.json) declares the backend as a Vercel service, while the readme
+6. **Deployment config disagrees with docs.** [vercel.json](vercel.json) declares the backend as a Vercel service, while the readme
    says it's hosted elsewhere. Its rewrite `"/api/(/.*)?"` likely doesn't match `/api/v1/...` (`"/api(/.*)?"` intended?).
-8. ~~Thin test coverage.~~ **Closed 2026-10-29 (S1.1).** Auth, org admin and dashboards have permanent tests:
-   [auth.test.js](backend/tests/auth.test.js), [org-admin.test.js](backend/tests/org-admin.test.js) and
-   [insights.test.js](backend/tests/insights.test.js), 49 tests, mutation-checked. Remaining thin spots:
-   `activitiesService.list` (task/calendar filtering, 40.9% lines), the frontend (one test file) and the AI service (none).
-
-### Other findings (verified 2026-10-29)
-- **List filters are silently dropped.** `paginationQuery` in [validators.js](backend/src/utils/validators.js) strips `status`,
-  `entityType`, `entityId` and similar keys. As a result, [NotesPanel.jsx](frontend/src/features/notes/NotesPanel.jsx) shows **every note in the org**,
-  and the status filter in [LeadsPage.jsx](frontend/src/features/leads/LeadsPage.jsx) is ignored. Affects leads, deals, contacts, companies,
-  notes and notifications; activities is fine because it has its own `listQuery`.
-- **Pipeline stages are hardcoded on the frontend.** [PipelinePage.jsx](frontend/src/features/deals/PipelinePage.jsx) and
-  [DashboardPage.jsx](frontend/src/features/dashboard/DashboardPage.jsx) use `PIPELINE_STAGE_DEFAULTS`, not the org's configured stages.
-- **`stageKey` is only validated by `move-stage`.** `POST`/`PATCH` in [deals.routes.js](backend/src/routes/deals.routes.js) accept any string.
-  [dealsService.js](backend/src/services/dealsService.js) hardcodes the `won`/`lost` keys.
-- **`JWT_REFRESH_SECRET`, `AI_SERVICE_URL` and `REFRESH_TOKEN_TTL` are dead config** (§6). The Docker issues are noted in the §6 caveat.
-- **Typecheck isn't in a pre-commit hook yet.** That's deferred to S1.4 (husky + lint-staged). Until then CI is the gate.
-- **Suspect org-admin behaviour, pinned by tests as-is** (each test is marked `// suspect:` in
-  [org-admin.test.js](backend/tests/org-admin.test.js)). If you fix one, flip its test:
-  - `DELETE /org/teams/:id` and `DELETE /org/email-templates/:id` return 200 for ids that don't exist; they should return 404.
-  - An admin can change another admin's role, or their own (`updateMemberRole` only protects the owner).
-
-### Open questions
-- What exactly happens if a token lacked `orgId`? Mongoose likely casts it to `null` and matches nothing. (A token whose
-  org *document* is gone now gets a 404; see `tests/missing-org.test.js`.) Not tested.
-- Does the `vercel.json` rewrite really fail on `/api/v1/...`? Reasoned from path-to-regexp; not deployed.
-- Is "Clarion" a deliberate rebrand, or should it be "Nimbus"?
-- Docker Compose has not been run (Docker isn't installed on the dev machine used for this audit).
