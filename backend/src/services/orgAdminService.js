@@ -4,8 +4,10 @@ import crypto from 'node:crypto'
 import Organization from '../models/Organization.js'
 import User from '../models/User.js'
 import { badRequest, notFound } from '../utils/http.js'
+import { assertCanAssign, assertNotSelf, manageableRoles, memberMissOrForbidden } from '../policies/membership.js'
 
 /** @typedef {import('../types/index.js').Role} Role */
+/** @typedef {import('../types/index.js').AuthUser} AuthUser */
 /** @typedef {InstanceType<typeof Organization>} OrgDoc */
 /** @typedef {InstanceType<typeof User>} UserDoc */
 /** @typedef {import('../utils/http.js').AppError} AppError */
@@ -79,32 +81,42 @@ export async function inviteMember(orgId, { email, role }) {
 }
 
 /**
+ * Policy (policies/membership.js): only the owner manages admins or grants
+ * admin, nobody re-roles themselves, the owner is never a target (404).
  * `role` is typed as any Role (owner included) on purpose: the owner guard
  * below protects callers that bypass the route's Zod enum.
- * @param {string} orgId
+ * @param {AuthUser} actor
  * @param {string} userId
  * @param {Role} role
  * @returns {Promise<UserDoc>}
- * @throws {AppError} 400 CANNOT_ASSIGN_OWNER, 404
+ * @throws {AppError} 400 CANNOT_ASSIGN_OWNER, 403, 404
  */
-export async function updateMemberRole(orgId, userId, role) {
+export async function updateMemberRole(actor, userId, role) {
   if (role === 'owner') throw badRequest('Ownership is transferred separately, not assigned like a role.', 'CANNOT_ASSIGN_OWNER')
-  const user = await User.findOneAndUpdate({ _id: userId, orgId, role: { $ne: 'owner' } }, { role }, { new: true }).select(
-    'name email role',
-  )
-  if (!user) throw notFound('Member not found.')
+  assertNotSelf(actor, userId, 'change your own role')
+  assertCanAssign(actor, role)
+  // One atomic, role-scoped write: a member the actor can't manage is simply
+  // not matched, so there's no check-then-write race.
+  const user = await User.findOneAndUpdate(
+    { _id: userId, orgId: actor.orgId, role: { $in: manageableRoles(actor) } },
+    { role },
+    { new: true },
+  ).select('name email role')
+  if (!user) throw await memberMissOrForbidden(User, actor, userId)
   return user
 }
 
 /**
- * @param {string} orgId
+ * Same policy as updateMemberRole: admins are owner-managed, never yourself.
+ * @param {AuthUser} actor
  * @param {string} userId
  * @returns {Promise<void>}
- * @throws {AppError} 404 (also for the org owner, who can't be removed)
+ * @throws {AppError} 403, 404 (also for the org owner, who can't be removed)
  */
-export async function removeMember(orgId, userId) {
-  const user = await User.findOneAndDelete({ _id: userId, orgId, role: { $ne: 'owner' } })
-  if (!user) throw notFound('Member not found, or you tried to remove the org owner.')
+export async function removeMember(actor, userId) {
+  assertNotSelf(actor, userId, 'remove yourself')
+  const user = await User.findOneAndDelete({ _id: userId, orgId: actor.orgId, role: { $in: manageableRoles(actor) } })
+  if (!user) throw await memberMissOrForbidden(User, actor, userId, 'Member not found, or you tried to remove the org owner.')
 }
 
 // ---- Teams ----

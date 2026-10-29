@@ -96,20 +96,6 @@ describe('members and roles', () => {
     expect((await User.findById(ctx.users.owner._id)).role).toBe('owner')
   })
 
-  it('pins current behaviour: an admin can change another admin role', async () => {
-    // suspect: admins can demote peer admins. Recorded in CLAUDE.md §9 for a later fix.
-    const { user: peer } = await createUserWithPassword(ctx.org, { role: 'admin', email: uniqueEmail('peer') })
-    const res = await request(app).patch(`${api}/members/${idOf(peer)}/role`).set(as('admin')).send({ role: 'member' })
-    expect(res.status).toBe(200)
-    expect((await User.findById(peer._id)).role).toBe('member')
-  })
-
-  it('pins current behaviour: an admin can change their own role', async () => {
-    // suspect: self role change (e.g. an admin demoting themselves). Recorded in CLAUDE.md §9.
-    const res = await request(app).patch(`${api}/members/${idOf(ctx.users.admin)}/role`).set(as('admin')).send({ role: 'manager' })
-    expect(res.status).toBe(200)
-    expect((await User.findById(ctx.users.admin._id)).role).toBe('manager')
-  })
 
   it('removes a member but never the owner', async () => {
     expect((await request(app).delete(`${api}/members/${idOf(ctx.users.member)}`).set(as('manager'))).status).toBe(403)
@@ -118,6 +104,62 @@ describe('members and roles', () => {
 
     expect((await request(app).delete(`${api}/members/${idOf(ctx.users.owner)}`).set(as('admin'))).status).toBe(404)
     expect(await User.findById(ctx.users.owner._id)).not.toBeNull()
+  })
+})
+
+describe('role policy (owner-only admin management, never yourself)', () => {
+  // `target` names a user in the fresh org: the seeded roles, 'self' (the
+  // actor's own account) or 'peerAdmin' (a second admin created per test).
+  const pick = async (actor, target) => {
+    if (target === 'self') return ctx.users[actor]
+    if (target === 'peerAdmin') return (await createUserWithPassword(ctx.org, { role: 'admin', email: uniqueEmail('peer') })).user
+    return ctx.users[target]
+  }
+
+  it.each([
+    { actor: 'owner', target: 'admin', role: 'manager', status: 200 },
+    { actor: 'owner', target: 'member', role: 'admin', status: 200 },
+    { actor: 'admin', target: 'member', role: 'manager', status: 200 },
+    { actor: 'admin', target: 'manager', role: 'member', status: 200 },
+    { actor: 'admin', target: 'peerAdmin', role: 'member', status: 403 },
+    { actor: 'admin', target: 'member', role: 'admin', status: 403 },
+    { actor: 'admin', target: 'self', role: 'manager', status: 403 },
+    { actor: 'owner', target: 'self', role: 'admin', status: 403 },
+    { actor: 'manager', target: 'member', role: 'manager', status: 403 },
+    { actor: 'member', target: 'manager', role: 'member', status: 403 },
+  ])('$actor sets $target to $role -> $status', async ({ actor, target, role, status }) => {
+    const user = await pick(actor, target)
+    const before = user.role
+    const res = await request(app).patch(`${api}/members/${idOf(user)}/role`).set(as(actor)).send({ role })
+
+    expect(res.status).toBe(status)
+    const after = (await User.findById(user._id)).role
+    if (status === 200) {
+      expect(after).toBe(role)
+    } else {
+      expect(res.body).toMatchObject({ success: false, data: null, error: { code: 'FORBIDDEN' }, meta: null })
+      expect(after).toBe(before)
+    }
+  })
+
+  it.each([
+    { actor: 'owner', target: 'admin', status: 200 },
+    { actor: 'admin', target: 'member', status: 200 },
+    { actor: 'admin', target: 'peerAdmin', status: 403 },
+    { actor: 'admin', target: 'self', status: 403 },
+    { actor: 'owner', target: 'self', status: 403 },
+    { actor: 'manager', target: 'member', status: 403 },
+  ])('$actor removes $target -> $status', async ({ actor, target, status }) => {
+    const user = await pick(actor, target)
+    const res = await request(app).delete(`${api}/members/${idOf(user)}`).set(as(actor))
+
+    expect(res.status).toBe(status)
+    if (status === 200) {
+      expect(await User.findById(user._id)).toBeNull()
+    } else {
+      expect(res.body.error.code).toBe('FORBIDDEN')
+      expect(await User.findById(user._id)).not.toBeNull()
+    }
   })
 })
 

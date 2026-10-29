@@ -51,7 +51,7 @@ router.patch(
   requirePermission('members', 'manage'),
   validate({ params: idParam, body: memberRoleUpdate }),
   asyncHandler(async (req, res) => {
-    apiResponse(res, await orgAdminService.updateMemberRole(req.user.orgId, req.params.id, req.body.role))
+    apiResponse(res, await orgAdminService.updateMemberRole(req.user, req.params.id, req.body.role))
   }),
 )
 
@@ -60,7 +60,7 @@ router.delete(
   requirePermission('members', 'manage'),
   validate({ params: idParam }),
   asyncHandler(async (req, res) => {
-    await orgAdminService.removeMember(req.user.orgId, req.params.id)
+    await orgAdminService.removeMember(req.user, req.params.id)
     apiResponse(res, null)
   }),
 )
