@@ -2,10 +2,11 @@
 // Renders UI inside the app's real providers; the session is restored through MSW, never a mocked context.
 import { StrictMode } from 'react'
 import { render } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { http } from 'msw'
 import { SessionProvider } from '../src/context/SessionContext.jsx'
+import ProtectedRoute from '../src/components/ProtectedRoute.jsx'
 import { queryClient } from '../src/lib/queryClient.js'
 import { API, fail, ok, server } from './server.js'
 
@@ -41,10 +42,18 @@ export function serveSession(session) {
  */
 export function renderWithProviders(ui, { session = null, route = '/', strict = false } = {}) {
   const refreshCalls = serveSession(session)
+  // Behind ProtectedRoute, as in App.jsx: pages never render before the
+  // bootstrap settles, so tests can't observe a role-less first paint.
   const tree = (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[route]}>
-        <SessionProvider>{ui}</SessionProvider>
+        <SessionProvider>
+          <Routes>
+            <Route element={<ProtectedRoute />}>
+              <Route path="*" element={ui} />
+            </Route>
+          </Routes>
+        </SessionProvider>
       </MemoryRouter>
     </QueryClientProvider>
   )

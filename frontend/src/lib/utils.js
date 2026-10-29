@@ -26,3 +26,11 @@ export function initials(name = '') {
     .map((part) => part[0]?.toUpperCase())
     .join('')
 }
+
+/**
+ * The user-facing message from an API error envelope ({ error: { message } }),
+ * or a generic fallback for network failures and non-envelope responses.
+ */
+export function apiErrorMessage(err, fallback = 'Something went wrong. Please try again.') {
+  return err?.response?.data?.error?.message || fallback
+}

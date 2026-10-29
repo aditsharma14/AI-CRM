@@ -6,6 +6,7 @@ import { Outlet } from 'react-router-dom'
 import { useSession } from '../context/SessionContext.jsx'
 import { Loader } from './ui.jsx'
 
+/** @param {{ roles?: string[] }} props Omit roles to admit every signed-in role (and guests). */
 export default function ProtectedRoute({ roles }) {
   const { isBootstrapping, isAuthenticated, role } = useSession()
 
