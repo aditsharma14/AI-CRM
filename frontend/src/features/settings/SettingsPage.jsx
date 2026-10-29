@@ -309,6 +309,7 @@ function MembersTab() {
                       confirmDeleteTeam.open()
                     }}
                     className="text-muted hover:text-danger dark:text-muted-dark"
+                    aria-label={`Delete team ${team.name}`}
                   >
                     <Trash2 size={16} strokeWidth={1.75} />
                   </button>
@@ -464,6 +465,7 @@ function PipelineTab() {
                       confirmDeleteTemplate.open()
                     }}
                     className="text-muted hover:text-danger dark:text-muted-dark"
+                    aria-label={`Delete template ${t.name}`}
                   >
                     <Trash2 size={16} strokeWidth={1.75} />
                   </button>

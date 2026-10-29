@@ -152,21 +152,21 @@ export default function LeadsPage() {
         }
       >
         <form id="lead-form" onSubmit={handleSubmit(onSubmit)}>
-          <FormField label="Name" error={errors.name}>
-            <input className={inputClasses(errors.name)} {...register('name')} />
+          <FormField label="Name" htmlFor="lead-name" error={errors.name}>
+            <input id="lead-name" className={inputClasses(errors.name)} {...register('name')} />
           </FormField>
-          <FormField label="Email" error={errors.email}>
-            <input className={inputClasses(errors.email)} {...register('email')} />
+          <FormField label="Email" htmlFor="lead-email" error={errors.email}>
+            <input id="lead-email" className={inputClasses(errors.email)} {...register('email')} />
           </FormField>
-          <FormField label="Phone">
-            <input className={inputClasses(false)} {...register('phone')} />
+          <FormField label="Phone" htmlFor="lead-phone">
+            <input id="lead-phone" className={inputClasses(false)} {...register('phone')} />
           </FormField>
-          <FormField label="Source">
-            <input className={inputClasses(false)} {...register('source')} />
+          <FormField label="Source" htmlFor="lead-source">
+            <input id="lead-source" className={inputClasses(false)} {...register('source')} />
           </FormField>
           {editing?._id && (
-            <FormField label="Status">
-              <select className={inputClasses(false)} {...register('status')}>
+            <FormField label="Status" htmlFor="lead-status">
+              <select id="lead-status" className={inputClasses(false)} {...register('status')}>
                 {LEAD_STATUSES.map((s) => (
                   <option key={s} value={s}>
                     {s}

@@ -136,14 +136,14 @@ export default function PipelinePage() {
         }
       >
         <form id="deal-form" onSubmit={handleSubmit(onSubmit)}>
-          <FormField label="Title" error={errors.title}>
-            <input className={inputClasses(errors.title)} {...register('title')} />
+          <FormField label="Title" htmlFor="deal-title" error={errors.title}>
+            <input id="deal-title" className={inputClasses(errors.title)} {...register('title')} />
           </FormField>
-          <FormField label="Value" error={errors.value}>
-            <input type="number" step="0.01" className={inputClasses(errors.value)} {...register('value')} />
+          <FormField label="Value" htmlFor="deal-value" error={errors.value}>
+            <input id="deal-value" type="number" step="0.01" className={inputClasses(errors.value)} {...register('value')} />
           </FormField>
-          <FormField label="Stage">
-            <select className={inputClasses(false)} {...register('stageKey')}>
+          <FormField label="Stage" htmlFor="deal-stage">
+            <select id="deal-stage" className={inputClasses(false)} {...register('stageKey')}>
               {PIPELINE_STAGE_DEFAULTS.map((s) => (
                 <option key={s.key} value={s.key}>
                   {s.label}
