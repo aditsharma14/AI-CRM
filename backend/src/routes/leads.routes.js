@@ -1,27 +1,15 @@
 // Lead CRUD + convert-to-deal + rescore trigger.
 import { Router } from 'express'
-import { z } from 'zod'
 import * as leadsService from '../services/leadsService.js'
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
 import { apiResponse, asyncHandler } from '../utils/http.js'
-import { paginationQuery, objectId, optionalObjectId, optionalEmail, phone } from '../utils/validators.js'
+import { paginationQuery } from '../utils/validators.js'
+import { idParam } from '../schemas/common.js'
+import { leadCreate, leadUpdate, leadConvert } from '../schemas/leads.js'
 
 const router = Router()
 router.use(auth)
-
-const idParam = z.object({ id: objectId })
-
-const leadCreate = z.object({
-  name: z.string().trim().min(1),
-  email: optionalEmail,
-  phone,
-  source: z.string().trim().optional(),
-  status: z.enum(['new', 'contacted', 'qualified', 'unqualified', 'converted']).optional(),
-  companyId: optionalObjectId,
-  // Accepted from everyone; the ownership policy drops it for members.
-  ownerId: optionalObjectId,
-})
 
 router.get(
   '/',
@@ -52,7 +40,7 @@ router.post(
 router.patch(
   '/:id',
   requirePermission('crm', 'write'),
-  validate({ params: idParam, body: leadCreate.partial() }),
+  validate({ params: idParam, body: leadUpdate }),
   asyncHandler(async (req, res) => apiResponse(res, await leadsService.crud.update(req.user, req.params.id, req.body))),
 )
 
@@ -69,12 +57,7 @@ router.delete(
 router.post(
   '/:id/convert',
   requirePermission('crm', 'write'),
-  validate({
-    params: idParam,
-    // The client sends no body at all on a plain convert — the whole object
-    // is optional, not just its fields (convertToDeal defaults it to {}).
-    body: z.object({ title: z.string().trim().optional(), value: z.number().min(0).optional(), stageKey: z.string().optional() }).optional(),
-  }),
+  validate({ params: idParam, body: leadConvert }),
   asyncHandler(async (req, res) => {
     apiResponse(res, await leadsService.convertToDeal(req.user, req.params.id, req.body), null, 201)
   }),

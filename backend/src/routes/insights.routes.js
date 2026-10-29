@@ -1,10 +1,10 @@
 // Global search plus dashboard/report aggregation reads.
 import { Router } from 'express'
-import { z } from 'zod'
 import * as insightsService from '../services/insightsService.js'
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
 import { apiResponse, asyncHandler } from '../utils/http.js'
+import { searchQuery } from '../schemas/insights.js'
 
 const router = Router()
 router.use(auth)
@@ -12,7 +12,7 @@ router.use(auth)
 router.get(
   '/search',
   requirePermission('crm', 'read'),
-  validate({ query: z.object({ q: z.string().trim().min(1) }) }),
+  validate({ query: searchQuery }),
   asyncHandler(async (req, res) => apiResponse(res, await insightsService.search(req.user.orgId, req.query.q))),
 )
 

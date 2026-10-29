@@ -1,11 +1,11 @@
 // List/mark-read notifications; read-only activity-log listing.
 import { Router } from 'express'
-import { z } from 'zod'
 import { Notification, ActivityLog } from '../models/Logs.js'
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
 import { apiResponse, asyncHandler, notFound } from '../utils/http.js'
-import { paginationQuery, objectId } from '../utils/validators.js'
+import { paginationQuery } from '../utils/validators.js'
+import { idParam } from '../schemas/common.js'
 
 const router = Router()
 router.use(auth)
@@ -30,7 +30,7 @@ router.get(
 
 router.patch(
   '/:id/read',
-  validate({ params: z.object({ id: objectId }) }),
+  validate({ params: idParam }),
   asyncHandler(async (req, res) => {
     const doc = await Notification.findOneAndUpdate(
       { _id: req.params.id, orgId: req.user.orgId, userId: req.user.id },

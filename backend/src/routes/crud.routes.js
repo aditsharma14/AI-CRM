@@ -1,18 +1,17 @@
 // Mounts the generic CRUD factory for Contacts, Companies, Notes.
 import { Router } from 'express'
-import { z } from 'zod'
 import { Contact, Company } from '../models/CRM.js'
 import Note from '../models/Note.js'
 import { createCrudService } from '../services/crudService.js'
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
 import { apiResponse, asyncHandler } from '../utils/http.js'
-import { paginationQuery, objectId, optionalObjectId, optionalEmail, phone } from '../utils/validators.js'
+import { paginationQuery } from '../utils/validators.js'
+import { idParam } from '../schemas/common.js'
+import { contactCreate, contactUpdate, companyCreate, companyUpdate, noteCreate, noteUpdate } from '../schemas/crm.js'
 
 const router = Router()
 router.use(auth)
-
-const idParam = z.object({ id: objectId })
 
 /** Wires the five REST endpoints for one resource onto `router`. */
 function mountCrud(path, service, { createSchema, updateSchema }) {
@@ -60,16 +59,6 @@ function mountCrud(path, service, { createSchema, updateSchema }) {
   )
 }
 
-const contactCreate = z.object({
-  name: z.string().trim().min(1),
-  email: optionalEmail,
-  phone,
-  title: z.string().trim().optional(),
-  companyId: optionalObjectId,
-  tags: z.array(z.string()).optional(),
-  // Accepted from everyone; the ownership policy drops it for members.
-  ownerId: optionalObjectId,
-})
 mountCrud(
   'contacts',
   createCrudService(Contact, {
@@ -80,16 +69,9 @@ mountCrud(
     populate: { path: 'companyId', select: 'name' },
     activityLabel: 'Contact',
   }),
-  { createSchema: contactCreate, updateSchema: contactCreate.partial() },
+  { createSchema: contactCreate, updateSchema: contactUpdate },
 )
 
-const companyCreate = z.object({
-  name: z.string().trim().min(1),
-  domain: z.string().trim().toLowerCase().optional(),
-  industry: z.string().trim().optional(),
-  size: z.enum(['1-10', '11-50', '51-200', '201-1000', '1000+']).optional(),
-  ownerId: optionalObjectId,
-})
 mountCrud(
   'companies',
   createCrudService(Company, {
@@ -99,14 +81,9 @@ mountCrud(
     sortableFields: ['name', 'createdAt'],
     activityLabel: 'Company',
   }),
-  { createSchema: companyCreate, updateSchema: companyCreate.partial() },
+  { createSchema: companyCreate, updateSchema: companyUpdate },
 )
 
-const noteCreate = z.object({
-  entityType: z.enum(['lead', 'contact', 'company', 'deal']),
-  entityId: objectId,
-  body: z.string().trim().min(1).max(5000),
-})
 mountCrud(
   'notes',
   createCrudService(Note, {
@@ -116,7 +93,7 @@ mountCrud(
     sortableFields: ['createdAt'],
     populate: { path: 'authorId', select: 'name avatarUrl' },
   }),
-  { createSchema: noteCreate, updateSchema: z.object({ body: z.string().trim().min(1).max(5000) }) },
+  { createSchema: noteCreate, updateSchema: noteUpdate },
 )
 
 export default router

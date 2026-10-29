@@ -1,10 +1,9 @@
 // Register org, login, refresh, logout, password reset, email verify.
 import { Router } from 'express'
-import { z } from 'zod'
 import * as authService from '../services/authService.js'
 import { validate } from '../middleware/guards.js'
 import { apiResponse } from '../utils/http.js'
-import { email, password } from '../utils/validators.js'
+import { registerOrg, login, acceptInvite, forgotPassword, resetPassword } from '../schemas/auth.js'
 import { env } from '../config/index.js'
 
 const router = Router()
@@ -25,9 +24,7 @@ function sendSession(res, { accessToken, rawRefresh, user }) {
 
 router.post(
   '/register-org',
-  validate({
-    body: z.object({ orgName: z.string().trim().min(2), name: z.string().trim().min(1), email, password }),
-  }),
+  validate({ body: registerOrg }),
   async (req, res, next) => {
     try {
       sendSession(res, await authService.registerOrg(req.body))
@@ -39,7 +36,7 @@ router.post(
 
 router.post(
   '/login',
-  validate({ body: z.object({ email, password: z.string().min(1) }) }),
+  validate({ body: login }),
   async (req, res, next) => {
     try {
       sendSession(res, await authService.login(req.body))
@@ -69,7 +66,7 @@ router.post('/logout', async (req, res, next) => {
 
 router.post(
   '/accept-invite',
-  validate({ body: z.object({ token: z.string().min(1), name: z.string().trim().min(1), password }) }),
+  validate({ body: acceptInvite }),
   async (req, res, next) => {
     try {
       sendSession(res, await authService.acceptInvite(req.body))
@@ -81,7 +78,7 @@ router.post(
 
 router.post(
   '/forgot-password',
-  validate({ body: z.object({ email }) }),
+  validate({ body: forgotPassword }),
   async (req, res, next) => {
     try {
       await authService.forgotPassword(req.body.email)
@@ -94,7 +91,7 @@ router.post(
 
 router.post(
   '/reset-password',
-  validate({ body: z.object({ token: z.string().min(1), password }) }),
+  validate({ body: resetPassword }),
   async (req, res, next) => {
     try {
       await authService.resetPassword(req.body)

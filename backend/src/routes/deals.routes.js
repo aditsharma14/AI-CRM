@@ -1,28 +1,15 @@
 // Deal CRUD + move-stage + win/loss.
 import { Router } from 'express'
-import { z } from 'zod'
 import * as dealsService from '../services/dealsService.js'
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
 import { apiResponse, asyncHandler } from '../utils/http.js'
-import { paginationQuery, objectId, optionalObjectId } from '../utils/validators.js'
+import { paginationQuery } from '../utils/validators.js'
+import { idParam } from '../schemas/common.js'
+import { dealCreate, dealUpdate, dealMoveStage } from '../schemas/deals.js'
 
 const router = Router()
 router.use(auth)
-
-const idParam = z.object({ id: objectId })
-
-const dealCreate = z.object({
-  title: z.string().trim().min(1),
-  value: z.number().min(0),
-  currency: z.string().trim().optional(),
-  stageKey: z.string().trim().min(1),
-  probability: z.number().min(0).max(100).optional(),
-  companyId: optionalObjectId,
-  contactIds: z.array(objectId).optional(),
-  // Accepted from everyone; the ownership policy drops it for members.
-  ownerId: optionalObjectId,
-})
 
 router.get(
   '/',
@@ -53,7 +40,7 @@ router.post(
 router.patch(
   '/:id',
   requirePermission('crm', 'write'),
-  validate({ params: idParam, body: dealCreate.partial() }),
+  validate({ params: idParam, body: dealUpdate }),
   asyncHandler(async (req, res) => apiResponse(res, await dealsService.crud.update(req.user, req.params.id, req.body))),
 )
 
@@ -70,7 +57,7 @@ router.delete(
 router.patch(
   '/:id/move-stage',
   requirePermission('crm', 'write'),
-  validate({ params: idParam, body: z.object({ stageKey: z.string().trim().min(1), wonLostReason: z.string().trim().optional() }) }),
+  validate({ params: idParam, body: dealMoveStage }),
   asyncHandler(async (req, res) => {
     const { stageKey, wonLostReason } = req.body
     apiResponse(res, await dealsService.moveStage(req.user, req.params.id, stageKey, wonLostReason))
