@@ -5,6 +5,7 @@
   "main": "src/server.js",
   "scripts": {
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "typecheck": "node scripts/check-ts-optin.js && tsc --noEmit -p .",
     "dev": "node --watch src/server.js",
@@ -34,6 +35,8 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.6",
+    "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.6.0",
     "eslint-plugin-jsdoc": "^65.4.2",
     "globals": "^17.7.0",

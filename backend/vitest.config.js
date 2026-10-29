@@ -25,5 +25,12 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 30_000,
     hookTimeout: 120_000,
+    // `npm run test:coverage`. Scoped to the logic layers; routes are thin
+    // wiring exercised through these same HTTP tests.
+    coverage: {
+      provider: 'v8',
+      include: ['src/services/**', 'src/policies/**', 'src/utils/**'],
+      reporter: ['text', 'json-summary'],
+    },
   },
 })

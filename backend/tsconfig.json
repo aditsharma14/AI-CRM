@@ -20,5 +20,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src"]
+  // tests/ is included so typed test helpers (// @ts-check) are checked too;
+  // test files without the header stay unchecked.
+  "include": ["src", "tests"]
 }
