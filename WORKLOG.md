@@ -137,7 +137,7 @@ Each entry: **date · goal · changed · verified · next**. Rules for working i
 
 | Folder | tsc errors fixed | Notes |
 |---|---|---|
-| setup | – | `tsconfig.json`, `src/types` (AuthUser, ApiResponse&lt;T&gt;, …), `express.d.ts`, opt-in guard script, eslint-plugin-jsdoc, `.github/workflows/ci.yml` |
+| setup | – | `backend/tsconfig.json`, `src/types` (AuthUser, ApiResponse&lt;T&gt;, …), `express.d.ts`, opt-in guard script, eslint-plugin-jsdoc, `.github/workflows/ci.yml` |
 | `src/utils` | 29 | generic `apiResponse` / `paginate`; typed permission matrix |
 | `src/policies` | 13 | literal unions for resource, owner field and action |
 | `src/schemas` | – (new) | all 20+ route schemas moved verbatim; `idParam` 6 copies → 1; each exports a `z.infer` type |
