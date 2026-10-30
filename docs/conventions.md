@@ -76,3 +76,37 @@ The backend stays JavaScript and has no build step. [backend/tsconfig.json](../b
   it in [known-issues.md](known-issues.md). Whoever fixes it flips the test.
 - **Coverage.** `npm run test:coverage` (v8, over services, policies and utils; the empty `aiProxyService.js` is
   excluded until S2.2).
+
+## Frontend tests
+
+- **Shape.** Vitest + jsdom + Testing Library ([frontend/vitest.config.js](../frontend/vitest.config.js)). The network is
+  mocked with MSW at the HTTP layer, so the real axios instance and interceptors run. Tests sit next to the code
+  (`src/**/*.test.jsx`); shared helpers live in [frontend/tests/](../frontend/tests/).
+- **Helpers (all `// @ts-check`, typed JSDoc):**
+  - [server.js](../frontend/tests/server.js): the MSW server and envelope builders `ok`, `fail` and `page`, so every mock
+    returns the real `{ success, data, error, meta }` shape.
+  - [factories.js](../frontend/tests/factories.js): `makeUser(role)` (the session user) and `makeMember(role)` (an
+    `/org/members` row), with typedefs.
+  - [render.jsx](../frontend/tests/render.jsx): `renderWithProviders(ui, { session, route, strict })` wraps the real
+    QueryClient, router, `SessionProvider` and `ProtectedRoute`. The session is restored through a mocked
+    `POST /auth/refresh`, never a mocked context, so every test runs the real bootstrap.
+- **Unhandled requests fail the test** (`onUnhandledFrame: 'error'`). Mock every endpoint a component calls.
+- **Singletons are reset after each test** ([setup.js](../frontend/tests/setup.js)): access token, `onUnauthorized` and
+  the shared `queryClient`.
+- **Query by role and accessible name**, not CSS or test ids. If a control can't be found that way, give it a label;
+  that's an a11y fix, not a test hack.
+- **Mirrors get mirrored tests.** [constants.test.js](../frontend/src/lib/constants.test.js) follows the backend's
+  `membership.unit.test.js` case by case.
+- **Typecheck.** [frontend/tsconfig.json](../frontend/tsconfig.json) uses the same opt-in model as the backend. Checked
+  today: `tests/`, `e2e/`, `playwright.config.js` and `src/lib/constants.js`.
+
+## End-to-end (Playwright)
+
+- `npm run e2e` in `frontend/`. [playwright.config.js](../frontend/playwright.config.js) starts two servers and never reuses
+  existing ones:
+  - [backend/scripts/e2e-server.js](../backend/scripts/e2e-server.js): the API on :5055 against a fresh in-memory Mongo, with
+    fixed test secrets.
+  - Vite on :5175, proxied to that API via `VITE_PROXY_TARGET` (dev-server config only; the client still calls `/api/v1`).
+- Every run starts from an empty database. The spec registers its own org; there are no seeds or shared state.
+- **Windows:** Playwright stops its servers with `taskkill`, so `C:\Windows\System32` must be on `PATH`. Without it the run
+  passes and then hangs on teardown. Normal terminals already have it on `PATH`; some agent or Git Bash shells don't.

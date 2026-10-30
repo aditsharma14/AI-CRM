@@ -139,6 +139,7 @@ decides *which records*. It is enforced in services, never routes, and mirrored 
 - **Nobody acts on themselves:** changing your own role or removing yourself → 403.
 - **The owner is never a target:** 404. `owner` can't be assigned (400).
 - **Same pattern as ownership:** one role-scoped atomic write; on a miss, `memberMissOrForbidden` picks 404 or 403.
+  Invites follow `assertCanAssign` too. UI mirror: `manageableRoles` / `canManageMember` in [constants.js](frontend/src/lib/constants.js).
 
 ### Auth
 15m access JWT (`sub`, `orgId`, `role`) kept in memory only. 7d refresh token in an httpOnly
@@ -178,15 +179,14 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
 
 - **Seed data:** none. Register an org at `/register`, and you become its owner.
 - **Invite and reset links** are printed to the backend console (no email provider).
-- **Tests:** `npm test` in `backend/` (Vitest + supertest + mongodb-memory-server; the first run downloads a mongod binary,
-  about 70 MB) and `npm test` in `frontend/` (Vitest). Test env vars live in [backend/vitest.config.js](backend/vitest.config.js),
-  so no `.env` is needed. There are no AI tests yet.
-- **Coverage:** `npm run test:coverage` in `backend/`. As of 2026-10-30, `src/services` is at 97.5% lines,
-  79.5% branches and 100% functions. Test helpers and conventions are in [docs/conventions.md](docs/conventions.md).
-- **Lint:** `npm run lint` in both `frontend/` and `backend/`. Both pass.
-- **Typecheck:** `npm run typecheck` in `backend/` (JSDoc checked by `tsc`, no build step; see §7).
-- **CI:** [.github/workflows/ci.yml](.github/workflows/ci.yml) runs backend lint, typecheck and tests on every push and PR.
-  To make it block merges, a repo admin adds a branch protection rule for `main` with the `backend` check required.
+- **Tests:** `npm test` in `backend/` (Vitest + supertest + mongodb-memory-server; first run downloads a ~70 MB mongod) and in
+  `frontend/` (Vitest + Testing Library + MSW). No `.env` needed. **e2e:** `npm run e2e` in `frontend/` (Playwright; starts its
+  own API on in-memory Mongo + Vite on :5055/:5175; first time: `npx playwright install chromium`). No AI tests yet.
+- **Coverage:** `npm run test:coverage` in both. As of 2026-10-30: backend `src/services` 97.5% lines / 79.5% branches / 100% funcs;
+  frontend `src/api` + `src/context` 100% lines / 95.7% branches. Helpers and conventions: [docs/conventions.md](docs/conventions.md).
+- **Lint / typecheck:** `npm run lint` and `npm run typecheck` in both `frontend/` and `backend/` (JSDoc checked by `tsc`, §7). All pass.
+- **CI:** [.github/workflows/ci.yml](.github/workflows/ci.yml) runs `backend`, `frontend` and `e2e` jobs on every push and PR.
+  To make them block merges, a repo admin adds a branch protection rule for `main` requiring those checks.
 - **Docker caveat:** the `.env.example` values use `localhost`. Under Compose, set `MONGO_URI=mongodb://mongo:27017/nimbus-crm`,
   `AI_SERVICE_URL=http://ai:8000` and `CLIENT_ORIGIN=http://localhost:8080`. There is no `.dockerignore`, so local `.env`
   files and `node_modules` get copied into images.
@@ -209,14 +209,14 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
    owned resources get an `OWNER_FIELD` entry and matrix tests.
 5. **Never log secrets or tokens** (raw tokens, passwords, JWTs, API keys, cookies).
    *Known dev-only violations, to be removed once email exists:* [authService.js:200](backend/src/services/authService.js#L200)
-   (reset token) and [orgAdminService.js:80](backend/src/services/orgAdminService.js#L80) (invite token). Do not add more.
+   (reset token) and [orgAdminService.js:83](backend/src/services/orgAdminService.js#L83) (invite token). Do not add more.
 6. CRM mutations go through `activityService.logActivity` (the CRUD factory does this when given `activityLabel`).
 7. Keep the envelope: throw `AppError` helpers and never hand-build error JSON or call `res.json` in routes.
 8. Style: ESM, 2-space indent, no semicolons, single quotes, a one-line purpose comment at the top of each file, comments that explain *why*.
 9. **Types are JSDoc checked by `tsc` under `strict`.** No build step and no `any`. Files in `src/types`, `utils`,
    `policies`, `schemas`, `models` and `services` must start with `// @ts-check`; routes, middleware and config aren't checked yet.
    Request types come from Zod via `z.infer`. Patterns, escape hatches and the migration steps are in
-   [docs/conventions.md](docs/conventions.md).
+   [docs/conventions.md](docs/conventions.md). The frontend opts in per file (test helpers, `constants.js`); same rules.
 
 ## 8. Workflow rules for Claude
 

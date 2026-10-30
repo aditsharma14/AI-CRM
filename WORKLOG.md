@@ -284,3 +284,60 @@ Each entry: **date · goal · changed · verified · next**. Rules for working i
 **Next**
 - The list-filter stripping bug (`docs/known-issues.md`) is the most user-visible open bug.
 - Branch coverage is still lowest in `activityService.labelFor` and `dealsService`'s won/lost paths.
+
+## 2026-10-30 · S1.3: Frontend tests + one end-to-end test
+
+**Goal:**
+- Component tests for the session plumbing and permission-gated UI.
+- One Playwright flow covering the core sales loop.
+- Member-management UI that matches the S1.1b backend rules, with a visible error when the API refuses a change.
+- `// @ts-check` test helpers.
+
+**Bugs found, each fixed test-first**
+1. **Backend:** an admin could still mint admins by inviting with `role: 'admin'`. `inviteMember` now takes `actor` and calls `assertCanAssign` (403).
+2. **Settings → Members:** role and remove controls appeared on your own row and, for admins, on peer admins, with "Admin" offered as a role.
+3. **Silent failures:** a 403 on role change or remove showed nothing. There was no shared error display at all.
+
+**Changed** (branch `test/s1.3-frontend`, cut from `fix/s1.1b-suspects`)
+- **Tooling:**
+  - Vitest + jsdom + Testing Library + user-event + MSW, with v8 coverage over `src/api` and `src/context`.
+  - `tsconfig.json` and `npm run typecheck` (opt-in `// @ts-check`, as in the backend).
+  - Playwright.
+  - CI now runs `frontend` and `e2e` jobs.
+- **Typed helpers** in `frontend/tests/`: an MSW server with envelope builders, role factories, and `renderWithProviders`. The helper restores the session through a mocked refresh behind the real `ProtectedRoute`.
+- **`constants.js`** is now `// @ts-check` and mirrors `membership.js` (`manageableRoles`, `canManageMember`). `hasPermission` uses `Object.hasOwn`, so keys like `constructor` can't match.
+- **New `components/ErrorAlert.jsx`** (`role="alert"`) and `apiErrorMessage()`, used by the Members tab, AuthPages and the password form.
+- **a11y fixes the tests needed:**
+  - linked labels on the lead and deal forms;
+  - accessible names on the role selects and on the remove and delete icons;
+  - `StatCard` is a named group.
+- **e2e infrastructure:**
+  - `backend/scripts/e2e-server.js` runs the API on in-memory Mongo.
+  - `vite.config.js` reads `VITE_PROXY_TARGET`, which affects dev-server config only.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Invite fix, red first | `expected 201 to be 403`, then green |
+| Members tab, red first | admin view (own and peer-admin rows) and all three 403-display tests failed; green after |
+| Mutation: `refreshPromise ??=` → `=` | single-refresh test fails, `expected 3 to be 1`; reverted |
+| Mutation: drop the `hasBootstrapped` guard | both StrictMode restore tests fail, `expected 2 to be 1`; reverted |
+| Frontend `npm test` | **73 passed** in 6 files (was 8 in 1) |
+| Backend `npm test` | **238 passed** in 12 files |
+| `npm run e2e` | passed twice in a row (3.2s each) |
+| Lint and typecheck, both packages | clean |
+
+**Coverage, frontend**
+
+| File | Lines | Branches | Functions |
+|---|---|---|---|
+| src/api/client.js | 100% | 100% | 87.5% (the no-op default `onUnauthorized`) |
+| src/context/SessionContext.jsx | 100% | 91.7% | 100% |
+
+**Gotcha:** on Windows, Playwright stops its web servers with `taskkill`. In a shell without `C:\Windows\System32` on `PATH` (this agent's Git Bash), the run passes and then hangs on teardown. This is documented in `docs/conventions.md`.
+
+**Next**
+- Mutation error UI everywhere else (S1.4 found it missing). Leads and Pipeline `mutateAsync` failures are still unhandled rejections.
+- The list-filter stripping bug is still the most user-visible open bug.
+- Opt more frontend files into `// @ts-check`, one folder at a time.
