@@ -197,12 +197,11 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
    [backend/src/schemas/](backend/src/schemas/) (never defined inline in routes) built from fragments in
    [validators.js](backend/src/utils/validators.js). Forms use React Hook Form + `zodResolver` (exceptions: `NotesPanel`,
    the Settings team and stage editors). AI I/O uses Pydantic in `AI/app/schemas.py`, and Express re-validates AI responses.
-   **`validate({ query })` strips unknown keys**, so any list filter must be declared in the route's query schema.
-   Optional text fields must treat `''` as omitted (use the `optional*` helpers).
+   **List queries are strict:** build them with `listQuery(spec)` from one per-resource spec (e.g. `leadList` in
+   [schemas/leads.js](backend/src/schemas/leads.js)) that the service also uses. Unknown or invalid params are 400, never
+   ignored. Optional text fields must treat `''` as omitted (use the `optional*` helpers).
 2. **routes → services → models.** Routes do permission → validation → one service call → `apiResponse`. Queries,
    side effects, audit logs and notifications live in `services/`, which take plain values and never `req`/`res`.
-   *Legacy exception to move into a service when next touched:*
-   [notifications.routes.js](backend/src/routes/notifications.routes.js).
 3. **Tests with every change.** New or changed behaviour ships with tests in the same change. Write the failing test first.
    Backend tests go through `app` with supertest (see [helpers.js](backend/tests/helpers.js)); AI tests, when they come, use pytest.
 4. **Never bypass `orgId` or the ownership policy** (§4, §5). New tenant models get a required, indexed `orgId`; new

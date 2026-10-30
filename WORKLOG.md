@@ -341,3 +341,72 @@ Each entry: **date · goal · changed · verified · next**. Rules for working i
 - Mutation error UI everywhere else (S1.4 found it missing). Leads and Pipeline `mutateAsync` failures are still unhandled rejections.
 - The list-filter stripping bug is still the most user-visible open bug.
 - Opt more frontend files into `// @ts-check`, one folder at a time.
+
+## 2026-10-30 · S1.3b: Fix the three user-visible bugs found in S1.3
+
+**Goal:** fix at the root, test-first:
+- list filters that did nothing;
+- failed saves that showed nothing;
+- pipeline stages hardcoded on the frontend.
+
+All three are now in the Resolved table in `docs/known-issues.md`.
+
+**Changed** (branch `fix/s1.3b-user-visible-bugs`, cut from `test/s1.3-frontend`)
+
+| Commit | What |
+|---|---|
+| `3358e02` | **Backend:** strict per-resource `listQuery()` specs; unknown or invalid filters are 400. Notifications handlers move into `notificationsService` and honour `?read=`. `validate()` names the field in each message. |
+| `5e8bb0b` | Frontend contract tests: the Leads status and search params, and NotesPanel's `entityType`/`entityId`. |
+| `de76502` | `useMutationError` + `ErrorAlert` on Leads and Pipeline. `apiErrorMessage` is status-aware. A partial Pipeline save resyncs, and a retry doesn't move the stage again. |
+| `594d2c5` | `usePipelineStages()`: the org's stages, in order, in Pipeline and the Dashboard funnel. `PIPELINE_STAGE_DEFAULTS` removed. |
+| `ce5ed7f` | An unhandled MSW request now fails the test. Before, 7 tests ran with a missing handler and stayed green. |
+
+### Interview angle (STAR): "Tell me about a bug where the system failed silently"
+
+- **Situation:**
+  - On Leads, picking "qualified" in the status filter changed nothing: every lead still showed.
+  - Every lead's or deal's Notes panel showed **every note in the org**, not just that record's.
+  - The same happened for every list filter on six resources (leads, deals, contacts, companies, notes, notifications).
+  - Nothing errored anywhere, so nobody had noticed.
+- **Task:** find the layer that lost the filters, fix it once for all six resources, and make bad input impossible to ignore.
+- **Action:**
+  - Traced the request through the UI, the axios client, the route, the Zod schema and `buildListQuery`. The UI sent the right params, and the services already declared `filterableFields`.
+  - The root cause was the **validation layer**. Every list route used one shared `paginationQuery`, a non-strict `z.object`, which **strips unknown keys**. The filters were deleted before the service ran.
+  - Replaced it with `listQuery(spec)`. Each resource has one spec (allowlisted filters, sort fields, search, date range) that builds a `.strict()` schema and also feeds the service's filterable and sortable fields, so the two can't drift again.
+  - Filter values are typed scalars, so `status[$ne]=x`, repeated keys and objects can't reach Mongo.
+- **Result:**
+  - Filters work on all six resources.
+  - Unknown keys, bad values, operators, repeated keys, bad sorts and `?q=` where there is no search all return **400 `VALIDATION_ERROR` naming the field**.
+  - **58 tests prove it:** 55 backend (54 red before the fix) and 3 frontend contract tests.
+  - Mutation check: removing `.strict()` turns 15 of them red.
+
+**Why a silent ignore is worse than a 400:**
+- An ignored filter returns a *plausible wrong answer*: all leads instead of qualified ones, every note instead of one record's. Users act on it, and nothing in logs or monitoring notices.
+- A 400 fails loudly at the first request: in a test, in development, or in the client's error handling.
+- An ignored filter defaults to the widest result. Here that stayed inside the org (`orgId` scoping held, and members may read
+  every note), but on a resource with tighter read rules the same pattern would be a data-exposure bug.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Filters, red first | 54 of 55 backend tests red (filter returned all rows; unknown key returned 200) |
+| Failed saves, red first | 24 red plus 15 unhandled rejections (Leads 14, Pipeline 10) |
+| Stages, red first | 4 red (6 hardcoded stages where the org has 5 custom ones) |
+| Mutation: drop `.strict()` | 15 filter tests fail |
+| Mutation: drop `useMoveStage`'s refetch | partial-failure test fails |
+| Mutation: drop the retry guard | `expected 2 to be 1` (stage moved twice) |
+| Mutation: drop the stage select's remount key | slow-stages test fails (Save would move the deal to the first stage) |
+| Backend `npm test` | **293 passed** in 13 files (was 238) |
+| Frontend `npm test` | **107 passed** in 10 files (was 73) |
+| `npm run e2e` | passed |
+| Lint and typecheck, both packages | clean |
+
+**Found along the way**
+- I first added an extra list refetch after a failed Pipeline save. A mutation check showed it was redundant: the move's own `onSuccess` already refetches. Removed.
+- S1.3's claim that unhandled requests fail the test was wrong (see `ce5ed7f`). The docs are corrected.
+
+**Next**
+- Error UI for the remaining forms (Contacts, Companies, Tasks, Calendar, Notes, Settings): S1.7 extends `useMutationError`.
+- `stageKey` on deal create and update is still not checked against the org's stages (`docs/known-issues.md`).
+- The Kanban board (S2.7) is where optimistic stage moves, with rollback, belong.

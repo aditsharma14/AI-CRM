@@ -3,17 +3,9 @@
 Everything known to be wrong, missing or unverified that isn't a top-level gap in [CLAUDE.md](../CLAUDE.md) §9,
 plus a record of what has been resolved. Newest resolutions first.
 
-## Open findings (verified 2026-10-29)
-- **List filters are silently dropped.**
-  - `paginationQuery` in [validators.js](../backend/src/utils/validators.js) strips `status`, `entityType`,
-    `entityId` and similar keys.
-  - As a result, [NotesPanel.jsx](../frontend/src/features/notes/NotesPanel.jsx) shows **every note in the org**, and
-    the status filter in [LeadsPage.jsx](../frontend/src/features/leads/LeadsPage.jsx) is ignored.
-  - Affects leads, deals, contacts, companies, notes and notifications. Activities is fine: it has its own
-    `activityListQuery`.
-- **Pipeline stages are hardcoded on the frontend.** [PipelinePage.jsx](../frontend/src/features/deals/PipelinePage.jsx)
-  and [DashboardPage.jsx](../frontend/src/features/dashboard/DashboardPage.jsx) use `PIPELINE_STAGE_DEFAULTS`, not
-  the org's configured stages.
+## Open findings (verified 2026-10-29, updated 2026-10-30)
+- **Other mutations still have no error UI.** Leads and Pipeline now use `useMutationError` + `ErrorAlert` (S1.3b), but
+  Contacts, Companies, Tasks, Calendar, Notes and most Settings forms still fail silently. S1.7 extends the hook.
 - **`stageKey` is only validated by `move-stage`.** `POST` and `PATCH` in
   [deals.routes.js](../backend/src/routes/deals.routes.js) accept any string, and
   [dealsService.js](../backend/src/services/dealsService.js) hardcodes the `won`/`lost` keys.
@@ -33,6 +25,10 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-10-30 | **List filters were silently dropped** for leads, deals, contacts, companies, notes and notifications: the shared non-strict `paginationQuery` stripped every filter key before the service saw it, so the Leads status filter did nothing and NotesPanel listed every note in the org | strict per-resource `listQuery()` specs; unknown keys, bad values, `$` operators, repeated keys and bad sorts are 400 (`3358e02`, UI contract `5e8bb0b`) |
+| 2026-10-30 | **Failed saves on Leads and Pipeline showed nothing** (unhandled rejections from `mutateAsync`; convert and delete had no error UI) | `useMutationError` + `ErrorAlert`, status-aware messages, a resync and a no-double-move retry after a partial Pipeline save (`de76502`) |
+| 2026-10-30 | **Pipeline stages were hardcoded on the frontend** (`PIPELINE_STAGE_DEFAULTS` in Pipeline and Dashboard, not the org's stages) | `usePipelineStages()` reads the org's stages in `order`; the defaults now live only in the backend (`594d2c5`) |
+| 2026-10-30 | An unhandled MSW request only logged (and Vitest hides passing tests' logs), so 7 tests ran without a handler and stayed green | unhandled requests now fail the test in [setup.js](../frontend/tests/setup.js) (`ce5ed7f`) |
 | 2026-10-30 | An admin could still grant admin by inviting someone with `role: 'admin'` | `inviteMember` applies `assertCanAssign` (`17fe71b`) |
 | 2026-10-30 | Settings → Members offered role/remove controls on your own row and, to admins, on peer admins (with "Admin" as an option) | UI mirror `canManageMember` / `manageableRoles` in [constants.js](../frontend/src/lib/constants.js) (`fbc81b1`) |
 | 2026-10-30 | A refused (403) role change or removal failed silently in the UI | shared [ErrorAlert.jsx](../frontend/src/components/ErrorAlert.jsx) (`fbc81b1`) |

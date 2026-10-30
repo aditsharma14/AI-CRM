@@ -90,7 +90,11 @@ The backend stays JavaScript and has no build step. [backend/tsconfig.json](../b
   - [render.jsx](../frontend/tests/render.jsx): `renderWithProviders(ui, { session, route, strict })` wraps the real
     QueryClient, router, `SessionProvider` and `ProtectedRoute`. The session is restored through a mocked
     `POST /auth/refresh`, never a mocked context, so every test runs the real bootstrap.
-- **Unhandled requests fail the test** (`onUnhandledFrame: 'error'`). Mock every endpoint a component calls.
+- **Unhandled requests fail the test.** [setup.js](../frontend/tests/setup.js) collects them and throws in `afterEach`.
+  MSW's plain `'error'` mode isn't enough: it only logs, and Vitest hides the logs of passing tests. Mock every
+  endpoint a component calls, including the ones it reads in the background (e.g. Pipeline reads `/org/pipeline-stages`).
+- **Failed mutations:** test 400, 403 and 500 with `fail()`. The user must see a specific message in `role="alert"`, and
+  nothing unsaved may appear as saved. See the `*.errors.test.jsx` files.
 - **Singletons are reset after each test** ([setup.js](../frontend/tests/setup.js)): access token, `onUnauthorized` and
   the shared `queryClient`.
 - **Query by role and accessible name**, not CSS or test ids. If a control can't be found that way, give it a label;
