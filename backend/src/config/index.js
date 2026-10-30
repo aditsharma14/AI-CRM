@@ -25,6 +25,8 @@ export const env = {
   aiServiceUrl: process.env.AI_SERVICE_URL,
   rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000,
   rateLimitMax: Number(process.env.RATE_LIMIT_MAX) || 100,
+  // Silent under the test runner: the role matrix makes hundreds of requests per file.
+  logLevel: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'test' ? 'silent' : 'info'),
 }
 
 export async function connectDB() {

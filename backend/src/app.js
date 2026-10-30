@@ -19,11 +19,12 @@ import orgAdminRoutes from './routes/orgAdmin.routes.js'
 
 const app = express()
 
+// First, so every request gets an id and a log line, even one that fails in body parsing.
+app.use(requestLogger)
 app.use(helmet())
 app.use(cors({ origin: env.clientOrigin, credentials: true }))
 app.use(express.json())
 app.use(cookieParser())
-app.use(requestLogger)
 app.use('/api', apiRateLimiter)
 
 app.get('/health', (req, res) => res.json({ success: true, data: { status: 'ok' } }))

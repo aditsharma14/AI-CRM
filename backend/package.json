@@ -8,7 +8,7 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "node scripts/check-ts-optin.js && tsc --noEmit -p .",
-    "dev": "node --watch src/server.js",
+    "dev": "node --watch src/server.js | pino-pretty",
     "start": "node src/server.js"
   },
   "keywords": [],
@@ -26,8 +26,9 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.3",
-    "morgan": "^1.11.0",
     "multer": "^2.2.0",
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -43,6 +44,7 @@
     "eslint-plugin-simple-import-sort": "14.0.0",
     "globals": "^17.7.0",
     "mongodb-memory-server": "^11.3.0",
+    "pino-pretty": "^13.2.0",
     "supertest": "^7.3.1",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5"

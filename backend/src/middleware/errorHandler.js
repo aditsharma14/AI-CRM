@@ -1,4 +1,5 @@
 // The only place that writes an error response: maps every error to the envelope's error branch.
+import { logger } from '../config/logger.js'
 import { AppError, notFound, zodIssuesMessage } from '../utils/http.js'
 
 /** Sends `{ success: false, data: null, error: { code, message }, meta: null }`. */
@@ -25,7 +26,8 @@ export function errorHandler(err, req, res, _next) {
   // Unique index violation.
   if (err.code === 11000) return sendError(res, 409, 'DUPLICATE_KEY', 'A record with that value already exists.')
 
-  // Anything else is a bug: log it, and never send its details.
-  console.error(err)
+  // Anything else is a bug: log it with the request id, and never send its details.
+  const log = req.log ?? logger
+  log.error({ err }, 'unhandled error')
   return sendError(res, 500, 'INTERNAL_ERROR', 'Something went wrong. Please try again.')
 }

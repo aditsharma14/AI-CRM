@@ -1,15 +1,16 @@
 // Connects to MongoDB, then starts the HTTP listener.
 import app from './app.js'
 import { connectDB, env } from './config/index.js'
+import { logger } from './config/logger.js'
 
 try {
   await connectDB()
-  console.log('[server] MongoDB connected')
+  logger.info('MongoDB connected')
 
   app.listen(env.port, () => {
-    console.log(`[server] listening on port ${env.port} (${env.nodeEnv})`)
+    logger.info({ port: env.port, nodeEnv: env.nodeEnv }, 'listening')
   })
 } catch (err) {
-  console.error('[server] failed to start:', err.message)
+  logger.fatal({ err }, 'failed to start')
   process.exit(1)
 }
