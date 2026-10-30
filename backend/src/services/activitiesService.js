@@ -2,7 +2,7 @@
 // Tasks and calendar events: listing by type/date, scoped writes, the done/open toggle.
 import Activity from '../models/Activity.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
-import { logActivity } from './activityService.js'
+import { logActivity } from './activityLogService.js'
 import { createCrudService } from './crudService.js'
 
 /** @typedef {import('../types/index.js').AuthUser} AuthUser */

@@ -4,7 +4,7 @@ import User from '../models/User.js'
 import { canReassign, missOrForbidden, ownerField, sanitizeWrite, scopeFor } from '../policies/ownership.js'
 import { badRequest, notFound } from '../utils/http.js'
 import { buildListQuery, paginate } from '../utils/queryBuilder.js'
-import { labelFor, logActivity } from './activityService.js'
+import { labelFor, logActivity } from './activityLogService.js'
 
 /** @typedef {import('../types/index.js').AuthUser} AuthUser */
 /** @typedef {import('../types/index.js').ListQuery} ListQuery */
@@ -42,7 +42,7 @@ export function createCrudService(Model, options) {
    * @param {AuthUser} actor
    * @param {'create' | 'update' | 'delete'} action
    * @param {import('mongoose').HydratedDocument<T>} doc
-   * @param {import('./activityService.js').WriteOptions} [options]
+   * @param {import('./activityLogService.js').WriteOptions} [options]
    * @returns {Promise<void> | undefined}
    */
   const log = (actor, action, doc, { session } = {}) => {
@@ -52,7 +52,7 @@ export function createCrudService(Model, options) {
         orgId: actor.orgId,
         userId: actor.id,
         action,
-        entityType: /** @type {import('./activityService.js').LoggedEntity} */ (activityLabel.toLowerCase()),
+        entityType: /** @type {import('./activityLogService.js').LoggedEntity} */ (activityLabel.toLowerCase()),
         // Boundary cast: with T generic, Mongoose can't resolve _id's type, but
         // every model in this app uses the default ObjectId _id.
         entityId: /** @type {import('mongoose').Types.ObjectId} */ (doc._id),
@@ -105,7 +105,7 @@ export function createCrudService(Model, options) {
     /**
      * @param {AuthUser} actor
      * @param {Record<string, unknown>} body A validated create body (see src/schemas).
-     * @param {import('./activityService.js').WriteOptions} [options] Pass a session to create inside a transaction.
+     * @param {import('./activityLogService.js').WriteOptions} [options] Pass a session to create inside a transaction.
      * @returns {Promise<import('mongoose').HydratedDocument<T>>}
      * @throws {import('../utils/http.js').AppError} 400 INVALID_OWNER
      */

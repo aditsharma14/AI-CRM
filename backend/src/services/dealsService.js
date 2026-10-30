@@ -5,7 +5,7 @@ import Organization from '../models/Organization.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
 import { dealList } from '../schemas/deals.js'
 import { badRequest, notFound } from '../utils/http.js'
-import { logActivity, notify } from './activityService.js'
+import { logActivity, notify } from './activityLogService.js'
 import { createCrudService } from './crudService.js'
 
 export const crud = createCrudService(Deal, {
@@ -55,7 +55,7 @@ function stageIn(stages, stageKey) {
  * these rules and close-on-create can't be skipped.
  * @param {AuthUser} actor
  * @param {import('../schemas/deals.js').DealCreateInput & { convertedFromLeadId?: unknown }} body
- * @param {import('./activityService.js').WriteOptions} [options] Pass a session to create inside a transaction.
+ * @param {import('./activityLogService.js').WriteOptions} [options] Pass a session to create inside a transaction.
  * @returns {Promise<import('mongoose').HydratedDocument<import('../models/Deal.js').DealRecord>>}
  * @throws {import('../utils/http.js').AppError} 400 VALIDATION_ERROR, 400 INVALID_OWNER, 404
  */

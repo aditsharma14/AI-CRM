@@ -4,7 +4,7 @@ import { Lead } from '../models/CRM.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
 import { leadList } from '../schemas/leads.js'
 import { badRequest } from '../utils/http.js'
-import { logActivity, notify } from './activityService.js'
+import { logActivity, notify } from './activityLogService.js'
 import { createCrudService } from './crudService.js'
 import * as dealsService from './dealsService.js'
 

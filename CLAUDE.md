@@ -31,7 +31,7 @@ Read this before changing anything. Overview: [readme.md](readme.md). History: [
 | [backend/src/config/](backend/src/config/) | Env loading, fail-fast check of required vars, `connectDB()`, Cloudinary config |
 | [backend/src/middleware/](backend/src/middleware/) | `auth` (JWT → `req.user`), `guards` (`requirePermission`, `validate`), `errorHandler`, `observability` |
 | [backend/src/routes/](backend/src/routes/) | HTTP wiring: permission → validation → service → `apiResponse` |
-| [backend/src/services/](backend/src/services/) | Business logic. `crudService` factory, `activityService` (sole writer of audit log + notifications) |
+| [backend/src/services/](backend/src/services/) | Business logic. `crudService` factory, `activityLogService` (sole writer of audit log + notifications) |
 | [backend/src/policies/](backend/src/policies/) | `ownership.js` (which records) and `membership.js` (which members), §5. Pure rules + a 403/404 helper each |
 | [backend/tests/](backend/tests/) | Vitest + supertest + in-memory Mongo. `helpers.js` seeds orgs/records; `factories.js` (typed) does auth fixtures |
 | [backend/src/models/](backend/src/models/) | Mongoose schemas. `Organization` is the tenant root; `CRM.js` = Lead/Contact/Company; `Logs.js` = audit + notification |
@@ -213,7 +213,7 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
 5. **Never log secrets or tokens** (raw tokens, passwords, JWTs, API keys, cookies).
    *Known dev-only violations, to be removed once email exists:* [authService.js:200](backend/src/services/authService.js#L200)
    (reset token) and [orgAdminService.js:83](backend/src/services/orgAdminService.js#L83) (invite token). Do not add more.
-6. CRM mutations go through `activityService.logActivity` (the CRUD factory does this when given `activityLabel`).
+6. CRM mutations go through `activityLogService.logActivity` (the CRUD factory does this when given `activityLabel`).
 7. Keep the envelope: throw `AppError` helpers and never hand-build error JSON or call `res.json` in routes.
 8. Style: ESM, 2-space indent, no semicolons, single quotes, a one-line purpose comment at the top of each file, comments that explain *why*.
 9. **Types are JSDoc checked by `tsc` under `strict`.** No build step and no `any`. Files in `src/types`, `utils`,
