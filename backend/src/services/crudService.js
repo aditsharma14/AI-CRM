@@ -42,11 +42,13 @@ export function createCrudService(Model, options) {
    * @param {AuthUser} actor
    * @param {'create' | 'update' | 'delete'} action
    * @param {import('mongoose').HydratedDocument<T>} doc
+   * @param {import('./activityService.js').WriteOptions} [options]
    * @returns {Promise<void> | undefined}
    */
-  const log = (actor, action, doc) => {
+  const log = (actor, action, doc, { session } = {}) => {
     if (!activityLabel) return
-    return logActivity({
+    return logActivity(
+      {
       orgId: actor.orgId,
       userId: actor.id,
       action,
@@ -55,7 +57,9 @@ export function createCrudService(Model, options) {
       // every model in this app uses the default ObjectId _id.
       entityId: /** @type {import('mongoose').Types.ObjectId} */ (doc._id),
       message: `${action === 'create' ? 'Created' : action === 'update' ? 'Updated' : 'Deleted'} ${activityLabel.toLowerCase()} "${labelFor(doc)}"`,
-    })
+      },
+      { session },
+    )
   }
 
   // Reassignment may only point at someone in the caller's own org — an id
@@ -101,17 +105,25 @@ export function createCrudService(Model, options) {
     /**
      * @param {AuthUser} actor
      * @param {Record<string, unknown>} body A validated create body (see src/schemas).
+     * @param {import('./activityService.js').WriteOptions} [options] Pass a session to create inside a transaction.
      * @returns {Promise<import('mongoose').HydratedDocument<T>>}
      * @throws {import('../utils/http.js').AppError} 400 INVALID_OWNER
      */
-    async create(actor, body) {
+    async create(actor, body, { session } = {}) {
       const clean = sanitizeWrite(actor, resource, body, { isCreate: true })
       await assertOwnerInOrg(actor, clean)
       // orgId last, so nothing in the body can ever override it.
       // Boundary cast: `clean` was validated by the resource's Zod schema and
       // sanitised by the policy, but tsc can't relate that to the generic T.
-      const doc = await Model.create(/** @type {Partial<T>} */ (/** @type {unknown} */ ({ ...clean, orgId: actor.orgId })))
-      await log(actor, 'create', doc)
+      const created = /** @type {import('mongoose').DeepPartial<import('mongoose').ApplyBasicCreateCasting<import('mongoose').Require_id<T>>>} */ (
+        /** @type {unknown} */ ({ ...clean, orgId: actor.orgId })
+      )
+      // Array form: it's the only way Model.create takes a session.
+      const [first] = await Model.create([created], { session })
+      // Boundary cast: create([one doc]) resolves to exactly one document, but tsc only
+      // sees the array overload's loosely typed, possibly-undefined element.
+      const doc = /** @type {import('mongoose').HydratedDocument<T>} */ (first)
+      await log(actor, 'create', doc, { session })
       return doc
     },
 

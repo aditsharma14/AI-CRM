@@ -50,19 +50,22 @@ function stageIn(stages, stageKey) {
 /**
  * A new deal goes in the requested stage, which must be one of the org's,
  * or else the org's first stage (lowest `order`), never a hardcoded key.
+ * Also the only way any code creates a deal (lead conversion included), so
+ * these rules and close-on-create can't be skipped.
  * @param {AuthUser} actor
- * @param {import('../schemas/deals.js').DealCreateInput} body
+ * @param {import('../schemas/deals.js').DealCreateInput & { convertedFromLeadId?: unknown }} body
+ * @param {import('./activityService.js').WriteOptions} [options] Pass a session to create inside a transaction.
  * @returns {Promise<import('mongoose').HydratedDocument<import('../models/Deal.js').DealRecord>>}
  * @throws {import('../utils/http.js').AppError} 400 VALIDATION_ERROR, 400 INVALID_OWNER, 404
  */
-export async function create(actor, body) {
+export async function create(actor, body, { session } = {}) {
   const stages = await stagesOf(actor.orgId)
   const first = [...stages].sort((a, b) => a.order - b.order)[0]
   const stageKey = body.stageKey ?? first?.key
   if (!stageKey) throw badRequest('stageKey: this organization has no pipeline stages.', 'VALIDATION_ERROR')
   const toStage = stageIn(stages, stageKey)
-  const deal = await crud.create(actor, { ...body, stageKey })
-  await applyStageTransition(deal, null, toStage, actor)
+  const deal = await crud.create(actor, { ...body, stageKey }, { session })
+  await applyStageTransition(deal, null, toStage, actor, { session })
   return deal
 }
 
@@ -117,10 +120,11 @@ const CLOSING_KEYS = ['won', 'lost']
  * @param {string | null} fromKey The stage it left, or null when the deal is being created.
  * @param {Stage} toStage One of the org's stages (already checked by stageIn).
  * @param {AuthUser} actor
- * @param {{ wonLostReason?: string }} [options] Kept only when closing.
+ * @param {{ wonLostReason?: string, session?: import('mongoose').ClientSession }} [options] The reason is kept only
+ *   when closing; with a session, every write here joins that transaction.
  * @returns {Promise<void>}
  */
-async function applyStageTransition(deal, fromKey, toStage, actor, { wonLostReason } = {}) {
+async function applyStageTransition(deal, fromKey, toStage, actor, { wonLostReason, session } = {}) {
   const closing = CLOSING_KEYS.includes(toStage.key)
   const isCreate = fromKey === null
 
@@ -135,28 +139,34 @@ async function applyStageTransition(deal, fromKey, toStage, actor, { wonLostReas
     deal.closedAt = undefined
   }
   // A deal created in an open stage is already in that state: no second write.
-  if (deal.isModified()) await deal.save()
+  if (deal.isModified()) await deal.save({ session })
 
   // Every move is logged. A creation is already logged by the CRUD factory,
   // so only a creation that closes the deal gets an entry of its own.
   if (!isCreate || closing) {
-    await logActivity({
-      orgId: actor.orgId,
-      userId: actor.id,
-      action: isCreate ? 'close' : 'move-stage',
-      entityType: 'deal',
-      entityId: deal._id,
-      message: isCreate ? `Created deal "${deal.title}" in ${toStage.label}` : `Moved deal "${deal.title}" to ${toStage.label}`,
-    })
+    await logActivity(
+      {
+        orgId: actor.orgId,
+        userId: actor.id,
+        action: isCreate ? 'close' : 'move-stage',
+        entityType: 'deal',
+        entityId: deal._id,
+        message: isCreate ? `Created deal "${deal.title}" in ${toStage.label}` : `Moved deal "${deal.title}" to ${toStage.label}`,
+      },
+      { session },
+    )
   }
 
   if (closing) {
-    await notify({
-      orgId: actor.orgId,
-      userId: deal.ownerId,
-      entityType: 'deal',
-      entityId: deal._id,
-      message: `Deal "${deal.title}" was marked ${toStage.key}.`,
-    })
+    await notify(
+      {
+        orgId: actor.orgId,
+        userId: deal.ownerId,
+        entityType: 'deal',
+        entityId: deal._id,
+        message: `Deal "${deal.title}" was marked ${toStage.key}.`,
+      },
+      { session },
+    )
   }
 }
