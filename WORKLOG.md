@@ -450,3 +450,34 @@ All three are now in the Resolved table in `docs/known-issues.md`.
 - **new:** creating a deal directly in `won`/`lost` skips the close (status, `closedAt`, log, notification). Found here, not fixed: it's outside this brief.
 
 **Next:** decide whether `create` should route a won/lost start stage through the close logic, or refuse it.
+
+## 2026-10-30 · S1.3d: Close logic on create
+
+**Goal (your decision):** creating a deal in a closing stage (`won` or `lost`) runs the same close logic as move-stage. That logic now lives in exactly one helper.
+
+**Base branch:** the brief said `main`, but `main` (`daf65ec`) has none of the S1.x stack. You chose to stack on `fix/s1.3c-stagekey` instead, so the branch is `fix/s1.3d-close-on-create` from `2c1f2c8`.
+
+**Changed** (commit `b0cdd6a`)
+- **`applyStageTransition(deal, fromKey, toStage, actor, { wonLostReason })` in `dealsService`.** It is the only code that sets `status`/`closedAt`, writes the stage audit entry and sends the won/lost notification. `moveStage` and `create` both call it.
+- **Logging rule:**
+  - A move logs `move-stage` (unchanged).
+  - A creation is already logged by the CRUD factory (`create`), so only a creation that *closes* the deal adds a `close` entry. A creation in an open stage adds nothing.
+  - So "one activity log entry" in the brief is read as one close entry, alongside the usual create entry.
+- **Closing keys:** `won`/`lost` stay hardcoded, now named `CLOSING_KEYS` (open for S2.7).
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Create in won/lost, red first | 3 red (`expected 'open' to be 'won'`, likewise for `lost` and the custom org) |
+| Create in an open stage | `['create']` only; no `closedAt`, no notification |
+| move-stage characterization (new) | close with the reason kept, one `move-stage` entry, one notification to the owner; reopen clears `closedAt`. Passed before and after the extraction. |
+| Mutation: log every creation | open-stage test fails (`['create', 'close']`) |
+| Backend `npm test` | **311 passed** in 14 files |
+| Frontend `npm test` | **109 passed** |
+| `npm run e2e` | passed |
+| Lint and typecheck, both packages | clean |
+
+**Found, not fixed:** `POST /leads/:id/convert` accepts any `stageKey` and calls `Deal.create` directly, so it skips both the org-stage check (S1.3c) and the close logic (S1.3d). The UI never sends a stage on convert. This is now in `docs/known-issues.md`.
+
+**Next:** route conversion through `dealsService.create` (or the same two checks), and keep it logging `convert`.
