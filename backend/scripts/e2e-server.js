@@ -11,9 +11,7 @@ Object.assign(process.env, {
   PORT: process.env.E2E_API_PORT ?? '5055',
   MONGO_URI: mongod.getUri('nimbus-e2e'),
   JWT_ACCESS_SECRET: 'e2e-access-secret',
-  JWT_REFRESH_SECRET: 'e2e-refresh-secret',
   CLIENT_ORIGIN: process.env.E2E_CLIENT_ORIGIN ?? 'http://localhost:5175',
-  AI_SERVICE_URL: 'http://localhost:8000',
   RATE_LIMIT_MAX: '1000000',
 })
 

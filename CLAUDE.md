@@ -165,9 +165,8 @@ docker compose up --build                     # all services, :8080. See Docker 
 |---|---|---|---|
 | `MONGO_URI` | backend, AI | backend: yes | backend yes; AI not yet |
 | `JWT_ACCESS_SECRET` | backend | yes | yes |
-| `JWT_REFRESH_SECRET` | backend | yes | **no** (refresh tokens are random hex, not JWTs) |
 | `CLIENT_ORIGIN` | backend | yes | yes (CORS) |
-| `AI_SERVICE_URL` | backend | yes | **no** (AI proxy not built) |
+| `AI_SERVICE_URL` | backend | not yet | removed until the AI proxy (S2.2) |
 | `ACCESS_TOKEN_TTL` | backend | no (`15m`) | yes |
 | `REFRESH_TOKEN_TTL` | backend | no (`7d`) | **no** (cookie maxAge is hardcoded in `auth.routes.js`) |
 | `NODE_ENV`, `PORT`, `LOG_LEVEL` | backend | no (`LOG_LEVEL`: `info`; `silent` under test) | yes |
@@ -188,8 +187,8 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
   pre-commit hook runs them on staged files and blocks the commit; see [CONTRIBUTING.md](CONTRIBUTING.md). Logs are pino JSON.
 - **CI:** [.github/workflows/ci.yml](.github/workflows/ci.yml) runs `repo` (format, ruff), `backend`, `frontend` and `e2e` on every
   push and PR. It doesn't block merges (no branch protection), so the pre-commit hook is the gate.
-- **Docker caveat:** the `.env.example` values use `localhost`. Under Compose, set `MONGO_URI=mongodb://mongo:27017/nimbus-crm`,
-  `AI_SERVICE_URL=http://ai:8000` and `CLIENT_ORIGIN=http://localhost:8080`. There is no `.dockerignore`, so local `.env`
+- **Docker caveat:** the `.env.example` values use `localhost`. Under Compose, set `MONGO_URI=mongodb://mongo:27017/nimbus-crm`
+  and `CLIENT_ORIGIN=http://localhost:8080`. There is no `.dockerignore`, so local `.env`
   files and `node_modules` get copied into images.
 - **Replica set:** a standalone mongod makes lead convert fail ("Transaction numbers are only allowed on a replica set").
   To convert a local service: add `replication:` / `  replSetName: rs0` to `mongod.cfg`, restart the service, then run

@@ -13,9 +13,7 @@ export default defineConfig({
       NODE_ENV: 'test',
       MONGO_URI: 'mongodb://unused-tests-connect-in-setup',
       JWT_ACCESS_SECRET: 'test-access-secret',
-      JWT_REFRESH_SECRET: 'test-refresh-secret',
       CLIENT_ORIGIN: 'http://localhost:5173',
-      AI_SERVICE_URL: 'http://localhost:8000',
       // The role matrix fires hundreds of requests per file — well past the
       // production limit of 100/min.
       RATE_LIMIT_MAX: '1000000',
