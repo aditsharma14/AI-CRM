@@ -1,7 +1,6 @@
-// Validates required env vars at boot; exports connectDB() and Cloudinary config.
+// Validates required env vars at boot; exports env and connectDB().
 import 'dotenv/config'
 
-import { v2 as cloudinary } from 'cloudinary'
 import mongoose from 'mongoose'
 
 const REQUIRED = ['MONGO_URI', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'CLIENT_ORIGIN', 'AI_SERVICE_URL']
@@ -34,19 +33,3 @@ export async function connectDB() {
   await mongoose.connect(env.mongoUri)
   return mongoose.connection
 }
-
-const hasCloudinaryConfig =
-  process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET
-
-if (hasCloudinaryConfig) {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  })
-} else {
-  // Not fatal — uploads simply fail until these are set (see Phase 11).
-  console.warn('[config] Cloudinary env vars are not set; file uploads will fail.')
-}
-
-export { cloudinary }

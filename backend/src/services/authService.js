@@ -8,6 +8,7 @@ import { env } from '../config/index.js'
 import Organization from '../models/Organization.js'
 import User from '../models/User.js'
 import { badRequest, unauthorized } from '../utils/http.js'
+import { hashToken } from '../utils/tokens.js'
 
 /** @typedef {InstanceType<typeof User>} UserDoc A hydrated User, including comparePassword(). */
 /** @typedef {{ _id: unknown, name: string, plan: string }} PopulatedOrg */
@@ -28,12 +29,6 @@ import { badRequest, unauthorized } from '../utils/http.js'
  * @property {string} rawRefresh Unhashed; auth.routes.js sets it as the httpOnly cookie.
  * @property {SerializedUser} user
  */
-
-/**
- * @param {string} raw
- * @returns {string}
- */
-const hashToken = (raw) => crypto.createHash('sha256').update(raw).digest('hex')
 
 /**
  * @param {UserDoc} user

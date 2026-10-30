@@ -28,7 +28,7 @@ Read this before changing anything. Overview: [readme.md](readme.md). History: [
 
 | Path | Role |
 |---|---|
-| [backend/src/config/](backend/src/config/) | Env loading, fail-fast check of required vars, `connectDB()`, Cloudinary config |
+| [backend/src/config/](backend/src/config/) | Env loading, fail-fast check of required vars, `connectDB()`, the pino `logger` |
 | [backend/src/middleware/](backend/src/middleware/) | `auth` (JWT → `req.user`), `guards` (`requirePermission`, `validate`), `errorHandler`, `observability` |
 | [backend/src/routes/](backend/src/routes/) | HTTP wiring: permission → validation → service → `apiResponse` |
 | [backend/src/services/](backend/src/services/) | Business logic. `crudService` factory, `activityLogService` (sole writer of audit log + notifications) |
@@ -172,7 +172,6 @@ docker compose up --build                     # all services, :8080. See Docker 
 | `REFRESH_TOKEN_TTL` | backend | no (`7d`) | **no** (cookie maxAge is hardcoded in `auth.routes.js`) |
 | `NODE_ENV`, `PORT` | backend | no | yes |
 | `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX` | backend | no | yes |
-| `CLOUDINARY_CLOUD_NAME`, `_API_KEY`, `_API_SECRET` | backend | no (warns) | configured, unused |
 | `PORT`, `API_INTERNAL_ORIGIN`, `LLM_PROVIDER`, `GOOGLE_API_KEY`, `OPENAI_API_KEY` | AI | n/a | not yet (stubs) |
 | `VITE_API_BASE_URL` | frontend | no | **no** (`client.js` ignores it) |
 

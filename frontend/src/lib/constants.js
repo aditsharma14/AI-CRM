@@ -102,6 +102,4 @@ export function canManageMember(user, member) {
 // Pipeline stages are per org: read them with usePipelineStages() (hooks.js).
 // The defaults a new org starts with live only in backend/src/models/Organization.js.
 
-export const ACTIVITY_TYPES = { TASK: 'task', EVENT: 'event', CALL: 'call', MEETING: 'meeting' }
-export const ACTIVITY_STATUSES = { OPEN: 'open', DONE: 'done' }
 export const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified', 'converted']

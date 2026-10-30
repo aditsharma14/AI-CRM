@@ -6,18 +6,13 @@ import Organization from '../models/Organization.js'
 import User from '../models/User.js'
 import { assertCanAssign, assertNotSelf, manageableRoles, memberMissOrForbidden } from '../policies/membership.js'
 import { badRequest, notFound } from '../utils/http.js'
+import { hashToken } from '../utils/tokens.js'
 
 /** @typedef {import('../types/index.js').Role} Role */
 /** @typedef {import('../types/index.js').AuthUser} AuthUser */
 /** @typedef {InstanceType<typeof Organization>} OrgDoc */
 /** @typedef {InstanceType<typeof User>} UserDoc */
 /** @typedef {import('../utils/http.js').AppError} AppError */
-
-/**
- * @param {string} raw
- * @returns {string}
- */
-const hashToken = (raw) => crypto.createHash('sha256').update(raw).digest('hex')
 
 // ---- Org profile ----
 

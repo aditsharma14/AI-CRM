@@ -7,7 +7,7 @@ import { apiErrorMessage, SAVE_FAILED } from './lib/utils.js'
 
 /**
  * Generic CRUD data-fetching for any REST resource. A new entity gets full
- * list/detail/create/update/delete behavior from one call, e.g.:
+ * list/create/update/delete behavior from one call, e.g.:
  *   const leads = useCrudQuery('leads')
  *   const { data } = leads.useList({ status: 'new' })
  */
@@ -16,13 +16,6 @@ export function useCrudQuery(resource) {
     useQuery({
       queryKey: [resource, 'list', params],
       queryFn: async () => (await api.get(`/${resource}`, { params })).data,
-    })
-
-  const useItem = (id) =>
-    useQuery({
-      queryKey: [resource, 'detail', id],
-      queryFn: async () => (await api.get(`/${resource}/${id}`)).data.data,
-      enabled: Boolean(id),
     })
 
   const useCreate = () => {
@@ -49,7 +42,7 @@ export function useCrudQuery(resource) {
     })
   }
 
-  return { useList, useItem, useCreate, useUpdate, useRemove }
+  return { useList, useCreate, useUpdate, useRemove }
 }
 
 export function useDebounce(value, delay = 300) {
@@ -65,16 +58,13 @@ export function useDisclosure(initial = false) {
   const [isOpen, setIsOpen] = useState(initial)
   const open = useCallback(() => setIsOpen(true), [])
   const close = useCallback(() => setIsOpen(false), [])
-  const toggle = useCallback(() => setIsOpen((v) => !v), [])
-  return { isOpen, open, close, toggle }
+  return { isOpen, open, close }
 }
 
 export function usePaginationState(initial = { page: 1, limit: 20 }) {
   const [page, setPage] = useState(initial.page)
-  const [limit, setLimit] = useState(initial.limit)
-  const nextPage = useCallback(() => setPage((p) => p + 1), [])
-  const prevPage = useCallback(() => setPage((p) => Math.max(1, p - 1)), [])
-  return { page, limit, setPage, setLimit, nextPage, prevPage }
+  const [limit] = useState(initial.limit)
+  return { page, limit, setPage }
 }
 
 /**
