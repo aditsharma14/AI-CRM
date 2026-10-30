@@ -3,43 +3,23 @@
 Everything known to be wrong, missing or unverified that isn't a top-level gap in [CLAUDE.md](../CLAUDE.md) §9,
 plus a record of what has been resolved. Newest resolutions first.
 
-## Open findings (verified 2026-10-29, updated 2026-10-31)
-- **Other mutations still have no error UI.** Leads and Pipeline now use `useMutationError` + `ErrorAlert` (S1.3b), but
+## Open findings (verified 2026-10-29, updated 2026-10-31; GitHub issue numbers in brackets)
+- **[#13] Other mutations still have no error UI.** Leads and Pipeline now use `useMutationError` + `ErrorAlert` (S1.3b), but
   Contacts, Companies, Tasks, Calendar, Notes and most Settings forms still fail silently. S1.7 extends the hook.
-- **The `won`/`lost` stage keys are hardcoded** (`CLOSING_KEYS` in [dealsService.js](../backend/src/services/dealsService.js);
+- **[#18] The `won`/`lost` stage keys are hardcoded** (`CLOSING_KEYS` in [dealsService.js](../backend/src/services/dealsService.js);
   closing a deal is keyed on them). An org that renames its closing stages' *keys* never closes a deal. Open for S2.7.
-- **Pipeline save is two calls (move-stage, then update), not atomic;** revisit with a single endpoint or transaction in
+- **[#19] Pipeline save is two calls (move-stage, then update), not atomic;** revisit with a single endpoint or transaction in
   S2.7. (S1.3b made the UI resync after a partial failure, and a retry doesn't repeat the move.)
-- **Docker Compose's replica set is untested.** `docker-compose.yml` now runs mongo with `--replSet rs0` and initiates
+- **[#21] Docker Compose's replica set is untested.** `docker-compose.yml` now runs mongo with `--replSet rs0` and initiates
   it from the healthcheck (S1.3e), but Docker isn't installed on the audit machine, so it has never been started. The set
   advertises `mongo:27017`, so a client on the host may need `?directConnection=true`.
-- **Dead config.** `JWT_REFRESH_SECRET`, `AI_SERVICE_URL` and `REFRESH_TOKEN_TTL` are required or documented but
-  never read (see the env table in CLAUDE.md §6). The refresh cookie's `maxAge` is hardcoded to 7 days in
-  [auth.routes.js](../backend/src/routes/auth.routes.js) instead of following `REFRESH_TOKEN_TTL`.
-- **Registering an org isn't atomic.** `registerOrg` in [authService.js](../backend/src/services/authService.js) creates
-  the org, then the owner, then saves the org's `ownerId`, outside a transaction. If the user write fails (e.g. a
-  duplicate email that slips past the pre-check), an org with no owner is left behind. Every environment is a replica
-  set since S1.3e, so a transaction is now possible. (Found in S1.4.)
-- **Referenced ids aren't checked against the org.** `companyId`, `contactIds`, team `memberIds` and note `entityId`
-  can point at another tenant's documents, and `populate()` isn't org-filtered. (Owner fields are checked.)
-
-### Error contract (found in S1.4; fix in S1.4b)
-Reproduced against the API. The single error middleware kept these as they were, since S1.4 changes no behaviour.
-- **Malformed or oversized JSON bodies are 500 `INTERNAL_ERROR`,** not 400 / 413. body-parser's error carries
-  `status`, but [errorHandler.js](../backend/src/middleware/errorHandler.js) never reads it.
-- **The rate limiter's 429 is `text/html`,** not the envelope (express-rate-limit's default handler).
-- **An unknown `/api/v1/*` path is 401 for a guest,** not 404: the routers mounted at `/api/v1` (CRUD, insights) apply
-  auth to everything under it before the 404 handler is reached.
-- **A Mongoose `ValidationError` sends its raw message** ("Lead validation failed: name: …"), exposing model and
-  path names.
-- **A Mongoose `CastError` is 500,** not 400.
 
 ### Frontend polish (found in S1.4; fix in S1.7)
-- **Settings → Members crashes if the members query fails:** `members.map` on `undefined` in
+- **[#10] Settings → Members crashes if the members query fails:** `members.map` on `undefined` in
   [MembersTab.jsx](../frontend/src/features/settings/MembersTab.jsx) sends the app to its error boundary.
-- **Changing the search or status filter doesn't reset the page to 1** (Leads, Contacts, Companies), so a filter can
+- **[#11] Changing the search or status filter doesn't reset the page to 1** (Leads, Contacts, Companies), so a filter can
   land on an empty page.
-- **`GlobalSearch` turns off `react-hooks/exhaustive-deps`** for its Escape handler, which can capture a stale
+- **[#12] `GlobalSearch` turns off `react-hooks/exhaustive-deps`** for its Escape handler, which can capture a stale
   `handleClose`.
 
 ## Open questions
@@ -52,6 +32,11 @@ Reproduced against the API. The single error middleware kept these as they were,
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-10-31 | **[#15] References weren't checked against the org, and populate() wasn't org-scoped:** a member could point `companyId`, `contactIds`, a note's `entityId` or an activity's `linkedTo` (and an admin a team's `memberIds`) at another org's document, and the next read populated that org's names (and, for teams, emails) into the response | `assertReferencesInOrg` on every write and `scopedPopulate` on every read, in [references.js](../backend/src/policies/references.js) (`ec78fed`, `f9b29d7`); read-only [audit-references.js](../backend/scripts/audit-references.js) for stored data (`fd980be`) |
+| 2026-10-31 | **[#14] Signup wasn't transactional:** a failed user write left an org with no owner; two parallel invite accepts both got past the invite check | `registerOrg` and `acceptInvite` each run in one transaction; the invite is consumed by a conditional `$pull` (`97eb052`) |
+| 2026-10-31 | **[#17]** `dealsService` exported its CRUD factory, so `crud.create` could skip `dealsService.create` | `crud` is private (`b0408cb`) |
+| 2026-10-31 | **[#5–#9] Error contract:** malformed/oversized JSON was 500, the 429 was HTML, an unknown `/api/v1` path was 401 for guests, a Mongoose `ValidationError` sent its raw message (model and path names), a `CastError` was 500 | 400 / 413 (`db74807`), enveloped `RATE_LIMITED` (`59559c0`), one router per prefix (`507082b`), `field: message` and `id: invalid id` (`41ce061`) |
+| 2026-10-31 | **[#16] Dead config:** `JWT_REFRESH_SECRET` and `AI_SERVICE_URL` were required but unread; the refresh cookie ignored `REFRESH_TOKEN_TTL` | both removed, `AI_SERVICE_URL` returns in S2.2 (`715eaa5`); cookie `maxAge` follows the TTL, checked at boot (`921be14`) |
 | 2026-10-31 | Typecheck (and lint) weren't in a pre-commit hook, and CI doesn't block merges | husky + lint-staged: ESLint, ruff, Prettier and typecheck block the commit (`501ccc1`, Windows spawn fix `1dffe3f`) |
 | 2026-10-31 | `activityService` (now `activityLogService`) had 66.7% line coverage | [activity-log.unit.test.js](../backend/tests/activity-log.unit.test.js); now 100% (`ec0a26f`) |
 | 2026-10-31 | **Lead conversion bypassed both stage rules:** `POST /leads/:id/convert` called `Deal.create` directly, so any `stageKey` (another org's included) was stored and converting into `won`/`lost` left the deal open. It also wasn't atomic: a failed lead write left an orphan deal, and two parallel converts made two deals | the deal now comes from `dealsService.create`, and everything runs in one MongoDB transaction with a conditional lead update (`18bc2a6`; replica-set infra `2fd6b12`) |

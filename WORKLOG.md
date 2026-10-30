@@ -601,3 +601,129 @@ outside a transaction.
 > One logical change a reviewer can hold in their head: a refactor never hides a behaviour change, and mechanical diffs (formatting, renames) ship apart.
 > It says what and why, and proves how it was tested: the failing test first, the commands run and their output.
 > It leaves the codebase honest: docs updated where the change makes them wrong, and bugs found along the way logged as issues instead of fixed in passing.
+
+---
+
+## 2026-10-31 · S1.4b: Tenant-safe references, transactional signup, error contract
+
+**Goal:** close the S1.4 findings that change behaviour: cross-org references (security, first), non-atomic signup,
+the deals `crud` bypass, the error contract and dead config. Worked on `main`; GitHub issues #5–#25 created first
+(labels `bug`, `security`, `tech-debt`, `s2-planned`), and each fix commit says `Fixes #N` / `Refs #N`.
+
+**Commits** (all pushed to `main`)
+
+| Commit | Change | Issue |
+|---|---|---|
+| `ec78fed` | `assertReferencesInOrg` on every client-written reference | refs #15 |
+| `f9b29d7` | `scopedPopulate` on every populate of tenant data | fixes #15 |
+| `fd980be` | read-only `scripts/audit-references.js` | refs #15 |
+| `97eb052` | `registerOrg` and `acceptInvite` each in one transaction | fixes #14 |
+| `b0408cb` | `dealsService` no longer exports `crud` | fixes #17 |
+| `db74807` | malformed JSON 400, oversized body 413 | fixes #5 |
+| `59559c0` | 429 in the envelope, `RATE_LIMITED` | fixes #6 |
+| `507082b` | one router per prefix: unknown `/api/v1` paths are 404 | fixes #7 |
+| `41ce061` | Mongoose `ValidationError` / `CastError` → 400 `field: message` | fixes #8, #9 |
+| `715eaa5` | remove `JWT_REFRESH_SECRET`, `AI_SERVICE_URL` (back in S2.2) | refs #16 |
+| `921be14` | refresh cookie lifetime follows `REFRESH_TOKEN_TTL`, checked at boot | fixes #16 |
+
+**Every reference field** (grep of `ref:` / `ObjectId` in `src/models`):
+
+| Field | Written by | Now |
+|---|---|---|
+| Lead, Contact, Deal `companyId` | client | checked against the org (Company) |
+| Deal `contactIds[]` | client | checked, ids deduped first (Contact) |
+| Note `entityId` | client, create only | model from `entityType` via allowlist, then checked |
+| Activity `linkedTo.entityId` | client | model from `linkedTo.entityType` via allowlist, then checked |
+| Organization `teams[].memberIds[]` | client (`updateTeam`) | checked (User) |
+| `ownerId` (Lead, Contact, Company, Deal), Activity `assigneeId` | client | already checked (`INVALID_OWNER`, S1.2) |
+| `orgId` everywhere, Note `authorId`, Log `userId`, Lead `convertedToDealId`, Deal `convertedFromLeadId`, Organization `ownerId` | server only, from same-org documents | unchanged |
+
+No model has soft delete; `references.unit.test.js` fails if one gains a soft-delete field, so the check gets updated with it.
+
+**Every populate** (grep of `populate`), all now `match: { orgId }` through `scopedPopulate`:
+- `companyId`: leads, contacts and deals (CRUD factory list and getById)
+- `contactIds`: deals
+- `authorId`: notes
+- `assigneeId`: the activities factory and `activitiesService.list`
+- `teams.memberIds`: `listTeams`
+- `userId`: the activity log (`notificationsService`) and the dashboard's recent activity (`insightsService`)
+- **Left unscoped on purpose:** `authService`'s `user.populate('orgId')`, which loads the user's own Organization (it has no `orgId` field).
+
+**Audit of the local dev DB** (`node scripts/audit-references.js`, `MONGO_URI` = `localhost:27017/nimbus-crm`): **0
+cross-org, 0 dangling**, but only because the database is empty. Every collection exists and holds 0 documents, so 0
+references were checked. On a database with data it reports per field. Its test proves it finds seeded cross-org and
+dangling references and that it sends nothing but `find` commands.
+
+**Signup.** A forced user-write failure used to leave an orphan org, and a forced session-write failure left both the org
+and the user. Two parallel accepts of one invite gave `[200, 409]`, stopped only by the unique email index. Now each
+signup is one transaction, and the parallel accepts give `[200, 400 INVALID_INVITE]`.
+
+**Error contract** (all in `errorHandler`, except the 429 handler and the router mounts):
+
+| Before | After |
+|---|---|
+| `{bad` body → 500 | 400 `VALIDATION_ERROR` `body: malformed JSON.` |
+| 200 kB body → 500 | 413 `PAYLOAD_TOO_LARGE` |
+| 429 `text/html` | 429 envelope, `RATE_LIMITED` |
+| `GET /api/v1/nope` as a guest → 401 | 404. An unknown path under a resource (`/api/v1/leads/x/y`) is still 401 for a guest, documented in CLAUDE.md §3 |
+| `Lead validation failed: name: Path \`name\` is required., …` | `name: is required; orgId: is required; …`, sorted |
+| `CastError` → 500 | 400 `id: invalid id` (or `companyId: invalid id`, `value: invalid value`) |
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| New tests, red first | 14 reference writes accepted (201/200); 10 populated reads leaked org B data; 3 of 4 signup cases; 2 body, 1 rate-limit, 5 unknown-path, 4 Mongoose, 2 TTL tests |
+| Mutation: factory check disabled | 13 of 18 reference tests fail (the team test still passes, since `updateTeam` calls the helper directly) |
+| Backend `npm test` | 333 → **414 passed** in 24 files (the 333 unchanged) |
+| Frontend `npm test` | **109 passed** |
+| `npm run e2e` | passed before each error-contract commit and at the end |
+| Lint, typecheck, format | clean |
+
+One gate run stalled: the backend suite took 1,124 s instead of about 40 s, apparently competing with a second run. It
+was stopped and rerun clean, and nothing was committed from it.
+
+### STAR: "Tell me about a security bug you found and fixed"
+**Situation.** Nimbus CRM is multi-tenant. Every query is scoped by the `orgId` in the JWT, and S1.2 had added
+"own records only". But the *values* of reference fields were never checked: a `companyId` was any valid ObjectId.
+
+**Task.** Find every stored reference and every `populate()`, and make sure no request can read another org's data through
+one, including references already in the database.
+
+**Action.** I wrote the tests first, as an attacker would.
+- A member of org A, using only their own records, sent:
+  ```http
+  PATCH /api/v1/leads/<a lead they own>
+  Authorization: Bearer <org A member's token>
+  Content-Type: application/json
+
+  {"companyId": "<org B's company _id>"}
+  ```
+  The response was 200. Then:
+  ```http
+  GET /api/v1/leads/<same lead>
+  ```
+  That returned `"companyId": { "_id": "<org B id>", "name": "<org B's company name>" }`, org B's data in org A's response.
+- The same worked for:
+  - `contactIds` on a deal (org B's contact names);
+  - `assigneeId` on tasks and `authorId` on notes (org B users' names);
+  - for an admin, team `memberIds` (`GET /org/teams` returned org B users' **names and emails**).
+- The attacker needs org B's ids. The API never hands them out, but ObjectIds are timestamp-ordered, not secret, and
+  they turn up in URLs, screenshots and support tickets. Ids are not an access control.
+
+The fix has two layers in one module, [references.js](backend/src/policies/references.js):
+- **On write**, `assertReferencesInOrg`:
+  - one count per field, over deduped ids, scoped by `orgId`;
+  - polymorphic types are checked against an allowlist before a model is chosen;
+  - a missing id and another org's id get the same 400, so existence doesn't leak.
+- **On read**, `scopedPopulate` adds `match: { orgId }` to every populate, so a bad reference that is *already stored*
+  populates as `null` instead of leaking.
+- A read-only audit script finds such stored references so they can be fixed deliberately.
+
+**Result.**
+- 24 reference tests failed before the fix and pass after it; disabling the check makes 13 of them fail again.
+- No populate can cross the tenant boundary, even with bad data in the database.
+- The local dev database audits clean (it's empty).
+- The lesson: tenant scoping has to cover every id a request *names*, not just the documents it queries.
+
+**Next:** S1.7 (#10–#13). Run `audit-references.js` against any database that holds real data before deploying.

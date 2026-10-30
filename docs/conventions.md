@@ -48,8 +48,9 @@ The backend stays JavaScript and has no build step. [backend/tsconfig.json](../b
 - No `any`, `@ts-ignore` or `@ts-nocheck`.
 - If something must be forced, use a cast `/** @type {X} */ (expr)` with a `// Boundary cast:` comment saying why.
 - Prefer `@ts-expect-error <reason>` over `@ts-ignore`.
-- **Current count:** 0 `any`, 0 ignores, 0 expect-errors, 4 boundary casts (generic `T` in `crudService` ×2, and the
-  env-sourced JWT secret and TTL in `authService`).
+- **Current count:** 0 `any`, 0 ignores, 0 expect-errors, 11 boundary casts (`grep -rn 'Boundary cast' backend/src`):
+  `crudService` ×3 (generic `T`), `authService` ×5 (env JWT secret and TTL, three `create([doc], { session })` results),
+  `validators` ×2, `dealsService` ×1 (closing key).
 
 ### Mongoose quirks
 - Assign DocumentArrays with `doc.set('field', value)`, not `doc.field = [...]`.

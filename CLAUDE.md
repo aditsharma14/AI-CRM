@@ -67,12 +67,13 @@ Error: `GET /api/v1/leads/<unknown id>` → 404 (thrown by `getById` in [crudSer
 
 | Status | Codes | Source |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` (`field: message`, joined by `; `), `BAD_REQUEST`, domain codes like `ALREADY_CONVERTED` | `validate()` in [guards.js](backend/src/middleware/guards.js), services |
+| 400 | `VALIDATION_ERROR` (`field: message`, joined by `; `), `BAD_REQUEST`, domain codes like `ALREADY_CONVERTED` | `validate()` in [guards.js](backend/src/middleware/guards.js), services, bad JSON, Mongoose validation/cast errors |
 | 401 | `UNAUTHORIZED`, `INVALID_CREDENTIALS` | [auth.js](backend/src/middleware/auth.js), `authService` |
 | 403 | `FORBIDDEN` | `requirePermission()` |
-| 404 | `NOT_FOUND` | services; unknown routes |
+| 404 | `NOT_FOUND` | services; unknown routes (but an unknown path under a resource, e.g. `/leads/x/y`, is 401 for a guest: that router authenticates first) |
 | 409 | `DUPLICATE_KEY` | Mongo error 11000 |
-| 500 | `INTERNAL_ERROR` | anything else, logged with the request id (also `CastError`, bad JSON: known-issues) |
+| 413, 429 | `PAYLOAD_TOO_LARGE` (body over 100 kB), `RATE_LIMITED` | `express.json()`, the `/api` rate limiter |
+| 500 | `INTERNAL_ERROR` | anything else, logged with the request id |
 
 The client reads `response.data.data`. `useList` in [hooks.js](frontend/src/hooks.js) returns the whole body (`{ data, meta }`).
 
@@ -88,8 +89,8 @@ The client reads `response.data.data`. `useList` in [hooks.js](frontend/src/hook
   Aggregations in [insightsService.js](backend/src/services/insightsService.js) `$match` it first.
 - **Intentional global lookups:** only in [authService.js](backend/src/services/authService.js) (login by email, refresh/reset/invite
   by token hash). Email is globally unique ([User.js](backend/src/models/User.js)).
-- **Gaps:** there's no explicit guard for a token without `orgId`, and referenced ids (`companyId`, team `memberIds`, …)
-  aren't checked against the org. Both are in [docs/known-issues.md](docs/known-issues.md). Owner fields *are* checked (§5).
+- **References stay in the org:** every stored reference is checked with `assertReferencesInOrg` and every populate goes
+  through `scopedPopulate` ([references.js](backend/src/policies/references.js)). Gap: no explicit guard for a token without `orgId`.
 
 ## 5. Permissions
 
