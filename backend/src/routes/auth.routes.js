@@ -5,21 +5,25 @@ import { env } from '../config/index.js'
 import { validate } from '../middleware/guards.js'
 import { acceptInvite, forgotPassword, login, registerOrg, resetPassword } from '../schemas/auth.js'
 import * as authService from '../services/authService.js'
+import { ttlToMs } from '../utils/duration.js'
 import { apiResponse, asyncHandler } from '../utils/http.js'
 
 const router = Router()
 
 const REFRESH_COOKIE = 'refreshToken'
-const cookieOptions = {
+const REFRESH_COOKIE_PATH = '/api/v1/auth'
+
+/** Read per response, so the lifetime always matches REFRESH_TOKEN_TTL (validated at boot in config). */
+const cookieOptions = () => ({
   httpOnly: true,
   secure: env.nodeEnv === 'production',
   sameSite: 'strict',
-  path: '/api/v1/auth',
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-}
+  path: REFRESH_COOKIE_PATH,
+  maxAge: ttlToMs(env.refreshTokenTtl),
+})
 
 function sendSession(res, { accessToken, rawRefresh, user }) {
-  res.cookie(REFRESH_COOKIE, rawRefresh, cookieOptions)
+  res.cookie(REFRESH_COOKIE, rawRefresh, cookieOptions())
   return apiResponse(res, { accessToken, user })
 }
 
@@ -50,7 +54,7 @@ router.post(
   '/logout',
   asyncHandler(async (req, res) => {
     await authService.logout(req.cookies[REFRESH_COOKIE])
-    res.clearCookie(REFRESH_COOKIE, { path: cookieOptions.path })
+    res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH })
     apiResponse(res, null)
   }),
 )

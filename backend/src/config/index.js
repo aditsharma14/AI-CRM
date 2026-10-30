@@ -3,6 +3,8 @@ import 'dotenv/config'
 
 import mongoose from 'mongoose'
 
+import { ttlToMs } from '../utils/duration.js'
+
 // AI_SERVICE_URL joins this list with the AI proxy (S2.2).
 const REQUIRED = ['MONGO_URI', 'JWT_ACCESS_SECRET', 'CLIENT_ORIGIN']
 
@@ -26,6 +28,9 @@ export const env = {
   // Silent under the test runner: the role matrix makes hundreds of requests per file.
   logLevel: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'test' ? 'silent' : 'info'),
 }
+
+// Same fail-fast rule for a lifetime the cookie code couldn't read.
+ttlToMs(env.refreshTokenTtl)
 
 export async function connectDB() {
   mongoose.set('strictQuery', true)

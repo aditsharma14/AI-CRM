@@ -168,7 +168,7 @@ docker compose up --build                     # all services, :8080. See Docker 
 | `CLIENT_ORIGIN` | backend | yes | yes (CORS) |
 | `AI_SERVICE_URL` | backend | not yet | removed until the AI proxy (S2.2) |
 | `ACCESS_TOKEN_TTL` | backend | no (`15m`) | yes |
-| `REFRESH_TOKEN_TTL` | backend | no (`7d`) | **no** (cookie maxAge is hardcoded in `auth.routes.js`) |
+| `REFRESH_TOKEN_TTL` | backend | no (`7d`; `30s`/`15m`/`2h`/`7d` form, checked at boot) | yes (refresh cookie lifetime) |
 | `NODE_ENV`, `PORT`, `LOG_LEVEL` | backend | no (`LOG_LEVEL`: `info`; `silent` under test) | yes |
 | `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX` | backend | no | yes |
 | `PORT`, `API_INTERNAL_ORIGIN`, `LLM_PROVIDER`, `GOOGLE_API_KEY`, `OPENAI_API_KEY` | AI | n/a | not yet (stubs) |
