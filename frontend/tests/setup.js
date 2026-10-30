@@ -7,9 +7,27 @@ import { server } from './server.js'
 import { setAccessToken, setOnUnauthorized } from '../src/api/client.js'
 import { queryClient } from '../src/lib/queryClient.js'
 
-// 'error' makes any request a test didn't plan for fail loudly instead of
-// hanging or silently hitting a real network.
-beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
+// A request no handler matches is rejected (MSW's 'error') *and* fails the
+// test. 'error' alone isn't enough: it only logs, the app often swallows the
+// rejected request, and Vitest hides the console output of passing tests,
+// so a page could silently be missing data and still go green.
+/** @type {string[]} */
+const unhandled = []
+beforeAll(() =>
+  server.listen({
+    onUnhandledFrame: async ({ frame, defaults }) => {
+      unhandled.push(await frame.getUnhandledMessage())
+      defaults.error()
+    },
+  }),
+)
+
+afterEach(() => {
+  if (unhandled.length) {
+    const messages = unhandled.splice(0)
+    throw new Error(`Unhandled request(s); add an MSW handler:\n${messages.join('\n')}`)
+  }
+})
 
 afterEach(() => {
   cleanup()
