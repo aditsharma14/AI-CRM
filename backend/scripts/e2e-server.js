@@ -1,7 +1,8 @@
 // Dev-only: boots the API against a throwaway in-memory MongoDB for Playwright (frontend/e2e). Never used in production.
-import { MongoMemoryServer } from 'mongodb-memory-server'
+import { MongoMemoryReplSet } from 'mongodb-memory-server'
 
-const mongod = await MongoMemoryServer.create()
+// A one-node replica set: lead conversion uses a transaction, which standalone MongoDB can't run.
+const mongod = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } })
 
 // Set before config/index.js loads; dotenv never overrides a var that's
 // already set, so a developer's backend/.env can't point e2e at real data.

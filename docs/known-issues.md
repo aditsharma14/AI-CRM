@@ -10,10 +10,9 @@ plus a record of what has been resolved. Newest resolutions first.
   closing a deal is keyed on them). An org that renames its closing stages' *keys* never closes a deal. Open for S2.7.
 - **Pipeline save is two calls (move-stage, then update), not atomic;** revisit with a single endpoint or transaction in
   S2.7. (S1.3b made the UI resync after a partial failure, and a retry doesn't repeat the move.)
-- **Lead conversion bypasses both stage rules.** `POST /leads/:id/convert` accepts `{ stageKey }` and calls `Deal.create`
-  directly in [leadsService.js](../backend/src/services/leadsService.js), so the key isn't checked against the org's
-  stages (S1.3c's rule) and converting into `won`/`lost` doesn't close the deal (S1.3d's rule). The UI never sends a
-  stage on convert. Found in S1.3d; not fixed there.
+- **Docker Compose's replica set is untested.** `docker-compose.yml` now runs mongo with `--replSet rs0` and initiates
+  it from the healthcheck (S1.3e), but Docker isn't installed on the audit machine, so it has never been started. The set
+  advertises `mongo:27017`, so a client on the host may need `?directConnection=true`.
 - **Dead config.** `JWT_REFRESH_SECRET`, `AI_SERVICE_URL` and `REFRESH_TOKEN_TTL` are required or documented but
   never read (see the env table in CLAUDE.md §6).
 - **Typecheck isn't in a pre-commit hook yet.** That's deferred to S1.4 (husky + lint-staged); until then CI is the gate.
@@ -30,6 +29,7 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-10-31 | **Lead conversion bypassed both stage rules:** `POST /leads/:id/convert` called `Deal.create` directly, so any `stageKey` (another org's included) was stored and converting into `won`/`lost` left the deal open. It also wasn't atomic: a failed lead write left an orphan deal, and two parallel converts made two deals | the deal now comes from `dealsService.create`, and everything runs in one MongoDB transaction with a conditional lead update (`18bc2a6`; replica-set infra `2fd6b12`) |
 | 2026-10-30 | **Creating a deal directly in `won` or `lost` skipped the close:** `POST /deals` stored the stage but not `status`/`closedAt`, and didn't log or notify like move-stage | the close logic moved into one helper, `applyStageTransition`, called by both `moveStage` and `create` (`b0cdd6a`) |
 | 2026-10-30 | **`stageKey` was only validated by move-stage:** `POST` accepted any string (including another org's key), and `PATCH` could change the stage while skipping move-stage's status, `closedAt`, log and notification | `dealsService.create` checks the key against the requesting org's stages and defaults to its first stage by order; `update` refuses `stageKey`; move-stage returns `VALIDATION_ERROR` (`8581e26`) |
 | 2026-10-30 | **List filters were silently dropped** for leads, deals, contacts, companies, notes and notifications: the shared non-strict `paginationQuery` stripped every filter key before the service saw it, so the Leads status filter did nothing and NotesPanel listed every note in the org | strict per-resource `listQuery()` specs; unknown keys, bad values, `$` operators, repeated keys and bad sorts are 400 (`83b0e08`, UI contract `20d2f49`) |

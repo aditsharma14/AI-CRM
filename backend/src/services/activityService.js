@@ -15,21 +15,29 @@ import { ActivityLog, Notification } from '../models/Logs.js'
  */
 
 /**
+ * @typedef {object} WriteOptions
+ * @property {import('mongoose').ClientSession} [session] Write inside this transaction, so the entry rolls back with it.
+ */
+
+/**
  * Audit trail — who did what, to which record, when. Never mutated after insert.
  * @param {LogEntry & { action: string }} entry
+ * @param {WriteOptions} [options]
  * @returns {Promise<void>}
  */
-export async function logActivity({ orgId, userId, action, entityType, entityId, message }) {
-  await ActivityLog.create({ orgId, userId, action, entityType, entityId, message })
+export async function logActivity({ orgId, userId, action, entityType, entityId, message }, { session } = {}) {
+  // Array form: Model.create only accepts a session that way.
+  await ActivityLog.create([{ orgId, userId, action, entityType, entityId, message }], { session })
 }
 
 /**
  * In-app notification for one specific user.
  * @param {LogEntry} entry
+ * @param {WriteOptions} [options]
  * @returns {Promise<void>}
  */
-export async function notify({ orgId, userId, entityType, entityId, message }) {
-  await Notification.create({ orgId, userId, entityType, entityId, message })
+export async function notify({ orgId, userId, entityType, entityId, message }, { session } = {}) {
+  await Notification.create([{ orgId, userId, entityType, entityId, message }], { session })
 }
 
 /**

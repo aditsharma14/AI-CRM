@@ -151,7 +151,8 @@ decides *which records*. It is enforced in services, never routes, and mirrored 
 Copy `backend/.env.example` → `backend/.env` and `AI/.env.example` → `AI/.env`. The frontend needs no env.
 
 ```bash
-# MongoDB: local service on :27017, `docker compose up mongo`, or MONGO_URI → Atlas
+# MongoDB must be a replica set (lead convert uses a transaction): a 1-node local set on :27017 (see
+# "Replica set" below), `docker compose up mongo` (already one), or MONGO_URI → Atlas (already one)
 cd backend  && npm install && npm run dev     # :5000, GET /health → {"success":true,...}
 cd frontend && npm install && npm run dev     # :5173, proxies /api → :5000
 cd frontend && npm run build                  # production bundle → frontend/dist
@@ -190,6 +191,9 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
 - **Docker caveat:** the `.env.example` values use `localhost`. Under Compose, set `MONGO_URI=mongodb://mongo:27017/nimbus-crm`,
   `AI_SERVICE_URL=http://ai:8000` and `CLIENT_ORIGIN=http://localhost:8080`. There is no `.dockerignore`, so local `.env`
   files and `node_modules` get copied into images.
+- **Replica set:** a standalone mongod makes lead convert fail ("Transaction numbers are only allowed on a replica set").
+  To convert a local service: add `replication:` / `  replSetName: rs0` to `mongod.cfg`, restart the service, then run
+  `mongosh --eval "rs.initiate()"` once. Tests and e2e start their own in-memory replica sets.
 
 ## 7. Coding rules
 
