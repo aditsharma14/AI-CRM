@@ -100,7 +100,7 @@ export default function LeadsPage() {
           placeholder="Search leads…"
           className={`${inputClasses(false)} max-w-xs`}
         />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={`${inputClasses(false)} max-w-[160px]`}>
+        <select aria-label="Filter by status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={`${inputClasses(false)} max-w-[160px]`}>
           <option value="">All statuses</option>
           {LEAD_STATUSES.map((s) => (
             <option key={s} value={s}>
