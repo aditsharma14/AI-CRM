@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useCrudQuery, useDisclosure, useMutationError, usePaginationState } from '../../hooks.js'
+import { useCrudQuery, useDisclosure, useMutationError, usePaginationState, usePipelineStages } from '../../hooks.js'
 import { api } from '../../api/client.js'
 import { DataTable } from '../../components/DataTable.jsx'
 import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
@@ -15,7 +15,7 @@ import { Button, Badge } from '../../components/ui.jsx'
 import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import NotesPanel from '../notes/NotesPanel.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
-import { PIPELINE_STAGE_DEFAULTS, canModifyRecord } from '../../lib/constants.js'
+import { canModifyRecord } from '../../lib/constants.js'
 import { formatCurrency } from '../../lib/utils.js'
 
 const dealSchema = z.object({
@@ -24,7 +24,6 @@ const dealSchema = z.object({
   stageKey: z.string().min(1),
 })
 
-const stageLabel = (key) => PIPELINE_STAGE_DEFAULTS.find((s) => s.key === key)?.label ?? key
 const STAGE_VARIANT = { won: 'success', lost: 'danger' }
 
 /**
@@ -56,6 +55,7 @@ export default function PipelinePage() {
   const updateDeal = deals.useUpdate()
   const removeDeal = deals.useRemove()
   const moveStage = useMoveStage()
+  const { stages, labelFor } = usePipelineStages()
   // Save and move fail inside the open dialog; delete closes it first, so
   // its error shows on the page instead.
   const dialogError = useMutationError(createDeal, updateDeal, moveStage)
@@ -71,7 +71,7 @@ export default function PipelinePage() {
   const openCreate = () => {
     dialogError.reset()
     deleteError.reset()
-    reset({ title: '', value: 0, stageKey: PIPELINE_STAGE_DEFAULTS[0].key })
+    reset({ title: '', value: 0, stageKey: stages[0]?.key ?? '' })
     setEditing({})
   }
   const openEdit = (deal) => {
@@ -110,7 +110,7 @@ export default function PipelinePage() {
   const columns = [
     { key: 'title', header: 'Deal' },
     { key: 'value', header: 'Value', render: (row) => formatCurrency(row.value, row.currency) },
-    { key: 'stageKey', header: 'Stage', render: (row) => <Badge variant={STAGE_VARIANT[row.stageKey]}>{stageLabel(row.stageKey)}</Badge> },
+    { key: 'stageKey', header: 'Stage', render: (row) => <Badge variant={STAGE_VARIANT[row.stageKey]}>{labelFor(row.stageKey)}</Badge> },
     { key: 'company', header: 'Company', render: (row) => row.companyId?.name ?? '—' },
   ]
 
@@ -164,8 +164,15 @@ export default function PipelinePage() {
             <input id="deal-value" type="number" step="0.01" className={inputClasses(errors.value)} {...register('value')} />
           </FormField>
           <FormField label="Stage" htmlFor="deal-stage">
-            <select id="deal-stage" className={inputClasses(false)} {...register('stageKey')}>
-              {PIPELINE_STAGE_DEFAULTS.map((s) => (
+            <select
+              // Remount once the stages arrive, so RHF re-applies the deal's stage
+              // instead of the browser defaulting to the first option.
+              key={stages.length}
+              id="deal-stage"
+              className={inputClasses(false)}
+              {...register('stageKey')}
+            >
+              {stages.map((s) => (
                 <option key={s.key} value={s.key}>
                   {s.label}
                 </option>

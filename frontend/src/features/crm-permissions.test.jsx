@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import LeadsPage from './leads/LeadsPage.jsx'
 import PipelinePage from './deals/PipelinePage.jsx'
-import { API, page, server } from '../../tests/server.js'
+import { API, ok, page, server } from '../../tests/server.js'
 import { makeUser } from '../../tests/factories.js'
 import { renderWithProviders } from '../../tests/render.jsx'
 
@@ -42,6 +42,8 @@ async function openRecord(kind, role, name) {
     http.get(`${API}${path}`, () => page(rows)),
     // The edit dialog embeds NotesPanel.
     http.get(`${API}/notes`, () => page([])),
+    // Pipeline reads the org's stages.
+    http.get(`${API}/org/pipeline-stages`, () => ok([{ key: 'new', label: 'New', order: 0 }])),
   )
   const user = userEvent.setup()
   renderWithProviders(<Page />, { session: makeUser(role) })

@@ -78,14 +78,8 @@ export function canManageMember(user, member) {
   return manageableRoles(user).includes(member.role)
 }
 
-export const PIPELINE_STAGE_DEFAULTS = [
-  { key: 'new', label: 'New', order: 0 },
-  { key: 'qualified', label: 'Qualified', order: 1 },
-  { key: 'proposal', label: 'Proposal', order: 2 },
-  { key: 'negotiation', label: 'Negotiation', order: 3 },
-  { key: 'won', label: 'Closed Won', order: 4 },
-  { key: 'lost', label: 'Closed Lost', order: 5 },
-]
+// Pipeline stages are per org: read them with usePipelineStages() (hooks.js).
+// The defaults a new org starts with live only in backend/src/models/Organization.js.
 
 export const ACTIVITY_TYPES = { TASK: 'task', EVENT: 'event', CALL: 'call', MEETING: 'meeting' }
 export const ACTIVITY_STATUSES = { OPEN: 'open', DONE: 'done' }

@@ -4,8 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { DollarSign, Flame, Kanban, Percent, History } from 'lucide-react'
 import { api } from '../../api/client.js'
 import { StatCard, Tabs, Loader, EmptyState } from '../../components/ui.jsx'
-import { PIPELINE_STAGE_DEFAULTS } from '../../lib/constants.js'
 import { formatCurrency, formatDateTime, cn } from '../../lib/utils.js'
+import { usePipelineStages } from '../../hooks.js'
 
 // The default staleTime (see lib/queryClient.js) is 30s, which is right for
 // most lists but wrong here: these numbers are a *summary of everything
@@ -58,6 +58,7 @@ function BreakdownBars({ rows, emptyLabel }) {
 
 function OverviewTab() {
   const { data, isLoading } = useDashboardOverview()
+  const { labelFor, positionOf } = usePipelineStages()
 
   if (isLoading) {
     return (
@@ -69,11 +70,11 @@ function OverviewTab() {
 
   const leadsByStatus = data?.leadsByStatus ?? {}
   const totalLeads = Object.values(leadsByStatus).reduce((sum, n) => sum + n, 0)
-  const dealsByStage = data?.dealsByStage ?? []
+  // A funnel reads top to bottom in pipeline order, not aggregation order.
+  const dealsByStage = [...(data?.dealsByStage ?? [])].sort((a, b) => positionOf(a.stageKey) - positionOf(b.stageKey))
   const totalDeals = dealsByStage.reduce((sum, s) => sum + s.count, 0)
   const recentActivity = data?.recentActivity ?? []
 
-  const stageLabel = (key) => PIPELINE_STAGE_DEFAULTS.find((s) => s.key === key)?.label ?? key
 
   return (
     <div className="flex flex-col gap-6">
@@ -96,7 +97,7 @@ function OverviewTab() {
           <h2 className="mb-4 font-serif text-lg font-semibold">Deals by stage</h2>
           <BreakdownBars
             rows={dealsByStage.map((s) => ({
-              label: stageLabel(s.stageKey),
+              label: labelFor(s.stageKey),
               value: s.count,
               formattedValue: `${s.count} · ${formatCurrency(s.value)}`,
             }))}
