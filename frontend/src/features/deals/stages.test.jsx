@@ -71,6 +71,33 @@ describe('Pipeline with an org that has custom stages', () => {
     await waitFor(() => expect(moves).toEqual([{ stageKey: 'demo' }]))
   })
 
+  // The API refuses stageKey on PATCH /deals/:id (stage changes must go through
+  // move-stage for status, closedAt, the log and the notification).
+  it.each([
+    ['with a stage change', 'Product demo'],
+    ['without one', null],
+  ])('never sends stageKey in PATCH /deals/:id when saving %s', async (_label, newStage) => {
+    serve()
+    const patches = []
+    server.use(
+      http.patch(`${API}/deals/:id`, async ({ request }) => {
+        patches.push(await request.json())
+        return ok(DEALS[0])
+      }),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<PipelinePage />, { session: makeUser('owner') })
+    await user.click(await screen.findByRole('cell', { name: 'Alpha' }))
+    const dialog = within(await screen.findByRole('dialog', { name: 'Edit deal' }))
+    await waitFor(() => expect(optionLabels(dialog.getByLabelText('Stage'))).toEqual(IN_ORDER))
+
+    if (newStage) await user.selectOptions(dialog.getByLabelText('Stage'), newStage)
+    await user.click(dialog.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(patches).toHaveLength(1))
+    expect(patches[0]).not.toHaveProperty('stageKey')
+  })
+
   it('starts a new deal in the org\'s first stage', async () => {
     const { creates } = serve()
     const user = userEvent.setup()

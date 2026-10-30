@@ -32,7 +32,7 @@ router.post(
   requirePermission('crm', 'write'),
   validate({ body: dealCreate }),
   asyncHandler(async (req, res) => {
-    apiResponse(res, await dealsService.crud.create(req.user, req.body), null, 201)
+    apiResponse(res, await dealsService.create(req.user, req.body), null, 201)
   }),
 )
 
@@ -40,7 +40,7 @@ router.patch(
   '/:id',
   requirePermission('crm', 'write'),
   validate({ params: idParam, body: dealUpdate }),
-  asyncHandler(async (req, res) => apiResponse(res, await dealsService.crud.update(req.user, req.params.id, req.body))),
+  asyncHandler(async (req, res) => apiResponse(res, await dealsService.update(req.user, req.params.id, req.body))),
 )
 
 router.delete(

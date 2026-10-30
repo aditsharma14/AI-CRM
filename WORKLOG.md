@@ -355,11 +355,11 @@ All three are now in the Resolved table in `docs/known-issues.md`.
 
 | Commit | What |
 |---|---|
-| `3358e02` | **Backend:** strict per-resource `listQuery()` specs; unknown or invalid filters are 400. Notifications handlers move into `notificationsService` and honour `?read=`. `validate()` names the field in each message. |
-| `5e8bb0b` | Frontend contract tests: the Leads status and search params, and NotesPanel's `entityType`/`entityId`. |
-| `de76502` | `useMutationError` + `ErrorAlert` on Leads and Pipeline. `apiErrorMessage` is status-aware. A partial Pipeline save resyncs, and a retry doesn't move the stage again. |
-| `594d2c5` | `usePipelineStages()`: the org's stages, in order, in Pipeline and the Dashboard funnel. `PIPELINE_STAGE_DEFAULTS` removed. |
-| `ce5ed7f` | An unhandled MSW request now fails the test. Before, 7 tests ran with a missing handler and stayed green. |
+| `83b0e08` | **Backend:** strict per-resource `listQuery()` specs; unknown or invalid filters are 400. Notifications handlers move into `notificationsService` and honour `?read=`. `validate()` names the field in each message. |
+| `20d2f49` | Frontend contract tests: the Leads status and search params, and NotesPanel's `entityType`/`entityId`. |
+| `9c445a9` | `useMutationError` + `ErrorAlert` on Leads and Pipeline. `apiErrorMessage` is status-aware. A partial Pipeline save resyncs, and a retry doesn't move the stage again. |
+| `93f1cf9` | `usePipelineStages()`: the org's stages, in order, in Pipeline and the Dashboard funnel. `PIPELINE_STAGE_DEFAULTS` removed. |
+| `5d226fe` | An unhandled MSW request now fails the test. Before, 7 tests ran with a missing handler and stayed green. |
 
 ### Interview angle (STAR): "Tell me about a bug where the system failed silently"
 
@@ -404,9 +404,80 @@ All three are now in the Resolved table in `docs/known-issues.md`.
 
 **Found along the way**
 - I first added an extra list refetch after a failed Pipeline save. A mutation check showed it was redundant: the move's own `onSuccess` already refetches. Removed.
-- S1.3's claim that unhandled requests fail the test was wrong (see `ce5ed7f`). The docs are corrected.
+- S1.3's claim that unhandled requests fail the test was wrong (see `5d226fe`). The docs are corrected.
 
 **Next**
 - Error UI for the remaining forms (Contacts, Companies, Tasks, Calendar, Notes, Settings): S1.7 extends `useMutationError`.
 - `stageKey` on deal create and update is still not checked against the org's stages (`docs/known-issues.md`).
 - The Kanban board (S2.7) is where optimistic stage moves, with rollback, belong.
+
+## 2026-10-30 · S1.3c: Validate stageKey against the org's stages
+
+**Goal:** on deal create, update and move-stage, reject a `stageKey` that isn't in the requesting org's `pipelineStages`, with 400 `VALIDATION_ERROR` naming the field. The check lives in `dealsService`.
+
+**Your three changes, and how each landed**
+1. **PATCH bypass: the "no frontend call sends it" case applied.**
+   - Pipeline's two-call save strips `stageKey` before `PATCH /deals/:id` (`const { stageKey, ...rest } = values`), and nothing else updates deals.
+   - A new frontend test pins this: the PATCH body never has `stageKey`, with or without a stage change.
+   - So `update` refuses `stageKey` with `stageKey: use PATCH /deals/:id/move-stage to change a deal's stage.`
+2. **Default stage:** creating without `stageKey` used to be a 400, because the schema required it. It now starts in the org's first stage by `order` (`new` by default; `discovery` in the custom test org, whose stages are stored out of order).
+3. **Field details:** the error envelope has no field-details slot (`ApiError` is `{ code, message }`), and S1.3b's list-filter errors name the field with a `field: ` message prefix. Stage errors use the same `stageKey: …` prefix; the envelope is unchanged.
+
+**Changed** (branch `fix/s1.3c-stagekey`, cut from `fix/s1.3b-user-visible-bugs`, commit `8581e26`)
+- `dealsService`:
+  - `stagesOf(orgId)` loads the stages once and returns 404 if the org is gone;
+  - `stageIn(stages, key)` is the one check;
+  - `create` and `update` are new;
+  - `moveStage` reuses the org it already loads and still checks access first.
+- Routes call `dealsService.create`/`update`; `dealCreate.stageKey` is optional.
+- move-stage's code is `INVALID_STAGE` → `VALIDATION_ERROR`; the one frontend mock was updated.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| `tests/deal-stages.test.js`, red first | 8 of 12 red: create accepted unknown and other-org keys (201), a missing stage was a 400, PATCH accepted `stageKey` (200), move-stage used `INVALID_STAGE` |
+| Mutation: drop the stage check in `create` | 2 tests fail |
+| Mutation: first stage by array position instead of `order` | `expected 'demo' to be 'discovery'` |
+| Backend `npm test` | **305 passed** in 14 files |
+| Frontend `npm test` | **109 passed** (the 2 new PATCH guard tests passed first time, which is the evidence for case 1) |
+| `npm run e2e` | passed |
+| Lint and typecheck, both packages | clean |
+
+**Docs:** `docs/known-issues.md` moves the `stageKey` gap to Resolved. Open findings:
+- the hardcoded `won`/`lost` keys (still open);
+- the two-call Pipeline save (open for S2.7);
+- **new:** creating a deal directly in `won`/`lost` skips the close (status, `closedAt`, log, notification). Found here, not fixed: it's outside this brief.
+
+**Next:** decide whether `create` should route a won/lost start stage through the close logic, or refuse it.
+
+## 2026-10-30 · S1.3d: Close logic on create
+
+**Goal (your decision):** creating a deal in a closing stage (`won` or `lost`) runs the same close logic as move-stage. That logic now lives in exactly one helper.
+
+**Base branch:** the brief said `main`, but `main` (`daf65ec`) has none of the S1.x stack. You chose to stack on `fix/s1.3c-stagekey` instead, so the branch is `fix/s1.3d-close-on-create` from `2c1f2c8`.
+
+**Changed** (commit `b0cdd6a`)
+- **`applyStageTransition(deal, fromKey, toStage, actor, { wonLostReason })` in `dealsService`.** It is the only code that sets `status`/`closedAt`, writes the stage audit entry and sends the won/lost notification. `moveStage` and `create` both call it.
+- **Logging rule:**
+  - A move logs `move-stage` (unchanged).
+  - A creation is already logged by the CRUD factory (`create`), so only a creation that *closes* the deal adds a `close` entry. A creation in an open stage adds nothing.
+  - So "one activity log entry" in the brief is read as one close entry, alongside the usual create entry.
+- **Closing keys:** `won`/`lost` stay hardcoded, now named `CLOSING_KEYS` (open for S2.7).
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Create in won/lost, red first | 3 red (`expected 'open' to be 'won'`, likewise for `lost` and the custom org) |
+| Create in an open stage | `['create']` only; no `closedAt`, no notification |
+| move-stage characterization (new) | close with the reason kept, one `move-stage` entry, one notification to the owner; reopen clears `closedAt`. Passed before and after the extraction. |
+| Mutation: log every creation | open-stage test fails (`['create', 'close']`) |
+| Backend `npm test` | **311 passed** in 14 files |
+| Frontend `npm test` | **109 passed** |
+| `npm run e2e` | passed |
+| Lint and typecheck, both packages | clean |
+
+**Found, not fixed:** `POST /leads/:id/convert` accepts any `stageKey` and calls `Deal.create` directly, so it skips both the org-stage check (S1.3c) and the close logic (S1.3d). The UI never sends a stage on convert. This is now in `docs/known-issues.md`.
+
+**Next:** route conversion through `dealsService.create` (or the same two checks), and keep it logging `convert`.

@@ -17,7 +17,7 @@ const STAGES = [
 ]
 
 const FAILURES = [
-  [400, 'INVALID_STAGE', 'Unknown pipeline stage "qualified".', 'Unknown pipeline stage "qualified".'],
+  [400, 'VALIDATION_ERROR', `stageKey: "qualified" is not a stage in this organization's pipeline.`, `stageKey: "qualified" is not a stage in this organization's pipeline.`],
   [403, 'FORBIDDEN', 'You can only change records you own.', 'You can only change records you own.'],
   [500, 'INTERNAL_ERROR', 'Internal server error', "Something went wrong on our side. Your changes weren't saved. Try again."],
 ]

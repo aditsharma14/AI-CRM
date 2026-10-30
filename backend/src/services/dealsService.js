@@ -19,6 +19,71 @@ export const crud = createCrudService(Deal, {
 })
 
 /** @typedef {import('../types/index.js').AuthUser} AuthUser */
+/** @typedef {{ key: string, label: string, order: number }} Stage */
+
+/**
+ * The org's pipeline stages: stage keys are only meaningful per org.
+ * @param {unknown} orgId
+ * @returns {Promise<Stage[]>}
+ * @throws {import('../utils/http.js').AppError} 404 when the org document is gone
+ */
+async function stagesOf(orgId) {
+  const org = await Organization.findById(orgId).select('pipelineStages')
+  if (!org) throw notFound('Organization not found.')
+  return org.pipelineStages
+}
+
+/**
+ * Same `field: message` shape validate() gives Zod errors, so a bad stage
+ * reads like any other bad field.
+ * @param {Stage[]} stages
+ * @param {string} stageKey
+ * @returns {Stage}
+ * @throws {import('../utils/http.js').AppError} 400 VALIDATION_ERROR
+ */
+function stageIn(stages, stageKey) {
+  const stage = stages.find((s) => s.key === stageKey)
+  if (!stage) throw badRequest(`stageKey: "${stageKey}" is not a stage in this organization's pipeline.`, 'VALIDATION_ERROR')
+  return stage
+}
+
+/**
+ * A new deal goes in the requested stage, which must be one of the org's,
+ * or else the org's first stage (lowest `order`), never a hardcoded key.
+ * @param {AuthUser} actor
+ * @param {import('../schemas/deals.js').DealCreateInput} body
+ * @returns {Promise<import('mongoose').HydratedDocument<import('../models/Deal.js').DealRecord>>}
+ * @throws {import('../utils/http.js').AppError} 400 VALIDATION_ERROR, 400 INVALID_OWNER, 404
+ */
+export async function create(actor, body) {
+  const stages = await stagesOf(actor.orgId)
+  const first = [...stages].sort((a, b) => a.order - b.order)[0]
+  const stageKey = body.stageKey ?? first?.key
+  if (!stageKey) throw badRequest('stageKey: this organization has no pipeline stages.', 'VALIDATION_ERROR')
+  const toStage = stageIn(stages, stageKey)
+  const deal = await crud.create(actor, { ...body, stageKey })
+  await applyStageTransition(deal, null, toStage, actor)
+  return deal
+}
+
+/**
+ * Everything but the stage. A stage change has side effects (status,
+ * closedAt, the audit log, the won/lost notification) that only moveStage
+ * performs, so the plain update refuses stageKey outright rather than
+ * silently skipping them. Checked before the write: the answer depends only
+ * on the body, so it reveals nothing about the deal.
+ * @param {AuthUser} actor
+ * @param {string} id
+ * @param {import('../schemas/deals.js').DealUpdateInput} body
+ * @returns {Promise<import('mongoose').HydratedDocument<import('../models/Deal.js').DealRecord>>}
+ * @throws {import('../utils/http.js').AppError} 400 VALIDATION_ERROR, 403, 404
+ */
+export async function update(actor, id, body) {
+  if (body.stageKey !== undefined) {
+    throw badRequest("stageKey: use PATCH /deals/:id/move-stage to change a deal's stage.", 'VALIDATION_ERROR')
+  }
+  return crud.update(actor, id, body)
+}
 
 /**
  * @param {AuthUser} actor
@@ -26,48 +91,72 @@ export const crud = createCrudService(Deal, {
  * @param {string} stageKey Must be one of the org's pipeline stage keys.
  * @param {string} [wonLostReason] Kept only when moving to 'won' or 'lost'.
  * @returns {Promise<import('mongoose').HydratedDocument<import('../models/Deal.js').DealRecord>>}
- * @throws {import('../utils/http.js').AppError} 400 INVALID_STAGE, 403, 404
+ * @throws {import('../utils/http.js').AppError} 400 VALIDATION_ERROR, 403, 404
  */
 export async function moveStage(actor, dealId, stageKey, wonLostReason) {
-  const { orgId, id: actorId } = actor
+  const { orgId } = actor
   // Access first, so a 403/404 never depends on what stage was asked for.
   const deal = await Deal.findOne({ _id: dealId, orgId, ...scopeFor(actor, 'deal', 'write') })
   if (!deal) throw await missOrForbidden(Deal, actor, dealId)
 
-  const org = await Organization.findById(orgId).select('pipelineStages')
-  if (!org) throw notFound('Organization not found.')
-  const stage = org.pipelineStages.find((s) => s.key === stageKey)
-  if (!stage) throw badRequest(`Unknown pipeline stage "${stageKey}".`, 'INVALID_STAGE')
+  const toStage = stageIn(await stagesOf(orgId), stageKey)
+  await applyStageTransition(deal, deal.stageKey, toStage, actor, { wonLostReason })
+  return deal
+}
 
-  deal.stageKey = stageKey
-  if (stageKey === 'won' || stageKey === 'lost') {
-    deal.status = stageKey
+// Closing is keyed on these two keys, whatever an org labels them. Kept
+// hardcoded until S2.7 (docs/known-issues.md).
+const CLOSING_KEYS = ['won', 'lost']
+
+/**
+ * The one place a deal's stage changes take effect: status and closedAt,
+ * the audit entry, and the won/lost notification. moveStage calls it for a
+ * move; create calls it for a deal born in a stage, so a deal created in
+ * won/lost is closed exactly as if it had been moved there.
+ * @param {import('mongoose').HydratedDocument<import('../models/Deal.js').DealRecord>} deal Saved here.
+ * @param {string | null} fromKey The stage it left, or null when the deal is being created.
+ * @param {Stage} toStage One of the org's stages (already checked by stageIn).
+ * @param {AuthUser} actor
+ * @param {{ wonLostReason?: string }} [options] Kept only when closing.
+ * @returns {Promise<void>}
+ */
+async function applyStageTransition(deal, fromKey, toStage, actor, { wonLostReason } = {}) {
+  const closing = CLOSING_KEYS.includes(toStage.key)
+  const isCreate = fromKey === null
+
+  deal.stageKey = toStage.key
+  if (closing) {
+    // Boundary cast: CLOSING_KEYS.includes() proved the key is 'won' or 'lost'; tsc can't narrow through includes().
+    deal.status = /** @type {'won' | 'lost'} */ (toStage.key)
     deal.closedAt = new Date()
     if (wonLostReason) deal.wonLostReason = wonLostReason
   } else {
     deal.status = 'open'
     deal.closedAt = undefined
   }
-  await deal.save()
+  // A deal created in an open stage is already in that state: no second write.
+  if (deal.isModified()) await deal.save()
 
-  await logActivity({
-    orgId,
-    userId: actorId,
-    action: 'move-stage',
-    entityType: 'deal',
-    entityId: deal._id,
-    message: `Moved deal "${deal.title}" to ${stage.label}`,
-  })
-
-  if (stageKey === 'won' || stageKey === 'lost') {
-    await notify({
-      orgId,
-      userId: deal.ownerId,
+  // Every move is logged. A creation is already logged by the CRUD factory,
+  // so only a creation that closes the deal gets an entry of its own.
+  if (!isCreate || closing) {
+    await logActivity({
+      orgId: actor.orgId,
+      userId: actor.id,
+      action: isCreate ? 'close' : 'move-stage',
       entityType: 'deal',
       entityId: deal._id,
-      message: `Deal "${deal.title}" was marked ${stageKey}.`,
+      message: isCreate ? `Created deal "${deal.title}" in ${toStage.label}` : `Moved deal "${deal.title}" to ${toStage.label}`,
     })
   }
 
-  return deal
+  if (closing) {
+    await notify({
+      orgId: actor.orgId,
+      userId: deal.ownerId,
+      entityType: 'deal',
+      entityId: deal._id,
+      message: `Deal "${deal.title}" was marked ${toStage.key}.`,
+    })
+  }
 }
