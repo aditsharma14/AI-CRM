@@ -1,0 +1,5 @@
+# Mechanical commits that git blame should skip.
+# Enable once per clone: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: format the codebase with Prettier
+242fdc8641fc7f9feadc616dbfd4554519ba70cc
