@@ -6,12 +6,13 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useCrudQuery, useDisclosure, usePaginationState } from '../../hooks.js'
+import { useCrudQuery, useDisclosure, useMutationError, usePaginationState } from '../../hooks.js'
 import { api } from '../../api/client.js'
 import { DataTable } from '../../components/DataTable.jsx'
 import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button, Badge } from '../../components/ui.jsx'
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import NotesPanel from '../notes/NotesPanel.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
 import { PIPELINE_STAGE_DEFAULTS, canModifyRecord } from '../../lib/constants.js'
@@ -55,6 +56,10 @@ export default function PipelinePage() {
   const updateDeal = deals.useUpdate()
   const removeDeal = deals.useRemove()
   const moveStage = useMoveStage()
+  // Save and move fail inside the open dialog; delete closes it first, so
+  // its error shows on the page instead.
+  const dialogError = useMutationError(createDeal, updateDeal, moveStage)
+  const deleteError = useMutationError(removeDeal)
 
   const {
     register,
@@ -64,10 +69,14 @@ export default function PipelinePage() {
   } = useForm({ resolver: zodResolver(dealSchema) })
 
   const openCreate = () => {
+    dialogError.reset()
+    deleteError.reset()
     reset({ title: '', value: 0, stageKey: PIPELINE_STAGE_DEFAULTS[0].key })
     setEditing({})
   }
   const openEdit = (deal) => {
+    dialogError.reset()
+    deleteError.reset()
     reset(deal)
     setEditing(deal)
   }
@@ -76,17 +85,26 @@ export default function PipelinePage() {
   const onSubmit = async (values) => {
     const { stageKey, ...rest } = values
 
-    if (editing?._id) {
-      // Stage changes and everything-else changes are two different
-      // endpoints on the backend — send each field set where it belongs.
-      if (stageKey !== editing.stageKey) {
-        await moveStage.mutateAsync({ id: editing._id, stageKey })
+    try {
+      if (editing?._id) {
+        // Stage changes and everything-else changes are two different
+        // endpoints on the backend — send each field set where it belongs.
+        if (stageKey !== editing.stageKey) {
+          await moveStage.mutateAsync({ id: editing._id, stageKey })
+          // The move is saved even if the PATCH below fails; a retry must
+          // only resend the PATCH, not move (and log, and notify) again.
+          setEditing((prev) => ({ ...prev, stageKey }))
+        }
+        await updateDeal.mutateAsync({ id: editing._id, ...rest })
+      } else {
+        await createDeal.mutateAsync(values)
       }
-      await updateDeal.mutateAsync({ id: editing._id, ...rest })
-    } else {
-      await createDeal.mutateAsync(values)
+      close()
+    } catch {
+      // Shown via dialogError; the dialog keeps what the user typed. If the
+      // move succeeded and the PATCH failed, useMoveStage's onSuccess has
+      // already refetched the list, so the table shows the real stage.
     }
-    close()
   }
 
   const columns = [
@@ -102,6 +120,8 @@ export default function PipelinePage() {
         <h1 className="font-serif text-xl font-semibold">Pipeline</h1>
         <Button onClick={openCreate}>New deal</Button>
       </div>
+
+      {!editing && <ErrorAlert message={deleteError.message} />}
 
       <DataTable
         columns={columns}
@@ -135,6 +155,7 @@ export default function PipelinePage() {
           </>
         }
       >
+        <ErrorAlert message={dialogError.message} />
         <form id="deal-form" onSubmit={handleSubmit(onSubmit)}>
           <FormField label="Title" htmlFor="deal-title" error={errors.title}>
             <input id="deal-title" className={inputClasses(errors.title)} {...register('title')} />

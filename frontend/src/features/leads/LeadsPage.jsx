@@ -4,12 +4,13 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useCrudQuery, useDebounce, useDisclosure, usePaginationState } from '../../hooks.js'
+import { useCrudQuery, useDebounce, useDisclosure, useMutationError, usePaginationState } from '../../hooks.js'
 import { api } from '../../api/client.js'
 import { DataTable } from '../../components/DataTable.jsx'
 import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button, Badge } from '../../components/ui.jsx'
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import NotesPanel from '../notes/NotesPanel.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
 import { LEAD_STATUSES, canModifyRecord } from '../../lib/constants.js'
@@ -53,6 +54,10 @@ export default function LeadsPage() {
   const updateLead = leads.useUpdate()
   const removeLead = leads.useRemove()
   const convertLead = useConvertLead()
+  // Save and convert fail inside the open dialog; delete closes it first, so
+  // its error shows on the page instead.
+  const dialogError = useMutationError(createLead, updateLead, convertLead)
+  const deleteError = useMutationError(removeLead)
 
   const {
     register,
@@ -62,10 +67,14 @@ export default function LeadsPage() {
   } = useForm({ resolver: zodResolver(leadSchema) })
 
   const openCreate = () => {
+    dialogError.reset()
+    deleteError.reset()
     reset({ name: '', email: '', phone: '', source: '' })
     setEditing({})
   }
   const openEdit = (lead) => {
+    dialogError.reset()
+    deleteError.reset()
     reset(lead)
     setEditing(lead)
   }
@@ -73,9 +82,13 @@ export default function LeadsPage() {
 
   const onSubmit = async (values) => {
     const payload = { ...values, email: values.email || undefined }
-    if (editing?._id) await updateLead.mutateAsync({ id: editing._id, ...payload })
-    else await createLead.mutateAsync(payload)
-    close()
+    try {
+      if (editing?._id) await updateLead.mutateAsync({ id: editing._id, ...payload })
+      else await createLead.mutateAsync(payload)
+      close()
+    } catch {
+      // Shown via dialogError; the dialog stays open with what the user typed.
+    }
   }
 
   const columns = [
@@ -109,6 +122,8 @@ export default function LeadsPage() {
           ))}
         </select>
       </div>
+
+      {!editing && <ErrorAlert message={deleteError.message} />}
 
       <DataTable
         columns={columns}
@@ -151,6 +166,7 @@ export default function LeadsPage() {
           </>
         }
       >
+        <ErrorAlert message={dialogError.message} />
         <form id="lead-form" onSubmit={handleSubmit(onSubmit)}>
           <FormField label="Name" htmlFor="lead-name" error={errors.name}>
             <input id="lead-name" className={inputClasses(errors.name)} {...register('name')} />

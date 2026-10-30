@@ -1,7 +1,8 @@
-// Generic reusable hooks: useCrudQuery, useDebounce, useDisclosure, usePaginationState.
+// Generic reusable hooks: useCrudQuery, useDebounce, useDisclosure, usePaginationState, useMutationError.
 import { useCallback, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './api/client.js'
+import { SAVE_FAILED, apiErrorMessage } from './lib/utils.js'
 
 /**
  * Generic CRUD data-fetching for any REST resource. A new entity gets full
@@ -90,4 +91,22 @@ export function useClickOutside(ref, onOutsideClick) {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [ref, onOutsideClick])
+}
+
+/**
+ * The latest error across one or more mutations (a form's save, convert,
+ * delete…), ready for <ErrorAlert message={…} />. Minimal on purpose; S1.7
+ * extends it for field-level form errors.
+ *   const saveError = useMutationError(createLead, updateLead)
+ *   <ErrorAlert message={saveError.message} />
+ */
+export function useMutationError(...mutations) {
+  // Several can have failed; show the one the user triggered last.
+  const failed = mutations.filter((m) => m.isError).sort((a, b) => b.submittedAt - a.submittedAt)[0]
+  const error = failed?.error ?? null
+  return {
+    error,
+    message: error ? apiErrorMessage(error, { serverError: SAVE_FAILED }) : null,
+    reset: () => mutations.forEach((m) => m.reset()),
+  }
 }
