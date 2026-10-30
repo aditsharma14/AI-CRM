@@ -526,3 +526,78 @@ All three are now in the Resolved table in `docs/known-issues.md`.
 **For you:** your local `:27017` is still standalone, so converting a lead fails in `npm run dev` until you make it a one-node replica set (steps in CLAUDE.md §6, "Replica set").
 
 **Next:** start Compose once on a machine with Docker. Consider routing `crud.create` for deals so it can only be called through `dealsService.create` (e.g. stop exporting `crud`).
+
+---
+
+## 2026-10-31 · S1.4: Code quality and PR hygiene
+
+**Goal:** consistent formatting, strict lint, one error middleware, structured request logging and a PR workflow, with
+no behaviour change. Worked directly on `main` (S1.3e merged as PR #3 first), pushing after every commit that passed
+the gate.
+
+**Changed** (20 commits including this docs one, all on `main`)
+
+| Commit | What |
+|---|---|
+| `8eabd57` | `.gitattributes`: `* text=auto eol=lf` plus binary types. The index was already all LF, so the renormalise changed nothing and has no commit of its own |
+| `0d55163` | `.editorconfig` |
+| `3019024` | Root `package.json` (tooling only), Prettier config, root `lint` / `typecheck` / `format` scripts |
+| `501ccc1`, `1dffe3f` | husky + lint-staged pre-commit gate (moved up from the plan's slot 9); the second commit fixes its typecheck task, which failed to spawn on Windows |
+| `242fdc8`, `5fb34b0` | Prettier over the repo (60 files), then `.git-blame-ignore-revs` |
+| `652b6db`, `39a02aa` | Import sort, then the lint rules. Swapped from the plan so lint passes at every commit |
+| `83be692`, `f9305cf` | ruff config for `AI/`; CI `repo` job (format check, ruff) |
+| `344e8f3` | One error middleware: `notFoundHandler` forwards an `AppError`, one `sendError()`, shared `zodIssuesMessage()`, `asyncHandler` in auth routes |
+| `0c7e3f9` | pino-http instead of morgan: one JSON line per request, request id (also `X-Request-Id`), redaction |
+| `da30444`, `ec0a26f` | `activityService` → `activityLogService`; `labelFor` tests (66.7% → 100% lines) |
+| `ca229e5` | Dead code: `multer`, `cloudinary` and its config, 7 unused frontend exports; shared `hashToken` |
+| `723f0c8` | ~30 stale or misleading comments |
+| `f4454c0` | `SettingsPage.jsx` (517 lines) → shell + one file per tab |
+| `001362c` | PR template, `CONTRIBUTING.md` |
+
+**The pre-commit gate.** Staged JS gets ESLint `--fix --max-warnings 0` and its package's typecheck; staged Python gets
+ruff check and format; everything gets Prettier. Every check was shown blocking a commit with a planted file: a lint
+error, a `TS2322` type error in each package, and a ruff `F821`. A clean file went through. The first version reported
+"blocked" for the type error, but the block came from a spawn failure (`npm` is `npm.cmd` on Windows), not from `tsc`.
+Re-testing by reading the actual error is what caught it (`1dffe3f`).
+
+**Logging, as verified on real output.** A probe sent an `Authorization` header, a refresh cookie, a query string and a
+password in a malformed body; none of them appeared in any log line. Two problems surfaced and were fixed before the
+commit:
+- body-parser's `SyntaxError` carries the raw body, so `err.body` is redacted;
+- the logger ran after `express.json()`, so a parse failure had no request line or id. It now runs first.
+
+`route` (the matched pattern) was dropped in favour of `path`: Express resets `req.baseUrl` once a handler fails, so
+most error lines would have said `/:id`.
+
+**Verified** (after every commit: backend, frontend, lint, typecheck, format; e2e before the error-middleware and
+logging commits and at the end)
+
+| Check | Result |
+|---|---|
+| Backend `npm test` | 321 → **333 passed** (12 new `labelFor` tests; the 321 unchanged) |
+| Frontend `npm test` | **109 passed**, unchanged |
+| `npm run e2e` | passed (baseline, error middleware, logging, final) |
+| `npm run lint` (root) | ESLint zero warnings in both packages, ruff clean |
+| `npm run typecheck`, `npm run format:check` | clean |
+| Error bodies before/after the middleware refactor | byte-identical for 404, malformed JSON (500) and a validation error |
+
+**Not changed on purpose:** the two dev-only token `console.log`s (until S2.6), the one-line stub files (planned work,
+CLAUDE.md §9), and every status/code/message, including the wrong ones logged below.
+
+**Found and logged, not fixed** (`docs/known-issues.md`): the error-contract group for S1.4b (malformed/oversized
+JSON → 500, 429 as HTML, unknown `/api/v1` path → 401 for guests, raw Mongoose `ValidationError` message, `CastError` →
+500); the frontend-polish group for S1.7 (Members crash on a failed query, filters not resetting the page,
+`GlobalSearch` stale closure); the refresh cookie's hardcoded `maxAge`; and `registerOrg` writing three documents
+outside a transaction.
+
+**Next:** S1.4b (error contract), then S1.7.
+
+### Interview angle: "How do you handle errors in your API?"
+> Services throw a typed `AppError` (status, code, safe message), and validation failures become `VALIDATION_ERROR` with `field: message`, so routes never build error JSON.
+> One Express error middleware maps `AppError`, Zod, Mongoose and duplicate-key errors to one `{ success: false, error: { code, message } }` envelope; anything else is a 500 with a generic message.
+> Unknown errors are logged with the request's id, which the client also gets as `X-Request-Id`, so a user's report leads straight to the log line, and nothing internal leaks to the response.
+
+### Interview angle: "What makes a good PR?"
+> One logical change a reviewer can hold in their head: a refactor never hides a behaviour change, and mechanical diffs (formatting, renames) ship apart.
+> It says what and why, and proves how it was tested: the failing test first, the commands run and their output.
+> It leaves the codebase honest: docs updated where the change makes them wrong, and bugs found along the way logged as issues instead of fixed in passing.

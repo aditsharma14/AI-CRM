@@ -3,7 +3,7 @@
 Everything known to be wrong, missing or unverified that isn't a top-level gap in [CLAUDE.md](../CLAUDE.md) §9,
 plus a record of what has been resolved. Newest resolutions first.
 
-## Open findings (verified 2026-10-29, updated 2026-10-30)
+## Open findings (verified 2026-10-29, updated 2026-10-31)
 - **Other mutations still have no error UI.** Leads and Pipeline now use `useMutationError` + `ErrorAlert` (S1.3b), but
   Contacts, Companies, Tasks, Calendar, Notes and most Settings forms still fail silently. S1.7 extends the hook.
 - **The `won`/`lost` stage keys are hardcoded** (`CLOSING_KEYS` in [dealsService.js](../backend/src/services/dealsService.js);
@@ -14,10 +14,33 @@ plus a record of what has been resolved. Newest resolutions first.
   it from the healthcheck (S1.3e), but Docker isn't installed on the audit machine, so it has never been started. The set
   advertises `mongo:27017`, so a client on the host may need `?directConnection=true`.
 - **Dead config.** `JWT_REFRESH_SECRET`, `AI_SERVICE_URL` and `REFRESH_TOKEN_TTL` are required or documented but
-  never read (see the env table in CLAUDE.md §6).
-- **Typecheck isn't in a pre-commit hook yet.** That's deferred to S1.4 (husky + lint-staged); until then CI is the gate.
+  never read (see the env table in CLAUDE.md §6). The refresh cookie's `maxAge` is hardcoded to 7 days in
+  [auth.routes.js](../backend/src/routes/auth.routes.js) instead of following `REFRESH_TOKEN_TTL`.
+- **Registering an org isn't atomic.** `registerOrg` in [authService.js](../backend/src/services/authService.js) creates
+  the org, then the owner, then saves the org's `ownerId`, outside a transaction. If the user write fails (e.g. a
+  duplicate email that slips past the pre-check), an org with no owner is left behind. Every environment is a replica
+  set since S1.3e, so a transaction is now possible. (Found in S1.4.)
 - **Referenced ids aren't checked against the org.** `companyId`, `contactIds`, team `memberIds` and note `entityId`
   can point at another tenant's documents, and `populate()` isn't org-filtered. (Owner fields are checked.)
+
+### Error contract (found in S1.4; fix in S1.4b)
+Reproduced against the API. The single error middleware kept these as they were, since S1.4 changes no behaviour.
+- **Malformed or oversized JSON bodies are 500 `INTERNAL_ERROR`,** not 400 / 413. body-parser's error carries
+  `status`, but [errorHandler.js](../backend/src/middleware/errorHandler.js) never reads it.
+- **The rate limiter's 429 is `text/html`,** not the envelope (express-rate-limit's default handler).
+- **An unknown `/api/v1/*` path is 401 for a guest,** not 404: the routers mounted at `/api/v1` (CRUD, insights) apply
+  auth to everything under it before the 404 handler is reached.
+- **A Mongoose `ValidationError` sends its raw message** ("Lead validation failed: name: …"), exposing model and
+  path names.
+- **A Mongoose `CastError` is 500,** not 400.
+
+### Frontend polish (found in S1.4; fix in S1.7)
+- **Settings → Members crashes if the members query fails:** `members.map` on `undefined` in
+  [MembersTab.jsx](../frontend/src/features/settings/MembersTab.jsx) sends the app to its error boundary.
+- **Changing the search or status filter doesn't reset the page to 1** (Leads, Contacts, Companies), so a filter can
+  land on an empty page.
+- **`GlobalSearch` turns off `react-hooks/exhaustive-deps`** for its Escape handler, which can capture a stale
+  `handleClose`.
 
 ## Open questions
 - What exactly happens if a token lacked `orgId`? Mongoose likely casts it to `null` and matches nothing. (A token whose
@@ -29,6 +52,8 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-10-31 | Typecheck (and lint) weren't in a pre-commit hook, and CI doesn't block merges | husky + lint-staged: ESLint, ruff, Prettier and typecheck block the commit (`501ccc1`, Windows spawn fix `1dffe3f`) |
+| 2026-10-31 | `activityService` (now `activityLogService`) had 66.7% line coverage | [activity-log.unit.test.js](../backend/tests/activity-log.unit.test.js); now 100% (`ec0a26f`) |
 | 2026-10-31 | **Lead conversion bypassed both stage rules:** `POST /leads/:id/convert` called `Deal.create` directly, so any `stageKey` (another org's included) was stored and converting into `won`/`lost` left the deal open. It also wasn't atomic: a failed lead write left an orphan deal, and two parallel converts made two deals | the deal now comes from `dealsService.create`, and everything runs in one MongoDB transaction with a conditional lead update (`18bc2a6`; replica-set infra `2fd6b12`) |
 | 2026-10-30 | **Creating a deal directly in `won` or `lost` skipped the close:** `POST /deals` stored the stage but not `status`/`closedAt`, and didn't log or notify like move-stage | the close logic moved into one helper, `applyStageTransition`, called by both `moveStage` and `create` (`b0cdd6a`) |
 | 2026-10-30 | **`stageKey` was only validated by move-stage:** `POST` accepted any string (including another org's key), and `PATCH` could change the stage while skipping move-stage's status, `closedAt`, log and notification | `dealsService.create` checks the key against the requesting org's stages and defaults to its first stage by order; `update` refuses `stageKey`; move-stage returns `VALIDATION_ERROR` (`8581e26`) |

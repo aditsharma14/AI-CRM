@@ -49,7 +49,7 @@ Read this before changing anything. Overview: [readme.md](readme.md). History: [
 ## 3. API contract
 
 Every response uses one envelope, built only by `apiResponse()` and the `AppError` helpers in
-[http.js](backend/src/utils/http.js) and formatted by [errorHandler.js](backend/src/middleware/errorHandler.js).
+[http.js](backend/src/utils/http.js). [errorHandler.js](backend/src/middleware/errorHandler.js) is the only code that writes an error.
 
 Success: `GET /api/v1/leads?page=1&limit=20` (`meta` comes from `paginate()` in [queryBuilder.js](backend/src/utils/queryBuilder.js)):
 ```json
@@ -72,7 +72,7 @@ Error: `GET /api/v1/leads/<unknown id>` → 404 (thrown by `getById` in [crudSer
 | 403 | `FORBIDDEN` | `requirePermission()` |
 | 404 | `NOT_FOUND` | services; unknown routes |
 | 409 | `DUPLICATE_KEY` | Mongo error 11000 |
-| 500 | `INTERNAL_ERROR` | anything else (also Mongoose `CastError`) |
+| 500 | `INTERNAL_ERROR` | anything else, logged with the request id (also `CastError`, bad JSON: known-issues) |
 
 The client reads `response.data.data`. `useList` in [hooks.js](frontend/src/hooks.js) returns the whole body (`{ data, meta }`).
 
@@ -170,7 +170,7 @@ docker compose up --build                     # all services, :8080. See Docker 
 | `AI_SERVICE_URL` | backend | yes | **no** (AI proxy not built) |
 | `ACCESS_TOKEN_TTL` | backend | no (`15m`) | yes |
 | `REFRESH_TOKEN_TTL` | backend | no (`7d`) | **no** (cookie maxAge is hardcoded in `auth.routes.js`) |
-| `NODE_ENV`, `PORT` | backend | no | yes |
+| `NODE_ENV`, `PORT`, `LOG_LEVEL` | backend | no (`LOG_LEVEL`: `info`; `silent` under test) | yes |
 | `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX` | backend | no | yes |
 | `PORT`, `API_INTERNAL_ORIGIN`, `LLM_PROVIDER`, `GOOGLE_API_KEY`, `OPENAI_API_KEY` | AI | n/a | not yet (stubs) |
 | `VITE_API_BASE_URL` | frontend | no | **no** (`client.js` ignores it) |
@@ -184,9 +184,10 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
   own API on in-memory Mongo + Vite on :5055/:5175; first time: `npx playwright install chromium`). No AI tests yet.
 - **Coverage:** `npm run test:coverage` in both. As of 2026-10-30: backend `src/services` 97.5% lines / 79.5% branches / 100% funcs;
   frontend `src/api` + `src/context` 100% lines / 95.7% branches. Helpers and conventions: [docs/conventions.md](docs/conventions.md).
-- **Lint / typecheck:** `npm run lint` and `npm run typecheck` in both `frontend/` and `backend/` (JSDoc checked by `tsc`, §7). All pass.
-- **CI:** [.github/workflows/ci.yml](.github/workflows/ci.yml) runs `backend`, `frontend` and `e2e` jobs on every push and PR.
-  To make them block merges, a repo admin adds a branch protection rule for `main` requiring those checks.
+- **Checks (repo root):** `npm run lint` (ESLint, zero warnings, plus ruff), `npm run typecheck`, `npm run format:check`. The husky
+  pre-commit hook runs them on staged files and blocks the commit; see [CONTRIBUTING.md](CONTRIBUTING.md). Logs are pino JSON.
+- **CI:** [.github/workflows/ci.yml](.github/workflows/ci.yml) runs `repo` (format, ruff), `backend`, `frontend` and `e2e` on every
+  push and PR. It doesn't block merges (no branch protection), so the pre-commit hook is the gate.
 - **Docker caveat:** the `.env.example` values use `localhost`. Under Compose, set `MONGO_URI=mongodb://mongo:27017/nimbus-crm`,
   `AI_SERVICE_URL=http://ai:8000` and `CLIENT_ORIGIN=http://localhost:8080`. There is no `.dockerignore`, so local `.env`
   files and `node_modules` get copied into images.
@@ -210,11 +211,11 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
 4. **Never bypass `orgId` or the ownership policy** (§4, §5). New tenant models get a required, indexed `orgId`; new
    owned resources get an `OWNER_FIELD` entry and matrix tests.
 5. **Never log secrets or tokens** (raw tokens, passwords, JWTs, API keys, cookies).
-   *Known dev-only violations, to be removed once email exists:* [authService.js:200](backend/src/services/authService.js#L200)
-   (reset token) and [orgAdminService.js:83](backend/src/services/orgAdminService.js#L83) (invite token). Do not add more.
+   *Known dev-only violations, to be removed once email exists:* [authService.js:199](backend/src/services/authService.js#L199)
+   (reset token) and [orgAdminService.js:79](backend/src/services/orgAdminService.js#L79) (invite token). Do not add more.
 6. CRM mutations go through `activityLogService.logActivity` (the CRUD factory does this when given `activityLabel`).
-7. Keep the envelope: throw `AppError` helpers and never hand-build error JSON or call `res.json` in routes.
-8. Style: ESM, 2-space indent, no semicolons, single quotes, a one-line purpose comment at the top of each file, comments that explain *why*.
+7. Keep the envelope: throw `AppError` helpers; never hand-build error JSON or call `res.json` in routes. Log with `req.log`.
+8. Style: Prettier and sorted imports (both enforced), ESM, a one-line purpose comment per file, comments that explain *why*.
 9. **Types are JSDoc checked by `tsc` under `strict`.** No build step and no `any`. Files in `src/types`, `utils`,
    `policies`, `schemas`, `models` and `services` must start with `// @ts-check`; routes, middleware and config aren't checked yet.
    Request types come from Zod via `z.infer`. Patterns, escape hatches and the migration steps are in
