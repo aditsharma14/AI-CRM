@@ -44,7 +44,7 @@
  */
 
 /**
- * A list request after validate({ query: paginationQuery }) has coerced it.
+ * A list request after validate({ query: <resource>ListQuery }) has coerced it.
  * @typedef {object} ListQuery
  * @property {number} page
  * @property {number} limit

@@ -6,19 +6,31 @@ import { createCrudService } from '../services/crudService.js'
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
 import { apiResponse, asyncHandler } from '../utils/http.js'
-import { paginationQuery } from '../utils/validators.js'
 import { idParam } from '../schemas/common.js'
-import { contactCreate, contactUpdate, companyCreate, companyUpdate, noteCreate, noteUpdate } from '../schemas/crm.js'
+import {
+  contactCreate,
+  contactUpdate,
+  contactList,
+  contactListQuery,
+  companyCreate,
+  companyUpdate,
+  companyList,
+  companyListQuery,
+  noteCreate,
+  noteUpdate,
+  noteList,
+  noteListQuery,
+} from '../schemas/crm.js'
 
 const router = Router()
 router.use(auth)
 
 /** Wires the five REST endpoints for one resource onto `router`. */
-function mountCrud(path, service, { createSchema, updateSchema }) {
+function mountCrud(path, service, { createSchema, updateSchema, listSchema }) {
   router.get(
     `/${path}`,
     requirePermission('crm', 'read'),
-    validate({ query: paginationQuery }),
+    validate({ query: listSchema }),
     asyncHandler(async (req, res) => {
       const { items, meta } = await service.list(req.user, req.query)
       apiResponse(res, items, meta)
@@ -63,25 +75,23 @@ mountCrud(
   'contacts',
   createCrudService(Contact, {
     resource: 'contact',
-    filterableFields: ['companyId', 'ownerId'],
+    list: contactList,
     searchFields: ['name', 'email'],
-    sortableFields: ['name', 'createdAt'],
     populate: { path: 'companyId', select: 'name' },
     activityLabel: 'Contact',
   }),
-  { createSchema: contactCreate, updateSchema: contactUpdate },
+  { createSchema: contactCreate, updateSchema: contactUpdate, listSchema: contactListQuery },
 )
 
 mountCrud(
   'companies',
   createCrudService(Company, {
     resource: 'company',
-    filterableFields: ['ownerId'],
+    list: companyList,
     searchFields: ['name'],
-    sortableFields: ['name', 'createdAt'],
     activityLabel: 'Company',
   }),
-  { createSchema: companyCreate, updateSchema: companyUpdate },
+  { createSchema: companyCreate, updateSchema: companyUpdate, listSchema: companyListQuery },
 )
 
 mountCrud(
@@ -89,11 +99,10 @@ mountCrud(
   createCrudService(Note, {
     // authorId is the note's owner field: set to the writer on create, never reassignable.
     resource: 'note',
-    filterableFields: ['entityType', 'entityId'],
-    sortableFields: ['createdAt'],
+    list: noteList,
     populate: { path: 'authorId', select: 'name avatarUrl' },
   }),
-  { createSchema: noteCreate, updateSchema: noteUpdate },
+  { createSchema: noteCreate, updateSchema: noteUpdate, listSchema: noteListQuery },
 )
 
 export default router

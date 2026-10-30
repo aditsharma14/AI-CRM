@@ -23,7 +23,7 @@
 
 /**
  * Builds a { filter, sortSpec, skip, limit, page } plan from a validated,
- * plain query object (req.query, already coerced by validators.paginationQuery)
+ * plain query object (req.query, already validated and coerced by the resource's listQuery)
  * plus a resource's own flat filter params — e.g. ?status=new or ?dateFrom=&dateTo=.
  * Takes plain data rather than `req` so it stays usable outside of Express.
  * @param {ListQuery & Record<string, unknown>} query

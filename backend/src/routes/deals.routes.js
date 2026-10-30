@@ -4,9 +4,8 @@ import * as dealsService from '../services/dealsService.js'
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
 import { apiResponse, asyncHandler } from '../utils/http.js'
-import { paginationQuery } from '../utils/validators.js'
 import { idParam } from '../schemas/common.js'
-import { dealCreate, dealUpdate, dealMoveStage } from '../schemas/deals.js'
+import { dealCreate, dealUpdate, dealMoveStage, dealListQuery } from '../schemas/deals.js'
 
 const router = Router()
 router.use(auth)
@@ -14,7 +13,7 @@ router.use(auth)
 router.get(
   '/',
   requirePermission('crm', 'read'),
-  validate({ query: paginationQuery }),
+  validate({ query: dealListQuery }),
   asyncHandler(async (req, res) => {
     const { items, meta } = await dealsService.crud.list(req.user, req.query)
     apiResponse(res, items, meta)

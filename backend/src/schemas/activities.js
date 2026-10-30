@@ -1,7 +1,7 @@
 // @ts-check
 // Task/event request schemas — the validators and, via z.infer, the service input types.
 import { z } from 'zod'
-import { paginationQuery, objectId, optionalObjectId, optionalDate } from '../utils/validators.js'
+import { listQuery, objectId, optionalObjectId, optionalDate } from '../utils/validators.js'
 
 export const activityCreate = z.object({
   type: z.enum(['task', 'event', 'call', 'meeting']),
@@ -21,12 +21,14 @@ export const activityCreate = z.object({
 
 export const activityUpdate = activityCreate.partial()
 
-export const activityListQuery = paginationQuery.extend({
-  type: z.enum(['task', 'event', 'call', 'meeting']).optional(),
-  status: z.enum(['open', 'done']).optional(),
-  assigneeId: objectId.optional(),
-  dateFrom: z.string().optional(),
-  dateTo: z.string().optional(),
+// No sort or q: activitiesService.list always orders by the type's date field.
+export const activityListQuery = listQuery({
+  filters: {
+    type: z.enum(['task', 'event', 'call', 'meeting']).optional(),
+    status: z.enum(['open', 'done']).optional(),
+    assigneeId: objectId.optional(),
+  },
+  dateRange: true,
 })
 
 /** @typedef {z.infer<typeof activityCreate>} ActivityCreateInput */

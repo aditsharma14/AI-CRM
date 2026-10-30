@@ -1,7 +1,7 @@
 // @ts-check
 // Contact, company and note request schemas — validators plus z.infer input types.
 import { z } from 'zod'
-import { objectId, optionalObjectId, optionalEmail, phone } from '../utils/validators.js'
+import { listQuery, objectId, optionalObjectId, optionalEmail, phone } from '../utils/validators.js'
 
 export const contactCreate = z.object({
   name: z.string().trim().min(1),
@@ -39,3 +39,26 @@ export const noteUpdate = z.object({ body: z.string().trim().min(1).max(5000) })
 /** @typedef {z.infer<typeof companyCreate>} CompanyCreateInput */
 /** @typedef {z.infer<typeof noteCreate>} NoteCreateInput */
 /** @typedef {z.infer<typeof noteUpdate>} NoteUpdateInput */
+
+// Shared by the route (listQuery) and the service (filterableFields/sortableFields).
+export const contactList = {
+  filters: { companyId: objectId.optional(), ownerId: objectId.optional() },
+  sort: ['name', 'createdAt'],
+  search: true,
+}
+export const contactListQuery = listQuery(contactList)
+
+// Shared by the route (listQuery) and the service (filterableFields/sortableFields).
+export const companyList = {
+  filters: { ownerId: objectId.optional() },
+  sort: ['name', 'createdAt'],
+  search: true,
+}
+export const companyListQuery = listQuery(companyList)
+
+// Shared by the route (listQuery) and the service (filterableFields/sortableFields).
+export const noteList = {
+  filters: { entityType: z.enum(['lead', 'contact', 'company', 'deal']).optional(), entityId: objectId.optional() },
+  sort: ['createdAt'],
+}
+export const noteListQuery = listQuery(noteList)

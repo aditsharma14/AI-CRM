@@ -6,11 +6,11 @@ import { createCrudService } from './crudService.js'
 import { logActivity, notify } from './activityService.js'
 import { badRequest, notFound } from '../utils/http.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
+import { dealList } from '../schemas/deals.js'
 
 export const crud = createCrudService(Deal, {
   resource: 'deal',
-  filterableFields: ['stageKey', 'ownerId', 'status', 'companyId'],
-  sortableFields: ['value', 'createdAt', 'closedAt'],
+  list: dealList,
   populate: [
     { path: 'companyId', select: 'name' },
     { path: 'contactIds', select: 'name' },

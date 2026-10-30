@@ -19,7 +19,9 @@ export function validate(schemas) {
       if (!schema) continue
       const result = schema.safeParse(req[key])
       if (!result.success) {
-        return next(badRequest(result.error.issues.map((i) => i.message).join('; '), 'VALIDATION_ERROR'))
+        // Prefix the field, so '?status=nope' says which param was wrong.
+        const messages = result.error.issues.map((i) => (i.path.length ? `${i.path.join('.')}: ${i.message}` : i.message))
+        return next(badRequest(messages.join('; '), 'VALIDATION_ERROR'))
       }
       // Express 5's req.query is a prototype getter that re-parses the URL
       // on every read (never caches), so a plain assignment either throws or

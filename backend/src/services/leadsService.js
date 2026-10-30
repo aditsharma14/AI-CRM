@@ -7,12 +7,12 @@ import { createCrudService } from './crudService.js'
 import { logActivity, notify } from './activityService.js'
 import { badRequest, notFound } from '../utils/http.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
+import { leadList } from '../schemas/leads.js'
 
 export const crud = createCrudService(Lead, {
   resource: 'lead',
-  filterableFields: ['status', 'ownerId', 'companyId'],
+  list: leadList,
   searchFields: ['name', 'email'],
-  sortableFields: ['name', 'score', 'createdAt'],
   populate: { path: 'companyId', select: 'name' },
   activityLabel: 'Lead',
 })

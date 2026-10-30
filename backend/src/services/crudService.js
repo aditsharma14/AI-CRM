@@ -14,9 +14,10 @@ import { logActivity, labelFor } from './activityService.js'
 /**
  * @typedef {object} CrudOptions
  * @property {OwnedResource} resource Selects the ownership policy in policies/ownership.js.
- * @property {string[]} [filterableFields]
- * @property {string[]} [searchFields]
- * @property {string[]} [sortableFields]
+ * @property {import('../utils/validators.js').ListSpec} [list] The list endpoint's spec (from src/schemas). The route
+ *   validates against it, and the filterable and sortable fields come from the same object. Omit it only when the
+ *   resource has its own list function (activities); `list()` then filters by nothing.
+ * @property {string[]} [searchFields] Text-index fields `?q=` searches, when the spec allows search.
  * @property {string} [dateField]
  * @property {import('mongoose').PopulateOptions | import('mongoose').PopulateOptions[]} [populate]
  * @property {string} [activityLabel] e.g. "Lead" — enables audit-trail logging of create/update/delete.
@@ -32,7 +33,9 @@ import { logActivity, labelFor } from './activityService.js'
  * @returns The five operations, typed to the model's documents.
  */
 export function createCrudService(Model, options) {
-  const { resource, filterableFields, searchFields, sortableFields, dateField, populate, activityLabel } = options
+  const { resource, list = { filters: {} }, searchFields, dateField, populate, activityLabel } = options
+  const filterableFields = Object.keys(list.filters)
+  const sortableFields = list.sort ?? []
   const field = ownerField(resource) // throws at boot for a resource with no policy
 
   /**

@@ -4,9 +4,8 @@ import * as leadsService from '../services/leadsService.js'
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
 import { apiResponse, asyncHandler } from '../utils/http.js'
-import { paginationQuery } from '../utils/validators.js'
 import { idParam } from '../schemas/common.js'
-import { leadCreate, leadUpdate, leadConvert } from '../schemas/leads.js'
+import { leadCreate, leadUpdate, leadConvert, leadListQuery } from '../schemas/leads.js'
 
 const router = Router()
 router.use(auth)
@@ -14,7 +13,7 @@ router.use(auth)
 router.get(
   '/',
   requirePermission('crm', 'read'),
-  validate({ query: paginationQuery }),
+  validate({ query: leadListQuery }),
   asyncHandler(async (req, res) => {
     const { items, meta } = await leadsService.crud.list(req.user, req.query)
     apiResponse(res, items, meta)

@@ -1,7 +1,7 @@
 // @ts-check
 // Deal request schemas — the validators and, via z.infer, the service input types.
 import { z } from 'zod'
-import { objectId, optionalObjectId } from '../utils/validators.js'
+import { listQuery, objectId, optionalObjectId, stageKeyParam } from '../utils/validators.js'
 
 export const dealCreate = z.object({
   title: z.string().trim().min(1),
@@ -22,3 +22,16 @@ export const dealMoveStage = z.object({ stageKey: z.string().trim().min(1), wonL
 /** @typedef {z.infer<typeof dealCreate>} DealCreateInput */
 /** @typedef {z.infer<typeof dealUpdate>} DealUpdateInput */
 /** @typedef {z.infer<typeof dealMoveStage>} DealMoveStageInput */
+
+// Shared by the route (listQuery) and the service (filterableFields/sortableFields).
+export const dealList = {
+  filters: {
+    stageKey: stageKeyParam.optional(),
+    status: z.enum(['open', 'won', 'lost']).optional(),
+    ownerId: objectId.optional(),
+    companyId: objectId.optional(),
+  },
+  sort: ['value', 'createdAt', 'closedAt'],
+}
+export const dealListQuery = listQuery(dealList)
+/** @typedef {z.infer<typeof dealListQuery>} DealListQuery */
