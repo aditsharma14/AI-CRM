@@ -16,7 +16,7 @@ router.get(
   requirePermission('crm', 'read'),
   validate({ query: dealListQuery }),
   asyncHandler(async (req, res) => {
-    const { items, meta } = await dealsService.crud.list(req.user, req.query)
+    const { items, meta } = await dealsService.list(req.user, req.query)
     apiResponse(res, items, meta)
   }),
 )
@@ -25,7 +25,7 @@ router.get(
   '/:id',
   requirePermission('crm', 'read'),
   validate({ params: idParam }),
-  asyncHandler(async (req, res) => apiResponse(res, await dealsService.crud.getById(req.user, req.params.id))),
+  asyncHandler(async (req, res) => apiResponse(res, await dealsService.getById(req.user, req.params.id))),
 )
 
 router.post(
@@ -49,7 +49,7 @@ router.delete(
   requirePermission('crm', 'delete'),
   validate({ params: idParam }),
   asyncHandler(async (req, res) => {
-    await dealsService.crud.remove(req.user, req.params.id)
+    await dealsService.remove(req.user, req.params.id)
     apiResponse(res, null)
   }),
 )

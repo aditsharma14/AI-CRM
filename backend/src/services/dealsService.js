@@ -9,7 +9,9 @@ import { badRequest, notFound } from '../utils/http.js'
 import { logActivity, notify } from './activityLogService.js'
 import { createCrudService } from './crudService.js'
 
-export const crud = createCrudService(Deal, {
+// Private: create() below is the only way to make a deal, so its stage rules and close-on-create
+// can't be skipped. The factory's list, getById and remove are re-exported as they are.
+const crud = createCrudService(Deal, {
   resource: 'deal',
   list: dealList,
   populate: [
@@ -24,6 +26,8 @@ export const crud = createCrudService(Deal, {
 })
 
 /** @typedef {import('../types/index.js').AuthUser} AuthUser */
+
+export const { list, getById, remove } = crud
 /** @typedef {{ key: string, label: string, order: number }} Stage */
 
 /**
