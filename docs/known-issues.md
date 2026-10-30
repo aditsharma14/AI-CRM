@@ -6,9 +6,12 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Open findings (verified 2026-10-29, updated 2026-10-30)
 - **Other mutations still have no error UI.** Leads and Pipeline now use `useMutationError` + `ErrorAlert` (S1.3b), but
   Contacts, Companies, Tasks, Calendar, Notes and most Settings forms still fail silently. S1.7 extends the hook.
-- **`stageKey` is only validated by `move-stage`.** `POST` and `PATCH` in
-  [deals.routes.js](../backend/src/routes/deals.routes.js) accept any string, and
-  [dealsService.js](../backend/src/services/dealsService.js) hardcodes the `won`/`lost` keys.
+- **The `won`/`lost` stage keys are hardcoded** in [dealsService.js](../backend/src/services/dealsService.js)
+  (closing a deal is keyed on them). An org that renames its closing stages' *keys* never closes a deal.
+- **Pipeline save is two calls (move-stage, then update), not atomic;** revisit with a single endpoint or transaction in
+  S2.7. (S1.3b made the UI resync after a partial failure, and a retry doesn't repeat the move.)
+- **Creating a deal directly in `won` or `lost` skips the close.** `POST /deals` with `stageKey: 'won'` stores the stage
+  but not `status`/`closedAt`, and doesn't log or notify the way move-stage does. Found in S1.3c; not fixed there.
 - **Dead config.** `JWT_REFRESH_SECRET`, `AI_SERVICE_URL` and `REFRESH_TOKEN_TTL` are required or documented but
   never read (see the env table in CLAUDE.md §6).
 - **Typecheck isn't in a pre-commit hook yet.** That's deferred to S1.4 (husky + lint-staged); until then CI is the gate.
@@ -25,6 +28,7 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-10-30 | **`stageKey` was only validated by move-stage:** `POST` accepted any string (including another org's key), and `PATCH` could change the stage while skipping move-stage's status, `closedAt`, log and notification | `dealsService.create` checks the key against the requesting org's stages and defaults to its first stage by order; `update` refuses `stageKey`; move-stage returns `VALIDATION_ERROR` (`ad1853c`) |
 | 2026-10-30 | **List filters were silently dropped** for leads, deals, contacts, companies, notes and notifications: the shared non-strict `paginationQuery` stripped every filter key before the service saw it, so the Leads status filter did nothing and NotesPanel listed every note in the org | strict per-resource `listQuery()` specs; unknown keys, bad values, `$` operators, repeated keys and bad sorts are 400 (`3358e02`, UI contract `5e8bb0b`) |
 | 2026-10-30 | **Failed saves on Leads and Pipeline showed nothing** (unhandled rejections from `mutateAsync`; convert and delete had no error UI) | `useMutationError` + `ErrorAlert`, status-aware messages, a resync and a no-double-move retry after a partial Pipeline save (`de76502`) |
 | 2026-10-30 | **Pipeline stages were hardcoded on the frontend** (`PIPELINE_STAGE_DEFAULTS` in Pipeline and Dashboard, not the org's stages) | `usePipelineStages()` reads the org's stages in `order`; the defaults now live only in the backend (`594d2c5`) |

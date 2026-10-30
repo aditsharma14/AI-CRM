@@ -67,7 +67,7 @@ Error: `GET /api/v1/leads/<unknown id>` → 404 (thrown by `getById` in [crudSer
 
 | Status | Codes | Source |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` (Zod messages joined by `; `), `BAD_REQUEST`, domain codes like `ALREADY_CONVERTED` | `validate()` in [guards.js](backend/src/middleware/guards.js), services |
+| 400 | `VALIDATION_ERROR` (`field: message`, joined by `; `), `BAD_REQUEST`, domain codes like `ALREADY_CONVERTED` | `validate()` in [guards.js](backend/src/middleware/guards.js), services |
 | 401 | `UNAUTHORIZED`, `INVALID_CREDENTIALS` | [auth.js](backend/src/middleware/auth.js), `authService` |
 | 403 | `FORBIDDEN` | `requirePermission()` |
 | 404 | `NOT_FOUND` | services; unknown routes |

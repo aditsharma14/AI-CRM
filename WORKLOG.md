@@ -410,3 +410,43 @@ All three are now in the Resolved table in `docs/known-issues.md`.
 - Error UI for the remaining forms (Contacts, Companies, Tasks, Calendar, Notes, Settings): S1.7 extends `useMutationError`.
 - `stageKey` on deal create and update is still not checked against the org's stages (`docs/known-issues.md`).
 - The Kanban board (S2.7) is where optimistic stage moves, with rollback, belong.
+
+## 2026-10-30 · S1.3c: Validate stageKey against the org's stages
+
+**Goal:** on deal create, update and move-stage, reject a `stageKey` that isn't in the requesting org's `pipelineStages`, with 400 `VALIDATION_ERROR` naming the field. The check lives in `dealsService`.
+
+**Your three changes, and how each landed**
+1. **PATCH bypass: the "no frontend call sends it" case applied.**
+   - Pipeline's two-call save strips `stageKey` before `PATCH /deals/:id` (`const { stageKey, ...rest } = values`), and nothing else updates deals.
+   - A new frontend test pins this: the PATCH body never has `stageKey`, with or without a stage change.
+   - So `update` refuses `stageKey` with `stageKey: use PATCH /deals/:id/move-stage to change a deal's stage.`
+2. **Default stage:** creating without `stageKey` used to be a 400, because the schema required it. It now starts in the org's first stage by `order` (`new` by default; `discovery` in the custom test org, whose stages are stored out of order).
+3. **Field details:** the error envelope has no field-details slot (`ApiError` is `{ code, message }`), and S1.3b's list-filter errors name the field with a `field: ` message prefix. Stage errors use the same `stageKey: …` prefix; the envelope is unchanged.
+
+**Changed** (branch `fix/s1.3c-stagekey`, cut from `fix/s1.3b-user-visible-bugs`, commit `ad1853c`)
+- `dealsService`:
+  - `stagesOf(orgId)` loads the stages once and returns 404 if the org is gone;
+  - `stageIn(stages, key)` is the one check;
+  - `create` and `update` are new;
+  - `moveStage` reuses the org it already loads and still checks access first.
+- Routes call `dealsService.create`/`update`; `dealCreate.stageKey` is optional.
+- move-stage's code is `INVALID_STAGE` → `VALIDATION_ERROR`; the one frontend mock was updated.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| `tests/deal-stages.test.js`, red first | 8 of 12 red: create accepted unknown and other-org keys (201), a missing stage was a 400, PATCH accepted `stageKey` (200), move-stage used `INVALID_STAGE` |
+| Mutation: drop the stage check in `create` | 2 tests fail |
+| Mutation: first stage by array position instead of `order` | `expected 'demo' to be 'discovery'` |
+| Backend `npm test` | **305 passed** in 14 files |
+| Frontend `npm test` | **109 passed** (the 2 new PATCH guard tests passed first time, which is the evidence for case 1) |
+| `npm run e2e` | passed |
+| Lint and typecheck, both packages | clean |
+
+**Docs:** `docs/known-issues.md` moves the `stageKey` gap to Resolved. Open findings:
+- the hardcoded `won`/`lost` keys (still open);
+- the two-call Pipeline save (open for S2.7);
+- **new:** creating a deal directly in `won`/`lost` skips the close (status, `closedAt`, log, notification). Found here, not fixed: it's outside this brief.
+
+**Next:** decide whether `create` should route a won/lost start stage through the close logic, or refuse it.
