@@ -60,8 +60,10 @@ export async function create(actor, body) {
   const first = [...stages].sort((a, b) => a.order - b.order)[0]
   const stageKey = body.stageKey ?? first?.key
   if (!stageKey) throw badRequest('stageKey: this organization has no pipeline stages.', 'VALIDATION_ERROR')
-  stageIn(stages, stageKey)
-  return crud.create(actor, { ...body, stageKey })
+  const toStage = stageIn(stages, stageKey)
+  const deal = await crud.create(actor, { ...body, stageKey })
+  await applyStageTransition(deal, null, toStage, actor)
+  return deal
 }
 
 /**
@@ -92,42 +94,69 @@ export async function update(actor, id, body) {
  * @throws {import('../utils/http.js').AppError} 400 VALIDATION_ERROR, 403, 404
  */
 export async function moveStage(actor, dealId, stageKey, wonLostReason) {
-  const { orgId, id: actorId } = actor
+  const { orgId } = actor
   // Access first, so a 403/404 never depends on what stage was asked for.
   const deal = await Deal.findOne({ _id: dealId, orgId, ...scopeFor(actor, 'deal', 'write') })
   if (!deal) throw await missOrForbidden(Deal, actor, dealId)
 
-  const stage = stageIn(await stagesOf(orgId), stageKey)
+  const toStage = stageIn(await stagesOf(orgId), stageKey)
+  await applyStageTransition(deal, deal.stageKey, toStage, actor, { wonLostReason })
+  return deal
+}
 
-  deal.stageKey = stageKey
-  if (stageKey === 'won' || stageKey === 'lost') {
-    deal.status = stageKey
+// Closing is keyed on these two keys, whatever an org labels them. Kept
+// hardcoded until S2.7 (docs/known-issues.md).
+const CLOSING_KEYS = ['won', 'lost']
+
+/**
+ * The one place a deal's stage changes take effect: status and closedAt,
+ * the audit entry, and the won/lost notification. moveStage calls it for a
+ * move; create calls it for a deal born in a stage, so a deal created in
+ * won/lost is closed exactly as if it had been moved there.
+ * @param {import('mongoose').HydratedDocument<import('../models/Deal.js').DealRecord>} deal Saved here.
+ * @param {string | null} fromKey The stage it left, or null when the deal is being created.
+ * @param {Stage} toStage One of the org's stages (already checked by stageIn).
+ * @param {AuthUser} actor
+ * @param {{ wonLostReason?: string }} [options] Kept only when closing.
+ * @returns {Promise<void>}
+ */
+async function applyStageTransition(deal, fromKey, toStage, actor, { wonLostReason } = {}) {
+  const closing = CLOSING_KEYS.includes(toStage.key)
+  const isCreate = fromKey === null
+
+  deal.stageKey = toStage.key
+  if (closing) {
+    // Boundary cast: CLOSING_KEYS.includes() proved the key is 'won' or 'lost'; tsc can't narrow through includes().
+    deal.status = /** @type {'won' | 'lost'} */ (toStage.key)
     deal.closedAt = new Date()
     if (wonLostReason) deal.wonLostReason = wonLostReason
   } else {
     deal.status = 'open'
     deal.closedAt = undefined
   }
-  await deal.save()
+  // A deal created in an open stage is already in that state: no second write.
+  if (deal.isModified()) await deal.save()
 
-  await logActivity({
-    orgId,
-    userId: actorId,
-    action: 'move-stage',
-    entityType: 'deal',
-    entityId: deal._id,
-    message: `Moved deal "${deal.title}" to ${stage.label}`,
-  })
-
-  if (stageKey === 'won' || stageKey === 'lost') {
-    await notify({
-      orgId,
-      userId: deal.ownerId,
+  // Every move is logged. A creation is already logged by the CRUD factory,
+  // so only a creation that closes the deal gets an entry of its own.
+  if (!isCreate || closing) {
+    await logActivity({
+      orgId: actor.orgId,
+      userId: actor.id,
+      action: isCreate ? 'close' : 'move-stage',
       entityType: 'deal',
       entityId: deal._id,
-      message: `Deal "${deal.title}" was marked ${stageKey}.`,
+      message: isCreate ? `Created deal "${deal.title}" in ${toStage.label}` : `Moved deal "${deal.title}" to ${toStage.label}`,
     })
   }
 
-  return deal
+  if (closing) {
+    await notify({
+      orgId: actor.orgId,
+      userId: deal.ownerId,
+      entityType: 'deal',
+      entityId: deal._id,
+      message: `Deal "${deal.title}" was marked ${toStage.key}.`,
+    })
+  }
 }

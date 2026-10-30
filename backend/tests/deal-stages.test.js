@@ -1,10 +1,10 @@
-// stageKey must be one of the requesting org's pipeline stages on create and move-stage; update can't change it at all.
+// stageKey must be one of the org's stages on create and move-stage (update can't change it); won/lost close the deal either way.
 import request from 'supertest'
 import { beforeAll, describe, expect, it } from 'vitest'
 import app from '../src/app.js'
 import Deal from '../src/models/Deal.js'
 import Organization from '../src/models/Organization.js'
-import { ActivityLog } from '../src/models/Logs.js'
+import { ActivityLog, Notification } from '../src/models/Logs.js'
 import { bearer, makeRecord, seedOrg } from './helpers.js'
 
 const api = '/api/v1/deals'
@@ -111,5 +111,77 @@ describe('move-stage', () => {
     const res = await move(base, deal._id, 'nope', 'member')
     expect(res.status).toBe(403)
     expect(res.body.error.code).toBe('FORBIDDEN')
+  })
+})
+
+/** Audit entries and notifications about one deal, split by kind. */
+async function trailOf(dealId) {
+  // By _id, not createdAt: the create and close entries can share a millisecond.
+  const logs = await ActivityLog.find({ entityId: dealId }).sort({ _id: 1 })
+  const notifications = await Notification.find({ entityId: dealId })
+  return { actions: logs.map((l) => l.action), notifications }
+}
+
+describe('closing stages on create', () => {
+  it.each(['won', 'lost'])('creating in %s closes the deal: status, closedAt, one close entry, one notification', async (stageKey) => {
+    const before = Date.now()
+    const res = await create(base, { stageKey })
+    expect(res.status).toBe(201)
+    expect(res.body.data.status).toBe(stageKey)
+    expect(new Date(res.body.data.closedAt).getTime()).toBeGreaterThanOrEqual(before - 1000)
+
+    const stored = await Deal.findById(res.body.data._id)
+    expect(stored.status).toBe(stageKey)
+    expect(stored.closedAt).toBeInstanceOf(Date)
+    const { actions, notifications } = await trailOf(stored._id)
+    // The factory's usual 'create' entry, plus exactly one for the close.
+    expect(actions).toEqual(['create', 'close'])
+    expect(notifications).toHaveLength(1)
+    expect(String(notifications[0].userId)).toBe(String(base.users.owner._id))
+    expect(notifications[0].message).toContain(stageKey)
+  })
+
+  it('creating in an open stage leaves it open: no closedAt, no close entry, no notification', async () => {
+    const res = await create(base, { stageKey: 'qualified' })
+    expect(res.status).toBe(201)
+    expect(res.body.data.status).toBe('open')
+    expect(res.body.data.closedAt).toBeUndefined()
+    const { actions, notifications } = await trailOf(res.body.data._id)
+    expect(actions).toEqual(['create'])
+    expect(notifications).toHaveLength(0)
+  })
+
+  it('the closing keys are the hardcoded won/lost, whatever the org calls them', async () => {
+    // custom org labels 'won' as "Signed": still a close (keys stay hardcoded until S2.7).
+    const res = await create(custom, { stageKey: 'won' })
+    expect(res.body.data.status).toBe('won')
+  })
+})
+
+// Pins move-stage's close behaviour, so extracting it into a shared helper can't change it.
+describe('closing stages on move-stage', () => {
+  it('moving to won closes the deal, keeps the reason, logs one move and notifies the owner once', async () => {
+    const deal = await makeRecord('deals', base.org, base.users.manager)
+    const res = await request(app).patch(`${api}/${deal._id}/move-stage`).set(as(base)).send({ stageKey: 'won', wonLostReason: 'Price' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.data).toMatchObject({ stageKey: 'won', status: 'won', wonLostReason: 'Price' })
+    expect(res.body.data.closedAt).toBeDefined()
+    const { actions, notifications } = await trailOf(deal._id)
+    expect(actions).toEqual(['move-stage'])
+    expect(notifications).toHaveLength(1)
+    expect(String(notifications[0].userId)).toBe(String(base.users.manager._id))
+  })
+
+  it('moving a closed deal back to an open stage reopens it, logs the move, and does not notify', async () => {
+    const deal = await makeRecord('deals', base.org, base.users.owner)
+    await move(base, deal._id, 'lost')
+    const res = await move(base, deal._id, 'proposal')
+
+    expect(res.body.data).toMatchObject({ stageKey: 'proposal', status: 'open' })
+    expect(res.body.data.closedAt).toBeUndefined()
+    const { actions, notifications } = await trailOf(deal._id)
+    expect(actions).toEqual(['move-stage', 'move-stage'])
+    expect(notifications).toHaveLength(1) // only the earlier close
   })
 })
