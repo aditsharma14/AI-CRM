@@ -1,8 +1,12 @@
 // The error envelope for failures outside the services: body parsing, rate limiting, unknown paths, Mongoose.
+import express from 'express'
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
 
 import app from '../src/app.js'
+import { errorHandler } from '../src/middleware/errorHandler.js'
+import { Lead } from '../src/models/CRM.js'
+import Deal from '../src/models/Deal.js'
 import { bearer, seedOrg } from './helpers.js'
 
 /** The envelope's error branch with this status and code. */
@@ -54,5 +58,77 @@ describe('unknown paths', () => {
   // Documented in CLAUDE.md §3: each resource router authenticates before matching its own routes.
   it('an unknown path under a known resource is still 401 for a guest', async () => {
     expectError(await request(app).get('/api/v1/leads/x/y'), 401, 'UNAUTHORIZED')
+  })
+})
+
+describe('Mongoose errors', () => {
+  // Real Mongoose errors through the real errorHandler. Zod rejects these inputs first in the API,
+  // so a route can only reach them through stored data or a code path that skips validation.
+  const throwing = (makeError) =>
+    express()
+      .get('/', async () => {
+        throw await makeError()
+      })
+      .use(errorHandler)
+
+  it('ValidationError -> 400 "field: message" per field, no model or "Path" wording', async () => {
+    const err = new Lead({ status: 'bogus' }).validateSync()
+    const res = await request(throwing(() => err)).get('/')
+    expectError(res, 400, 'VALIDATION_ERROR')
+    expect(res.body.error.message).toBe(
+      'name: is required; orgId: is required; ownerId: is required; ' +
+        'status: must be one of new, contacted, qualified, unqualified, converted',
+    )
+    expect(res.body.error.message).not.toMatch(/Lead|validation failed|Path/)
+  })
+
+  it('any other validator keeps its own wording, without "Path" or the full stop', async () => {
+    const id = '64b7f0000000000000000001'
+    const err = new Deal({ orgId: id, title: 'D', value: -1, stageKey: 'new', ownerId: id }).validateSync()
+    const res = await request(throwing(() => err)).get('/')
+    expectError(res, 400, 'VALIDATION_ERROR')
+    expect(res.body.error.message).toBe('value: (-1) is less than minimum allowed value (0)')
+  })
+
+  it('a cast failure inside a ValidationError names the field', async () => {
+    const err = new Deal({ orgId: 'nope', title: 'D', value: 1, stageKey: 'new', ownerId: 'nope' }).validateSync()
+    const res = await request(throwing(() => err)).get('/')
+    expectError(res, 400, 'VALIDATION_ERROR')
+    expect(res.body.error.message).toBe('orgId: invalid id; ownerId: invalid id')
+  })
+
+  it('CastError on _id -> 400 "id: invalid id"', async () => {
+    const res = await request(
+      throwing(() =>
+        Lead.findById('not-an-id').then(
+          () => new Error('should have thrown'),
+          (e) => e,
+        ),
+      ),
+    ).get('/')
+    expectError(res, 400, 'VALIDATION_ERROR')
+    expect(res.body.error.message).toBe('id: invalid id')
+  })
+
+  it('CastError on another path names that path; a non-id cast says "invalid value"', async () => {
+    const id = await request(
+      throwing(() =>
+        Lead.find({ companyId: 'x' }).then(
+          () => new Error('should have thrown'),
+          (e) => e,
+        ),
+      ),
+    ).get('/')
+    expect(id.body.error.message).toBe('companyId: invalid id')
+    const num = await request(
+      throwing(() =>
+        Deal.find({ value: 'lots' }).then(
+          () => new Error('should have thrown'),
+          (e) => e,
+        ),
+      ),
+    ).get('/')
+    expectError(num, 400, 'VALIDATION_ERROR')
+    expect(num.body.error.message).toBe('value: invalid value')
   })
 })

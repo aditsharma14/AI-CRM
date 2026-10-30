@@ -7,6 +7,20 @@ function sendError(res, status, code, message) {
   return res.status(status).json({ success: false, data: null, error: { code, message }, meta: null })
 }
 
+/**
+ * One Mongoose path error in the API's "field: message" form, without the model name or Mongoose's
+ * "Path `x`" wording. `_id` is reported as `id`, the name clients use.
+ */
+function mongooseIssue(path, error) {
+  const field = path === '_id' ? 'id' : path
+  if (error.name === 'CastError') return `${field}: ${error.kind === 'ObjectId' ? 'invalid id' : 'invalid value'}`
+  if (error.kind === 'required') return `${field}: is required`
+  if (error.kind === 'enum') return `${field}: must be one of ${error.properties.enumValues.join(', ')}`
+  return `${field}: ${String(error.message)
+    .replace(/^Path `[^`]+` /, '')
+    .replace(/\.$/, '')}`
+}
+
 /** No route matched: forwarded to errorHandler like any other error. */
 export function notFoundHandler(req, res, next) {
   next(notFound(`No route for ${req.method} ${req.originalUrl}`))
@@ -26,8 +40,16 @@ export function errorHandler(err, req, res, _next) {
     return sendError(res, 413, 'PAYLOAD_TOO_LARGE', 'body: the request body is too large.')
   }
 
-  // Mongoose schema validation.
-  if (err.name === 'ValidationError') return sendError(res, 400, 'VALIDATION_ERROR', err.message)
+  // Mongoose schema validation: one "field: message" per failing path, sorted, like validate()'s Zod output.
+  if (err.name === 'ValidationError') {
+    const issues = Object.entries(err.errors)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([path, error]) => mongooseIssue(path, error))
+    return sendError(res, 400, 'VALIDATION_ERROR', issues.join('; '))
+  }
+
+  // A value Mongoose couldn't cast for a query (e.g. a malformed id that skipped validation).
+  if (err.name === 'CastError') return sendError(res, 400, 'VALIDATION_ERROR', mongooseIssue(err.path, err))
 
   // Unique index violation.
   if (err.code === 11000) return sendError(res, 409, 'DUPLICATE_KEY', 'A record with that value already exists.')
