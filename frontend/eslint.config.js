@@ -1,7 +1,9 @@
 import js from '@eslint/js'
 import { defineConfig, globalIgnores } from 'eslint/config'
+import prettier from 'eslint-config-prettier/flat'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
+import simpleImportSort from 'eslint-plugin-simple-import-sort'
 import globals from 'globals'
 
 export default defineConfig([
@@ -13,6 +15,13 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
+    plugins: { 'simple-import-sort': simpleImportSort },
+    rules: {
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'simple-import-sort/imports': 'error',
+      'simple-import-sort/exports': 'error',
+    },
   },
   {
     // Test helpers, specs and tool configs run in Node (vitest, Playwright).
@@ -21,4 +30,6 @@ export default defineConfig([
     // Helpers export plain functions next to components; Fast Refresh doesn't apply.
     rules: { 'react-refresh/only-export-components': 'off' },
   },
+  // Last: turns off stylistic rules that Prettier owns.
+  prettier,
 ])
