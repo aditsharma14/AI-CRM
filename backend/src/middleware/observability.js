@@ -6,6 +6,7 @@ import { pinoHttp } from 'pino-http'
 
 import { env } from '../config/index.js'
 import { logger } from '../config/logger.js'
+import { AppError } from '../utils/http.js'
 
 // The path, not the route pattern: Express resets req.baseUrl when a handler fails, so the pattern
 // would read "/:id" for most errors. The query string is dropped because it can carry search terms.
@@ -35,4 +36,7 @@ export const apiRateLimiter = rateLimit({
   limit: env.rateLimitMax,
   standardHeaders: true,
   legacyHeaders: false,
+  // Through errorHandler like every other error, instead of the library's plain-text 429.
+  handler: (req, res, next) =>
+    next(new AppError(429, 'RATE_LIMITED', 'Too many requests. Please wait a moment and try again.')),
 })
