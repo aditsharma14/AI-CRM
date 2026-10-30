@@ -34,7 +34,8 @@ export default defineConfig({
       url: WEB_ORIGIN,
       env: { VITE_PROXY_TARGET: `http://localhost:${API_PORT}` },
       reuseExistingServer: false,
-      timeout: 60_000,
+      // Cold starts under load (e.g. right after the unit suites) have taken over 60s.
+      timeout: 120_000,
     },
   ],
 })
