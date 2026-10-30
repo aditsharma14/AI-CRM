@@ -2,6 +2,7 @@
 // Tasks and calendar events: listing by type/date, scoped writes, the done/open toggle.
 import Activity from '../models/Activity.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
+import { entityModel } from '../policies/references.js'
 import { logActivity } from './activityLogService.js'
 import { createCrudService } from './crudService.js'
 
@@ -14,6 +15,12 @@ import { createCrudService } from './crudService.js'
 export const crud = createCrudService(Activity, {
   resource: 'activity',
   populate: { path: 'assigneeId', select: 'name' },
+  references: (body) => {
+    const linkedTo = /** @type {{ entityType?: unknown, entityId?: unknown } | undefined} */ (body.linkedTo)
+    if (!linkedTo) return []
+    const model = entityModel('linkedTo.entityType', linkedTo.entityType)
+    return [{ field: 'linkedTo.entityId', model, ids: linkedTo.entityId }]
+  },
 })
 
 /**

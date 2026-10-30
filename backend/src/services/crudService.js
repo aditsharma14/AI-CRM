@@ -2,6 +2,7 @@
 // Generic factory: list/getById/create/update/remove for any model.
 import User from '../models/User.js'
 import { canReassign, missOrForbidden, ownerField, sanitizeWrite, scopeFor } from '../policies/ownership.js'
+import { assertReferencesInOrg } from '../policies/references.js'
 import { badRequest, notFound } from '../utils/http.js'
 import { buildListQuery, paginate } from '../utils/queryBuilder.js'
 import { labelFor, logActivity } from './activityLogService.js'
@@ -21,6 +22,8 @@ import { labelFor, logActivity } from './activityLogService.js'
  * @property {string} [dateField]
  * @property {import('mongoose').PopulateOptions | import('mongoose').PopulateOptions[]} [populate]
  * @property {string} [activityLabel] e.g. "Lead" — enables audit-trail logging of create/update/delete.
+ * @property {(body: Record<string, unknown>) => import('../policies/references.js').Reference[]} [references]
+ *   The ids a write body points at; create and update reject any outside the caller's org.
  */
 
 /**
@@ -33,7 +36,7 @@ import { labelFor, logActivity } from './activityLogService.js'
  * @returns The five operations, typed to the model's documents.
  */
 export function createCrudService(Model, options) {
-  const { resource, list = { filters: {} }, searchFields, dateField, populate, activityLabel } = options
+  const { resource, list = { filters: {} }, searchFields, dateField, populate, activityLabel, references } = options
   const filterableFields = Object.keys(list.filters)
   const sortableFields = list.sort ?? []
   const field = ownerField(resource) // throws at boot for a resource with no policy
@@ -107,11 +110,12 @@ export function createCrudService(Model, options) {
      * @param {Record<string, unknown>} body A validated create body (see src/schemas).
      * @param {import('./activityLogService.js').WriteOptions} [options] Pass a session to create inside a transaction.
      * @returns {Promise<import('mongoose').HydratedDocument<T>>}
-     * @throws {import('../utils/http.js').AppError} 400 INVALID_OWNER
+     * @throws {import('../utils/http.js').AppError} 400 INVALID_OWNER, 400 VALIDATION_ERROR (a reference outside the org)
      */
     async create(actor, body, { session } = {}) {
       const clean = sanitizeWrite(actor, resource, body, { isCreate: true })
       await assertOwnerInOrg(actor, clean)
+      if (references) await assertReferencesInOrg(actor.orgId, references(clean), { session })
       // orgId last, so nothing in the body can ever override it.
       // Boundary cast: `clean` was validated by the resource's Zod schema and
       // sanitised by the policy, but tsc can't relate that to the generic T.
@@ -133,11 +137,12 @@ export function createCrudService(Model, options) {
      * @param {string} id
      * @param {Record<string, unknown>} body A validated update body (see src/schemas).
      * @returns {Promise<import('mongoose').HydratedDocument<T>>}
-     * @throws {import('../utils/http.js').AppError} 400 INVALID_OWNER, 403, 404
+     * @throws {import('../utils/http.js').AppError} 400 INVALID_OWNER, 400 VALIDATION_ERROR (a reference outside the org), 403, 404
      */
     async update(actor, id, body) {
       const clean = sanitizeWrite(actor, resource, body)
       await assertOwnerInOrg(actor, clean)
+      if (references) await assertReferencesInOrg(actor.orgId, references(clean))
       // One atomic, scoped write: a record the caller can't change is simply
       // not matched, so there's no check-then-write race.
       const doc = await Model.findOneAndUpdate(

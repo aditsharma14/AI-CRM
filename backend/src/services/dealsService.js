@@ -1,5 +1,6 @@
 // @ts-check
 // Stage-transition validation, win/loss side effects, logging/notifying.
+import { Company, Contact } from '../models/CRM.js'
 import Deal from '../models/Deal.js'
 import Organization from '../models/Organization.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
@@ -16,6 +17,10 @@ export const crud = createCrudService(Deal, {
     { path: 'contactIds', select: 'name' },
   ],
   activityLabel: 'Deal',
+  references: (body) => [
+    { field: 'companyId', model: Company, ids: body.companyId },
+    { field: 'contactIds', model: Contact, ids: body.contactIds },
+  ],
 })
 
 /** @typedef {import('../types/index.js').AuthUser} AuthUser */

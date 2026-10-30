@@ -5,6 +5,7 @@ import crypto from 'node:crypto'
 import Organization from '../models/Organization.js'
 import User from '../models/User.js'
 import { assertCanAssign, assertNotSelf, manageableRoles, memberMissOrForbidden } from '../policies/membership.js'
+import { assertReferencesInOrg } from '../policies/references.js'
 import { badRequest, notFound } from '../utils/http.js'
 import { hashToken } from '../utils/tokens.js'
 
@@ -150,9 +151,10 @@ export async function createTeam(orgId, name) {
  * @param {string} teamId
  * @param {import('../schemas/org.js').TeamUpdateInput} input
  * @returns {Promise<OrgDoc['teams'][number]>}
- * @throws {AppError} 404
+ * @throws {AppError} 400 VALIDATION_ERROR (a member outside the org), 404
  */
 export async function updateTeam(orgId, teamId, { name, memberIds }) {
+  await assertReferencesInOrg(orgId, [{ field: 'memberIds', model: User, ids: memberIds }])
   const org = await Organization.findOne({ _id: orgId, 'teams._id': teamId })
   if (!org) throw notFound('Team not found.')
   const team = org.teams.id(teamId)

@@ -5,6 +5,7 @@ import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
 import { Company, Contact } from '../models/CRM.js'
 import Note from '../models/Note.js'
+import { entityModel } from '../policies/references.js'
 import { idParam } from '../schemas/common.js'
 import {
   companyCreate,
@@ -80,6 +81,7 @@ mountCrud(
     searchFields: ['name', 'email'],
     populate: { path: 'companyId', select: 'name' },
     activityLabel: 'Contact',
+    references: (body) => [{ field: 'companyId', model: Company, ids: body.companyId }],
   }),
   { createSchema: contactCreate, updateSchema: contactUpdate, listSchema: contactListQuery },
 )
@@ -102,6 +104,11 @@ mountCrud(
     resource: 'note',
     list: noteList,
     populate: { path: 'authorId', select: 'name avatarUrl' },
+    // What a note is attached to is fixed after create, so only a create body carries entityId.
+    references: (body) =>
+      body.entityId === undefined
+        ? []
+        : [{ field: 'entityId', model: entityModel('entityType', body.entityType), ids: body.entityId }],
   }),
   { createSchema: noteCreate, updateSchema: noteUpdate, listSchema: noteListQuery },
 )
