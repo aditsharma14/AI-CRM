@@ -481,3 +481,48 @@ All three are now in the Resolved table in `docs/known-issues.md`.
 **Found, not fixed:** `POST /leads/:id/convert` accepts any `stageKey` and calls `Deal.create` directly, so it skips both the org-stage check (S1.3c) and the close logic (S1.3d). The UI never sends a stage on convert. This is now in `docs/known-issues.md`.
 
 **Next:** route conversion through `dealsService.create` (or the same two checks), and keep it logging `convert`.
+
+## 2026-10-31 · S1.3e: Lead convert goes through dealsService.create
+
+**Goal:** `POST /leads/:id/convert` makes its deal through `dealsService.create`, so the org-stage check, the default first stage and close-on-create all apply. Its two writes must be atomic.
+
+**Decision (yours):** a replica set everywhere, because MongoDB transactions need one. Your local `:27017` (8.3.4) was standalone, as were the test and e2e in-memory servers and docker-compose. Only Atlas was already a replica set.
+
+**Changed** (branch `fix/s1.3e-convert-via-create`, from `fix/s1.3d-close-on-create`)
+
+| Commit | What |
+|---|---|
+| `2fd6b12` | Tests (`MongoMemoryReplSet`) and the e2e API run a one-node replica set. docker-compose runs `--replSet rs0`, initiates it from the healthcheck, and starts the api only when mongo is healthy. Playwright's Vite start timeout goes from 60s to 120s. |
+| `18bc2a6` | `convertToDeal` calls `dealsService.create` inside `Lead.db.transaction()`, and marks the lead with a conditional `updateOne` (`status != converted`). An optional `session` is threaded through `crudService.create`, `dealsService.create`, `applyStageTransition`, `logActivity` and `notify`, so log entries and notifications roll back too. |
+
+**Did converting do two writes?** Yes: `Deal.create`, then `lead.save()`, then a log entry and a notification, all with no transaction. Two real failure modes, both reproduced red before the fix:
+- If the lead write failed after the deal was created, an **orphan deal** was left behind.
+- **Two parallel converts of one lead created two deals** (`[201, 201]`).
+
+**Behaviour now**
+- An unknown or other-org `stageKey` gives 400 `VALIDATION_ERROR` (`stageKey: …`), and the lead stays unconverted.
+- With no `stageKey`, the deal goes in the org's first stage by `order`.
+- Converting into `won`/`lost` closes the deal: status, `closedAt`, a `close` entry and the won/lost notification.
+- The lead's `convert` entry and the "lead was converted" notification are kept. The deal also gets the factory's usual `create` entry, so the deal's trail reads `create` (+ `close`).
+- The deal still goes to the lead's owner.
+- Of two parallel converts, one returns 201 and the other 400 `ALREADY_CONVERTED`; the loser's deal is rolled back.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| `tests/lead-convert.test.js`, red first | 7 of 10 red (the 3 that passed were the default-stage and owner cases, which conversion already handled) |
+| Mutation: run without the transaction | the forced-failure test (orphan deal) and the parallel test (2 deals) fail |
+| Existing suite on replica sets | unchanged, all pass |
+| Backend `npm test` | **321 passed** in 15 files |
+| Frontend `npm test` | **109 passed** |
+| `npm run e2e` | passed twice in a row, after one Vite start timeout when run straight after both unit suites (now 120s) |
+| Lint and typecheck, both packages | clean |
+
+**Other places that create a Deal directly:** none in `backend/src`. Searched for `Deal.create`, `insertMany`, `insertOne`, `bulkWrite`, `new Deal(`, upserts and raw `deals` collection writes. The only remaining `crud.create` call for deals is inside `dealsService.create`. The AI service has no deal writes (it's stubs). Direct `Deal.create` remains only as seed data in tests (`helpers.js`, `deal-stages`, `insights`, `list-filters`).
+
+**Not verified:** docker-compose's replica set. Docker isn't installed here, so it's recorded in `docs/known-issues.md`.
+
+**For you:** your local `:27017` is still standalone, so converting a lead fails in `npm run dev` until you make it a one-node replica set (steps in CLAUDE.md §6, "Replica set").
+
+**Next:** start Compose once on a machine with Docker. Consider routing `crud.create` for deals so it can only be called through `dealsService.create` (e.g. stop exporting `crud`).
