@@ -1,0 +1,14 @@
+# Tool config only; runtime dependencies stay in requirements.txt.
+# Lint and format: node scripts/ruff.mjs check AI / format AI (from the repo root),
+# with ruff installed from requirements-dev.txt.
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, isort, bugbear, pyupgrade, simplify, naming.
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "N"]
+
+[tool.ruff.format]
+quote-style = "double"
