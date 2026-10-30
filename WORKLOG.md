@@ -355,11 +355,11 @@ All three are now in the Resolved table in `docs/known-issues.md`.
 
 | Commit | What |
 |---|---|
-| `3358e02` | **Backend:** strict per-resource `listQuery()` specs; unknown or invalid filters are 400. Notifications handlers move into `notificationsService` and honour `?read=`. `validate()` names the field in each message. |
-| `5e8bb0b` | Frontend contract tests: the Leads status and search params, and NotesPanel's `entityType`/`entityId`. |
-| `de76502` | `useMutationError` + `ErrorAlert` on Leads and Pipeline. `apiErrorMessage` is status-aware. A partial Pipeline save resyncs, and a retry doesn't move the stage again. |
-| `594d2c5` | `usePipelineStages()`: the org's stages, in order, in Pipeline and the Dashboard funnel. `PIPELINE_STAGE_DEFAULTS` removed. |
-| `ce5ed7f` | An unhandled MSW request now fails the test. Before, 7 tests ran with a missing handler and stayed green. |
+| `83b0e08` | **Backend:** strict per-resource `listQuery()` specs; unknown or invalid filters are 400. Notifications handlers move into `notificationsService` and honour `?read=`. `validate()` names the field in each message. |
+| `20d2f49` | Frontend contract tests: the Leads status and search params, and NotesPanel's `entityType`/`entityId`. |
+| `9c445a9` | `useMutationError` + `ErrorAlert` on Leads and Pipeline. `apiErrorMessage` is status-aware. A partial Pipeline save resyncs, and a retry doesn't move the stage again. |
+| `93f1cf9` | `usePipelineStages()`: the org's stages, in order, in Pipeline and the Dashboard funnel. `PIPELINE_STAGE_DEFAULTS` removed. |
+| `5d226fe` | An unhandled MSW request now fails the test. Before, 7 tests ran with a missing handler and stayed green. |
 
 ### Interview angle (STAR): "Tell me about a bug where the system failed silently"
 
@@ -404,7 +404,7 @@ All three are now in the Resolved table in `docs/known-issues.md`.
 
 **Found along the way**
 - I first added an extra list refetch after a failed Pipeline save. A mutation check showed it was redundant: the move's own `onSuccess` already refetches. Removed.
-- S1.3's claim that unhandled requests fail the test was wrong (see `ce5ed7f`). The docs are corrected.
+- S1.3's claim that unhandled requests fail the test was wrong (see `5d226fe`). The docs are corrected.
 
 **Next**
 - Error UI for the remaining forms (Contacts, Companies, Tasks, Calendar, Notes, Settings): S1.7 extends `useMutationError`.
@@ -423,7 +423,7 @@ All three are now in the Resolved table in `docs/known-issues.md`.
 2. **Default stage:** creating without `stageKey` used to be a 400, because the schema required it. It now starts in the org's first stage by `order` (`new` by default; `discovery` in the custom test org, whose stages are stored out of order).
 3. **Field details:** the error envelope has no field-details slot (`ApiError` is `{ code, message }`), and S1.3b's list-filter errors name the field with a `field: ` message prefix. Stage errors use the same `stageKey: …` prefix; the envelope is unchanged.
 
-**Changed** (branch `fix/s1.3c-stagekey`, cut from `fix/s1.3b-user-visible-bugs`, commit `ad1853c`)
+**Changed** (branch `fix/s1.3c-stagekey`, cut from `fix/s1.3b-user-visible-bugs`, commit `8581e26`)
 - `dealsService`:
   - `stagesOf(orgId)` loads the stages once and returns 404 if the org is gone;
   - `stageIn(stages, key)` is the one check;
