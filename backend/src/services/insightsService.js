@@ -5,6 +5,7 @@ import mongoose from 'mongoose'
 import { Company, Contact, Lead } from '../models/CRM.js'
 import Deal from '../models/Deal.js'
 import { ActivityLog } from '../models/Logs.js'
+import { scopedPopulate } from '../policies/references.js'
 
 // Aggregation output shapes. Mongoose types every pipeline result as any[],
 // so each pipeline's rows are named here and the result cast once at the call.
@@ -63,7 +64,10 @@ export async function dashboardOverview(orgId) {
         { $group: { _id: null, total: { $sum: '$value' } } },
       ]).exec()
     ),
-    ActivityLog.find({ orgId }).sort({ createdAt: -1 }).limit(10).populate('userId', 'name'),
+    ActivityLog.find({ orgId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate(scopedPopulate({ path: 'userId', select: 'name' }, orgId)),
   ])
 
   return {

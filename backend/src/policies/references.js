@@ -53,3 +53,16 @@ export async function assertReferencesInOrg(orgId, references, { session } = {})
     }
   }
 }
+
+/**
+ * Adds `match: { orgId }` to populate options, so a reference that already points outside the org (stored
+ * before the write-time check, or by a bug) populates as null, or drops out of an array, instead of
+ * pulling another tenant's document into the response. Every populate of tenant data goes through this; the
+ * one exception is authService loading the user's own Organization, which has no orgId field.
+ * @param {import('mongoose').PopulateOptions | import('mongoose').PopulateOptions[]} populate
+ * @param {unknown} orgId
+ * @returns {import('mongoose').PopulateOptions[]}
+ */
+export function scopedPopulate(populate, orgId) {
+  return (Array.isArray(populate) ? populate : [populate]).map((options) => ({ ...options, match: { orgId } }))
+}

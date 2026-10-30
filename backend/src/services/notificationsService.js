@@ -1,6 +1,7 @@
 // @ts-check
 // A user's notifications (list, mark read) and the org's read-only activity log.
 import { ActivityLog, Notification } from '../models/Logs.js'
+import { scopedPopulate } from '../policies/references.js'
 import { notificationList } from '../schemas/notifications.js'
 import { notFound } from '../utils/http.js'
 import { buildListQuery, paginate } from '../utils/queryBuilder.js'
@@ -63,5 +64,5 @@ export async function markAllRead(actor) {
 export async function activityLog(actor, query) {
   const plan = buildListQuery(query)
   plan.filter.orgId = actor.orgId
-  return paginate(ActivityLog, plan, { path: 'userId', select: 'name' })
+  return paginate(ActivityLog, plan, scopedPopulate({ path: 'userId', select: 'name' }, actor.orgId))
 }

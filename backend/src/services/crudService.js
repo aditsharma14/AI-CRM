@@ -2,7 +2,7 @@
 // Generic factory: list/getById/create/update/remove for any model.
 import User from '../models/User.js'
 import { canReassign, missOrForbidden, ownerField, sanitizeWrite, scopeFor } from '../policies/ownership.js'
-import { assertReferencesInOrg } from '../policies/references.js'
+import { assertReferencesInOrg, scopedPopulate } from '../policies/references.js'
 import { badRequest, notFound } from '../utils/http.js'
 import { buildListQuery, paginate } from '../utils/queryBuilder.js'
 import { labelFor, logActivity } from './activityLogService.js'
@@ -89,7 +89,7 @@ export function createCrudService(Model, options) {
     async list(actor, query) {
       const plan = buildListQuery(query, { filterableFields, searchFields, sortableFields, dateField })
       Object.assign(plan.filter, { orgId: actor.orgId }, scopeFor(actor, resource, 'read'))
-      return paginate(Model, plan, populate)
+      return paginate(Model, plan, populate && scopedPopulate(populate, actor.orgId))
     },
 
     /**
@@ -100,7 +100,7 @@ export function createCrudService(Model, options) {
      */
     async getById(actor, id) {
       const query = Model.findOne({ _id: id, orgId: actor.orgId, ...scopeFor(actor, resource, 'read') })
-      const doc = await (populate ? query.populate(populate) : query)
+      const doc = await (populate ? query.populate(scopedPopulate(populate, actor.orgId)) : query)
       if (!doc) throw notFound(`${Model.modelName} not found.`)
       return doc
     },

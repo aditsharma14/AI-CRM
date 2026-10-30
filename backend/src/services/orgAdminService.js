@@ -5,7 +5,7 @@ import crypto from 'node:crypto'
 import Organization from '../models/Organization.js'
 import User from '../models/User.js'
 import { assertCanAssign, assertNotSelf, manageableRoles, memberMissOrForbidden } from '../policies/membership.js'
-import { assertReferencesInOrg } from '../policies/references.js'
+import { assertReferencesInOrg, scopedPopulate } from '../policies/references.js'
 import { badRequest, notFound } from '../utils/http.js'
 import { hashToken } from '../utils/tokens.js'
 
@@ -129,7 +129,9 @@ export async function removeMember(actor, userId) {
  * @throws {AppError} 404
  */
 export async function listTeams(orgId) {
-  const org = await Organization.findById(orgId).select('teams').populate('teams.memberIds', 'name email')
+  const org = await Organization.findById(orgId)
+    .select('teams')
+    .populate(scopedPopulate({ path: 'teams.memberIds', select: 'name email' }, orgId))
   if (!org) throw notFound('Organization not found.')
   return org.teams
 }

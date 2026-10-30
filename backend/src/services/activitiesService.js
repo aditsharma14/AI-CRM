@@ -2,7 +2,7 @@
 // Tasks and calendar events: listing by type/date, scoped writes, the done/open toggle.
 import Activity from '../models/Activity.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
-import { entityModel } from '../policies/references.js'
+import { entityModel, scopedPopulate } from '../policies/references.js'
 import { logActivity } from './activityLogService.js'
 import { createCrudService } from './crudService.js'
 
@@ -53,7 +53,7 @@ export async function list(actor, { page, limit, type, status, assigneeId, dateF
       .sort({ [dateField]: 1, createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('assigneeId', 'name'),
+      .populate(scopedPopulate({ path: 'assigneeId', select: 'name' }, actor.orgId)),
     Activity.countDocuments(filter),
   ])
   return { items, meta: { page, limit, total, hasMore: skip + items.length < total } }
