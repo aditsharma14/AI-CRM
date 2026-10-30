@@ -12,6 +12,7 @@ import { hashToken } from '../utils/tokens.js'
 
 /** @typedef {InstanceType<typeof User>} UserDoc A hydrated User, including comparePassword(). */
 /** @typedef {{ _id: unknown, name: string, plan: string }} PopulatedOrg */
+/** @typedef {InstanceType<typeof Organization>} OrgDoc */
 
 /**
  * @typedef {object} SerializedUser What the client receives about the signed-in user.
@@ -75,11 +76,12 @@ function serializeUser(user) {
  * or React's StrictMode double-invoking an effect in development. $push
  * has no such conflict: both requests' new tokens land safely either way.
  * @param {UserDoc} user
+ * @param {{ session?: import('mongoose').ClientSession }} [options] Store the token inside this transaction.
  * @returns {Promise<Session>}
  */
-async function issueSession(user) {
+async function issueSession(user, { session } = {}) {
   const rawRefresh = crypto.randomBytes(40).toString('hex')
-  await User.updateOne({ _id: user._id }, { $push: { refreshTokens: { hash: hashToken(rawRefresh) } } })
+  await User.updateOne({ _id: user._id }, { $push: { refreshTokens: { hash: hashToken(rawRefresh) } } }, { session })
   // Sign while orgId is still a raw ObjectId — populating first would make
   // `.toString()` below serialize the whole populated document instead.
   const accessToken = signAccessToken(user)
@@ -96,13 +98,24 @@ export async function registerOrg({ orgName, name, email, password }) {
   const existing = await User.findOne({ email })
   if (existing) throw badRequest('An account with this email already exists.', 'EMAIL_TAKEN')
 
-  // Three writes, not yet in a transaction (see docs/known-issues.md).
-  const org = await Organization.create({ name: orgName })
-  const user = await User.create({ orgId: org._id, name, email, password, role: 'owner', isEmailVerified: true })
-  org.ownerId = user._id
-  await org.save()
-
-  return issueSession(user)
+  // The org, its owner, the org's ownerId and the first session commit together, so a failure
+  // partway never leaves an org without an owner.
+  return Organization.db.transaction(async (session) => {
+    // Array form: it's the only way Model.create takes a session.
+    // Boundary casts: create([one doc]) resolves to exactly that one document, but tsc only sees the
+    // array overload's loosely typed, possibly-undefined element (as in crudService.create).
+    const org = /** @type {OrgDoc} */ ((await Organization.create([{ name: orgName }], { session }))[0])
+    const user = /** @type {UserDoc} */ (
+      (
+        await User.create([{ orgId: org._id, name, email, password, role: 'owner', isEmailVerified: true }], {
+          session,
+        })
+      )[0]
+    )
+    org.ownerId = user._id
+    await org.save({ session })
+    return issueSession(user, { session })
+  })
 }
 
 /**
@@ -163,22 +176,27 @@ export async function acceptInvite({ token, name, password }) {
   const existing = await User.findOne({ email: invite.email })
   if (existing) throw badRequest('An account with this email already exists.', 'EMAIL_TAKEN')
 
-  const user = await User.create({
-    orgId: org._id,
-    name,
-    email: invite.email,
-    password,
-    role: invite.role,
-    isEmailVerified: true,
+  // Consuming the invite, creating the user and the first session commit together. The invite is
+  // consumed by a conditional $pull, so of two parallel accepts only one can match it; the other
+  // (retried after the write conflict) finds it gone.
+  return Organization.db.transaction(async (session) => {
+    const consumed = await Organization.updateOne(
+      { _id: org._id, 'inviteTokens.tokenHash': hash },
+      { $pull: { inviteTokens: { tokenHash: hash } } },
+      { session },
+    )
+    if (consumed.modifiedCount !== 1) throw badRequest('This invite is invalid or has expired.', 'INVALID_INVITE')
+    // Boundary cast, as in registerOrg.
+    const user = /** @type {UserDoc} */ (
+      (
+        await User.create(
+          [{ orgId: org._id, name, email: invite.email, password, role: invite.role, isEmailVerified: true }],
+          { session },
+        )
+      )[0]
+    )
+    return issueSession(user, { session })
   })
-  // .set() is what `doc.path = value` calls; it's the form Mongoose's types accept for a DocumentArray.
-  org.set(
-    'inviteTokens',
-    org.inviteTokens.filter((t) => t.tokenHash !== hash),
-  )
-  await org.save()
-
-  return issueSession(user)
 }
 
 /**
