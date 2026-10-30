@@ -35,14 +35,10 @@ export function SessionProvider({ children }) {
   // thing can happen for real with two browser tabs loading at once), which
   // is why authService.refresh() is also written to fail that second call
   // cleanly instead of crashing — but the best fix is not sending it twice.
-  // No `cancelled`-flag cleanup here on purpose: SessionProvider wraps the
-  // whole app at the root (see App.jsx) and never really unmounts while the
-  // page is open, so there's no stale-closure case to guard against — the
-  // hasBootstrapped ref above is the only guard this effect needs. (An
-  // earlier version had both; the cancelled-flag from the first StrictMode
-  // invocation ended up permanently true by the time the one real request
-  // resolved, which meant setIsBootstrapping(false) never ran and the app
-  // stayed on its loading spinner forever. One guard, doing one job.)
+  // No `cancelled`-flag cleanup on purpose: SessionProvider wraps the whole
+  // app and never unmounts while the page is open. A cancelled flag would be
+  // left true by StrictMode's first invocation, so setIsBootstrapping(false)
+  // would never run and the app would stay on its spinner.
   const hasBootstrapped = useRef(false)
   useEffect(() => {
     if (hasBootstrapped.current) return

@@ -36,7 +36,7 @@ export const crud = createCrudService(Lead, {
 export async function convertToDeal(actor, leadId, dealInput = {}) {
   const { orgId, id: actorId } = actor
   // Converting changes the lead, so it's a write: members may convert only
-  // their own. The new deal goes to the lead's owner, as before.
+  // their own. The new deal goes to the lead's owner.
   const lead = await Lead.findOne({ _id: leadId, orgId, ...scopeFor(actor, 'lead', 'write') })
   if (!lead) throw await missOrForbidden(Lead, actor, leadId)
   if (lead.status === 'converted') throw alreadyConverted()

@@ -1,5 +1,5 @@
 // @ts-check
-// Discriminated Task/CalendarEvent schema via a type enum.
+// Tasks and calendar events: one schema, told apart by `type`.
 import mongoose from 'mongoose'
 
 const { Schema } = mongoose

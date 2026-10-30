@@ -10,7 +10,7 @@ import { createCrudService } from './crudService.js'
 /** @typedef {import('mongoose').HydratedDocument<import('../models/Activity.js').ActivityRecord>} ActivityDoc */
 
 // get/update/remove come from the factory, scoped by assigneeId. Update and
-// delete aren't audit-logged (unchanged from before), so no activityLabel.
+// delete aren't audit-logged, so no activityLabel.
 export const crud = createCrudService(Activity, {
   resource: 'activity',
   populate: { path: 'assigneeId', select: 'name' },

@@ -1,4 +1,4 @@
-/* Tailwind directives and global base styles (wired in Phase 3/5). */
+/* Tailwind directives and global base styles. */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

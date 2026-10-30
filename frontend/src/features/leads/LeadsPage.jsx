@@ -1,4 +1,4 @@
-// Lead list, filters, detail drawer, form, convert-to-deal.
+// Lead list, filters, detail modal and form, convert-to-deal.
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'

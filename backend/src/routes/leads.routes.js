@@ -1,4 +1,4 @@
-// Lead CRUD + convert-to-deal + rescore trigger.
+// Lead CRUD + convert-to-deal.
 import { Router } from 'express'
 
 import { auth } from '../middleware/auth.js'

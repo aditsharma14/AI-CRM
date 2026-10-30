@@ -5,7 +5,7 @@ import mongoose from 'mongoose'
 const { Schema } = mongoose
 
 // Small, low-cardinality, always read with the org — embedded rather than
-// referenced collections (see the architecture spec §07).
+// referenced collections.
 const teamSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },

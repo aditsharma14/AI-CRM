@@ -1,4 +1,4 @@
-// React-Hook-Form-aware input wrapper with label/error/help text.
+// Input wrapper with label, error and help text.
 import { cn } from '../lib/utils.js'
 
 // Kept beside FormField since it's the input styling half of the same

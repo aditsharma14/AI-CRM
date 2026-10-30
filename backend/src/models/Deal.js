@@ -1,5 +1,5 @@
 // @ts-check
-// Pipeline opportunity: value, stage, probability, forecast fields.
+// Pipeline opportunity: value, stage, probability, status and close date.
 import mongoose from 'mongoose'
 
 const { Schema } = mongoose

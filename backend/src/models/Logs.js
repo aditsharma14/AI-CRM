@@ -6,7 +6,7 @@ const { Schema } = mongoose
 const options = { discriminatorKey: 'kind', timestamps: true }
 
 // One collection, two append-only shapes — mirrors Activity.js's type
-// discriminator, split here by `kind` instead (see architecture spec §07).
+// discriminator, split here by `kind` instead.
 const logSchema = new Schema(
   {
     orgId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },

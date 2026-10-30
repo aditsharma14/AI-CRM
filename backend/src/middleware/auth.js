@@ -11,7 +11,7 @@ export function auth(req, res, next) {
 
   try {
     // No DB lookup — the whole point of a JWT is that this stays stateless
-    // and horizontally scalable (see architecture spec §08).
+    // and horizontally scalable.
     const payload = jwt.verify(token, env.jwtAccessSecret)
     req.user = { id: payload.sub, orgId: payload.orgId, role: payload.role }
     next()

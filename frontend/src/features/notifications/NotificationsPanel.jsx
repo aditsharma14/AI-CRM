@@ -1,4 +1,4 @@
-// Bell dropdown and full notifications list, mark-read.
+// Bell dropdown with the latest notifications, mark-read and mark-all-read.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Bell, CheckCheck, Inbox } from 'lucide-react'
@@ -7,19 +7,13 @@ import { api } from '../../api/client.js'
 import { Loader } from '../../components/ui.jsx'
 import { cn, formatDateTime } from '../../lib/utils.js'
 
-/**
- * Exported separately from the component so AppLayout can read
- * `data.meta.unreadCount` for the little red badge on the bell icon,
- * without duplicating this fetch call — React Query shares one cached
- * result between every component that asks for this same query key.
- */
+/** The latest notifications and `meta.unreadCount` for the bell badge. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useNotifications() {
   return useQuery({
     queryKey: ['notifications', 'list'],
     queryFn: async () => (await api.get('/notifications', { params: { limit: 10 } })).data,
-    // No WebSockets yet (see the architecture's scalability roadmap) —
-    // polling every 30s is the deliberate, simple stand-in for now.
+    // No WebSockets yet — polling every 30s is the deliberate, simple stand-in.
     refetchInterval: 30_000,
   })
 }

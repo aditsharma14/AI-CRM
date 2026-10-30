@@ -1,4 +1,5 @@
-// Generic reusable hooks: useCrudQuery, useDebounce, useDisclosure, usePaginationState, useMutationError, usePipelineStages.
+// Generic reusable hooks: useCrudQuery, useDebounce, useDisclosure, usePaginationState, useClickOutside,
+// useMutationError, usePipelineStages.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 

@@ -1,4 +1,4 @@
-// Overview (KPIs/funnel) and Reports (forecast) tabs.
+// Overview (KPIs, funnel) and Reports (won/lost by month) tabs.
 import { useQuery } from '@tanstack/react-query'
 import { DollarSign, Flame, History, Kanban, Percent } from 'lucide-react'
 import { useState } from 'react'

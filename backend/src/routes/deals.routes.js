@@ -1,4 +1,4 @@
-// Deal CRUD + move-stage + win/loss.
+// Deal CRUD + move-stage (moving into won/lost closes the deal).
 import { Router } from 'express'
 
 import { auth } from '../middleware/auth.js'

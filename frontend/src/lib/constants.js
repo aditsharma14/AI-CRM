@@ -7,8 +7,8 @@
 
 export const ROLES = /** @type {const} */ ({ OWNER: 'owner', ADMIN: 'admin', MANAGER: 'manager', MEMBER: 'member' })
 
-// Mirrors backend/src/utils/permissions.js's matrix (see the architecture
-// spec §09) — coarse enough to hide buttons; the API is the real authority.
+// Mirrors backend/src/utils/permissions.js's matrix — coarse enough to hide
+// buttons; the API is the real authority.
 /** @type {Record<Role, Record<string, string[]>>} */
 const MATRIX = {
   [ROLES.OWNER]: {

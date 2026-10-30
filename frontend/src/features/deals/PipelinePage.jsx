@@ -1,6 +1,4 @@
-// Kanban pipeline board, drag-to-move, deal detail and form.
-// Phase 8 ships the underlying CRUD as a table; the Kanban board itself
-// arrives in Phase 9 once the dashboard/visualization layer exists.
+// Deal table, deal form and stage moves. The Kanban board is planned for S2.7.
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'

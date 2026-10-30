@@ -1,4 +1,4 @@
-// Register org, login, refresh, logout, password reset, email verify.
+// Register org, login, refresh, logout, accept invite, password reset.
 import { Router } from 'express'
 
 import { env } from '../config/index.js'

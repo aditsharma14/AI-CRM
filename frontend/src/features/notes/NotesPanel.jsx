@@ -1,4 +1,4 @@
-// Embeddable note thread mounted inside any detail drawer.
+// Embeddable note thread mounted inside any detail modal.
 import { useState } from 'react'
 
 import { Button, Loader } from '../../components/ui.jsx'

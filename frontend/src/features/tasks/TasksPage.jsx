@@ -1,4 +1,4 @@
-// List/board view over Activity resources of type=task.
+// Task list over Activity resources of type=task, with the done/open toggle.
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Circle } from 'lucide-react'

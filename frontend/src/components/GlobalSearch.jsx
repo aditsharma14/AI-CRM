@@ -73,8 +73,7 @@ export default function GlobalSearch({ isOpen, onClose }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
-  // The search endpoint itself was built and tested back in Phase 9's
-  // backend work (GET /api/v1/search) — this just calls it.
+  // GET /api/v1/search does the work (and has its own tests); this just calls it.
   const { data, isFetching } = useQuery({
     queryKey: ['global-search', debouncedQuery],
     queryFn: async () => (await api.get('/search', { params: { q: debouncedQuery } })).data.data,

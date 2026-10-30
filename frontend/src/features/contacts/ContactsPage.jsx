@@ -1,4 +1,4 @@
-// Contact list, detail drawer, and form.
+// Contact list, detail modal and form.
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'

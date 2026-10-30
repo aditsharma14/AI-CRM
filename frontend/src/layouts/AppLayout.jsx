@@ -118,9 +118,9 @@ export default function AppLayout() {
           )}
         </div>
 
-        {/* Organization display. There's one org per account today (see the
-            architecture spec), so this is an honest label, not a fake
-            multi-workspace switcher — it links straight to org settings. */}
+        {/* Organization display. There's one org per account today, so this is
+            an honest label, not a fake multi-workspace switcher — it links
+            straight to org settings. */}
         {!isSidebarCollapsed && user?.org && (
           <NavLink
             to="/settings"

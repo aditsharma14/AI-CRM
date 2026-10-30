@@ -8,7 +8,7 @@
 /** @type {readonly Role[]} */
 export const ROLES = ['owner', 'admin', 'manager', 'member']
 
-// See the architecture spec §09 for the full rationale. "own only" resources
+// "Own only" resources
 // still return true here (the resource is usable); the service layer narrows
 // the query/mutation to records the caller owns.
 /** @type {Record<Role, Record<PermissionResource, PermissionAction[]>>} */

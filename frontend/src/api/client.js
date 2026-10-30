@@ -1,4 +1,4 @@
-// Axios instance, refresh-on-401 interceptor, endpoint path map.
+// Axios instance, access-token holder and the refresh-on-401 interceptor.
 import axios from 'axios'
 
 export const api = axios.create({

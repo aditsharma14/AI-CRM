@@ -1,4 +1,4 @@
-// Month/week grid over Activity resources of type=event.
+// Month grid over Activity resources of type=event.
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'

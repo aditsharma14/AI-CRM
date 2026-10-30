@@ -96,8 +96,7 @@ export async function registerOrg({ orgName, name, email, password }) {
   const existing = await User.findOne({ email })
   if (existing) throw badRequest('An account with this email already exists.', 'EMAIL_TAKEN')
 
-  // No multi-document transaction here (a standalone/local Mongo may lack a
-  // replica set) — an acceptable MVP tradeoff; see the architecture spec §21.
+  // Three writes, not yet in a transaction (see docs/known-issues.md).
   const org = await Organization.create({ name: orgName })
   const user = await User.create({ orgId: org._id, name, email, password, role: 'owner', isEmailVerified: true })
   org.ownerId = user._id
@@ -196,7 +195,7 @@ export async function forgotPassword(email) {
   await user.save()
 
   // No transactional email provider is wired up yet — logging the link is
-  // the dev-mode stand-in until one is (see Phase 11+ follow-up work).
+  // the dev-mode stand-in until one is (S2.6).
   console.log(`[authService] Password reset link for ${email}: /reset-password?token=${rawToken}`)
 }
 
@@ -217,6 +216,6 @@ export async function resetPassword({ token, password }) {
   user.password = password
   user.passwordResetTokenHash = undefined
   user.passwordResetExpires = undefined
-  user.set('refreshTokens', []) // force re-login on every device, per architecture spec §08
+  user.set('refreshTokens', []) // force re-login on every device
   await user.save()
 }
