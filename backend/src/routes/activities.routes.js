@@ -38,7 +38,9 @@ router.patch(
   '/:id',
   requirePermission('crm', 'write'),
   validate({ params: idParam, body: activityUpdate }),
-  asyncHandler(async (req, res) => apiResponse(res, await activitiesService.crud.update(req.user, req.params.id, req.body))),
+  asyncHandler(async (req, res) =>
+    apiResponse(res, await activitiesService.crud.update(req.user, req.params.id, req.body)),
+  ),
 )
 
 // The single most common task action — a one-click done/open toggle,

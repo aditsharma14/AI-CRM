@@ -30,7 +30,10 @@
  * @param {ListQueryOptions} [options]
  * @returns {ListPlan}
  */
-export function buildListQuery(query, { filterableFields = [], searchFields = [], sortableFields = [], dateField } = {}) {
+export function buildListQuery(
+  query,
+  { filterableFields = [], searchFields = [], sortableFields = [], dateField } = {},
+) {
   const { page, limit, sort, q, dateFrom, dateTo } = query
   /** @type {Record<string, unknown>} */
   const filter = {}

@@ -17,9 +17,19 @@ const STAGES = [
 ]
 
 const FAILURES = [
-  [400, 'VALIDATION_ERROR', `stageKey: "qualified" is not a stage in this organization's pipeline.`, `stageKey: "qualified" is not a stage in this organization's pipeline.`],
+  [
+    400,
+    'VALIDATION_ERROR',
+    `stageKey: "qualified" is not a stage in this organization's pipeline.`,
+    `stageKey: "qualified" is not a stage in this organization's pipeline.`,
+  ],
   [403, 'FORBIDDEN', 'You can only change records you own.', 'You can only change records you own.'],
-  [500, 'INTERNAL_ERROR', 'Internal server error', "Something went wrong on our side. Your changes weren't saved. Try again."],
+  [
+    500,
+    'INTERNAL_ERROR',
+    'Internal server error',
+    "Something went wrong on our side. Your changes weren't saved. Try again.",
+  ],
 ]
 
 /** Serves the deal list; `rows` may be swapped later to simulate the server's state changing. */
@@ -83,7 +93,9 @@ describe.each(FAILURES)('Pipeline when the API answers %i', (status, code, serve
     const dialog = await openDeal(user)
 
     await user.click(dialog.getByRole('button', { name: 'Delete' }))
-    await user.click(within(screen.getByRole('dialog', { name: 'Delete this deal?' })).getByRole('button', { name: 'Delete' }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Delete this deal?' })).getByRole('button', { name: 'Delete' }),
+    )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(shown)
     expect(screen.getByRole('cell', { name: 'Big deal' })).toBeInTheDocument()
@@ -122,7 +134,9 @@ describe('Pipeline partial failure', () => {
         state.rows = [{ ...DEAL, stageKey: 'qualified' }]
         return ok(state.rows[0])
       }),
-      http.patch(`${API}/deals/:id`, () => (patchOk ? ok(state.rows[0]) : fail(500, 'INTERNAL_ERROR', 'Internal server error'))),
+      http.patch(`${API}/deals/:id`, () =>
+        patchOk ? ok(state.rows[0]) : fail(500, 'INTERNAL_ERROR', 'Internal server error'),
+      ),
     )
     const user = await setup()
     const dialog = await openDeal(user)

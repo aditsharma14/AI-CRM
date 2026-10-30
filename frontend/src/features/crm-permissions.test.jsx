@@ -64,7 +64,7 @@ describe.each(['lead', 'deal'])('%s edit dialog', (kind) => {
     expect(Boolean(dialog.queryByRole('button', { name: 'Delete' }))).toBe(shown)
   })
 
-  it('is read-only for a member on someone else\'s record', async () => {
+  it("is read-only for a member on someone else's record", async () => {
     const dialog = await openRecord(kind, 'member', theirs)
     expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled()
     expect(dialog.queryByRole('button', { name: 'Convert to deal' })).toBeNull()
@@ -76,7 +76,7 @@ describe.each(['lead', 'deal'])('%s edit dialog', (kind) => {
     if (kind === 'lead') expect(dialog.getByRole('button', { name: 'Convert to deal' })).toBeInTheDocument()
   })
 
-  it('is editable for a manager on anyone\'s record', async () => {
+  it("is editable for a manager on anyone's record", async () => {
     const dialog = await openRecord(kind, 'manager', theirs)
     expect(dialog.getByRole('button', { name: 'Save' })).toBeEnabled()
   })

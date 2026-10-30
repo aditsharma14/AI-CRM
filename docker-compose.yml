@@ -2,7 +2,7 @@ services:
   client:
     build: ./frontend
     ports:
-      - "8080:80"
+      - '8080:80'
     depends_on:
       - api
 
@@ -10,7 +10,7 @@ services:
     build: ./backend
     env_file: ./backend/.env
     ports:
-      - "5000:5000"
+      - '5000:5000'
     depends_on:
       mongo:
         condition: service_healthy
@@ -21,7 +21,7 @@ services:
     build: ./AI
     env_file: ./AI/.env
     ports:
-      - "8000:8000"
+      - '8000:8000'
     depends_on:
       - mongo
 
@@ -30,9 +30,9 @@ services:
   # transaction, and MongoDB only supports transactions on replica sets.
   mongo:
     image: mongo:7
-    command: ["--replSet", "rs0", "--bind_ip_all"]
+    command: ['--replSet', 'rs0', '--bind_ip_all']
     ports:
-      - "27017:27017"
+      - '27017:27017'
     volumes:
       - mongo-data:/data/db
     # Initiates the set on first start (idempotent), then reports healthy, so

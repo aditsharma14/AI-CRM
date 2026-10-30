@@ -83,7 +83,11 @@ const STAT_ICON_COLORS = {
 export function StatCard({ icon: Icon, label, value, tone = 'primary' }) {
   return (
     // A named group, so assistive tech (and tests) can find "the Win rate card".
-    <div role="group" aria-label={label} className="rounded-lg border border-border bg-card p-4 dark:border-border-dark dark:bg-card-dark">
+    <div
+      role="group"
+      aria-label={label}
+      className="rounded-lg border border-border bg-card p-4 dark:border-border-dark dark:bg-card-dark"
+    >
       <div className="mb-3 flex items-center justify-between">
         <p className="text-xs font-medium uppercase tracking-wide text-muted dark:text-muted-dark">{label}</p>
         {Icon && (

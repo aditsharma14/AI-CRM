@@ -36,7 +36,10 @@ async function openMembersTab(viewerRole) {
 
 const roleSelect = (name) => screen.queryByRole('combobox', { name: `Role for ${name}` })
 const removeButton = (name) => screen.queryByRole('button', { name: `Remove ${name}` })
-const optionsOf = (select) => within(select).getAllByRole('option').map((o) => o.getAttribute('value'))
+const optionsOf = (select) =>
+  within(select)
+    .getAllByRole('option')
+    .map((o) => o.getAttribute('value'))
 
 describe('Members tab: who sees which controls', () => {
   // Names whose row gets a role select and a remove button; every other row shows a badge only.

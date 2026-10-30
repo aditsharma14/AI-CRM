@@ -23,7 +23,10 @@ router.use(auth)
 
 // ---- Org profile ----
 
-router.get('/', asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.getOrg(req.user.orgId))))
+router.get(
+  '/',
+  asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.getOrg(req.user.orgId))),
+)
 
 router.patch(
   '/',
@@ -34,7 +37,10 @@ router.patch(
 
 // ---- Members ----
 
-router.get('/members', asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.listMembers(req.user.orgId))))
+router.get(
+  '/members',
+  asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.listMembers(req.user.orgId))),
+)
 
 router.post(
   '/members/invite',
@@ -67,20 +73,27 @@ router.delete(
 
 // ---- Teams ----
 
-router.get('/teams', asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.listTeams(req.user.orgId))))
+router.get(
+  '/teams',
+  asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.listTeams(req.user.orgId))),
+)
 
 router.post(
   '/teams',
   requirePermission('members', 'manage'),
   validate({ body: teamCreate }),
-  asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.createTeam(req.user.orgId, req.body.name), null, 201)),
+  asyncHandler(async (req, res) =>
+    apiResponse(res, await orgAdminService.createTeam(req.user.orgId, req.body.name), null, 201),
+  ),
 )
 
 router.patch(
   '/teams/:id',
   requirePermission('members', 'manage'),
   validate({ params: idParam, body: teamUpdate }),
-  asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.updateTeam(req.user.orgId, req.params.id, req.body))),
+  asyncHandler(async (req, res) =>
+    apiResponse(res, await orgAdminService.updateTeam(req.user.orgId, req.params.id, req.body)),
+  ),
 )
 
 router.delete(
@@ -104,7 +117,9 @@ router.patch(
   '/pipeline-stages',
   requirePermission('pipeline', 'configure'),
   validate({ body: pipelineStagesUpdate }),
-  asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.updatePipelineStages(req.user.orgId, req.body))),
+  asyncHandler(async (req, res) =>
+    apiResponse(res, await orgAdminService.updatePipelineStages(req.user.orgId, req.body)),
+  ),
 )
 
 // ---- Email templates ----
@@ -118,14 +133,18 @@ router.post(
   '/email-templates',
   requirePermission('pipeline', 'configure'),
   validate({ body: emailTemplateCreate }),
-  asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.createEmailTemplate(req.user.orgId, req.body), null, 201)),
+  asyncHandler(async (req, res) =>
+    apiResponse(res, await orgAdminService.createEmailTemplate(req.user.orgId, req.body), null, 201),
+  ),
 )
 
 router.patch(
   '/email-templates/:id',
   requirePermission('pipeline', 'configure'),
   validate({ params: idParam, body: emailTemplateUpdate }),
-  asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.updateEmailTemplate(req.user.orgId, req.params.id, req.body))),
+  asyncHandler(async (req, res) =>
+    apiResponse(res, await orgAdminService.updateEmailTemplate(req.user.orgId, req.params.id, req.body)),
+  ),
 )
 
 router.delete(

@@ -3,13 +3,7 @@ import 'dotenv/config'
 import mongoose from 'mongoose'
 import { v2 as cloudinary } from 'cloudinary'
 
-const REQUIRED = [
-  'MONGO_URI',
-  'JWT_ACCESS_SECRET',
-  'JWT_REFRESH_SECRET',
-  'CLIENT_ORIGIN',
-  'AI_SERVICE_URL',
-]
+const REQUIRED = ['MONGO_URI', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'CLIENT_ORIGIN', 'AI_SERVICE_URL']
 
 const missing = REQUIRED.filter((key) => !process.env[key])
 if (missing.length) {
@@ -39,9 +33,7 @@ export async function connectDB() {
 }
 
 const hasCloudinaryConfig =
-  process.env.CLOUDINARY_CLOUD_NAME &&
-  process.env.CLOUDINARY_API_KEY &&
-  process.env.CLOUDINARY_API_SECRET
+  process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET
 
 if (hasCloudinaryConfig) {
   cloudinary.config({

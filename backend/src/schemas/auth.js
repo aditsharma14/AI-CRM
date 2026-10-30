@@ -3,7 +3,12 @@
 import { z } from 'zod'
 import { email, password } from '../utils/validators.js'
 
-export const registerOrg = z.object({ orgName: z.string().trim().min(2), name: z.string().trim().min(1), email, password })
+export const registerOrg = z.object({
+  orgName: z.string().trim().min(2),
+  name: z.string().trim().min(1),
+  email,
+  password,
+})
 
 // Login doesn't re-apply the password-strength rule: an old, weaker password
 // must still be able to sign in.

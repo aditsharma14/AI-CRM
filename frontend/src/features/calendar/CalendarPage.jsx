@@ -118,13 +118,21 @@ export default function CalendarPage() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <h1 className="font-serif text-xl font-semibold">Calendar</h1>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="Previous month">
+          <Button
+            variant="secondary"
+            onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+            aria-label="Previous month"
+          >
             <ChevronLeft size={16} strokeWidth={1.75} />
           </Button>
           <span className="min-w-[140px] text-center text-sm font-medium">
             {month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
           </span>
-          <Button variant="secondary" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="Next month">
+          <Button
+            variant="secondary"
+            onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+            aria-label="Next month"
+          >
             <ChevronRight size={16} strokeWidth={1.75} />
           </Button>
         </div>
@@ -133,7 +141,10 @@ export default function CalendarPage() {
       <div className={cn('rounded-lg border border-border dark:border-border-dark', isLoading && 'opacity-50')}>
         <div className="grid grid-cols-7 border-b border-border dark:border-border-dark">
           {WEEKDAY_LABELS.map((label) => (
-            <div key={label} className="p-2 text-center text-xs font-medium uppercase tracking-wide text-muted dark:text-muted-dark">
+            <div
+              key={label}
+              className="p-2 text-center text-xs font-medium uppercase tracking-wide text-muted dark:text-muted-dark"
+            >
               {label}
             </div>
           ))}
@@ -158,7 +169,11 @@ export default function CalendarPage() {
                 <span
                   className={cn(
                     'flex h-6 w-6 items-center justify-center rounded-full text-xs',
-                    key === today ? 'bg-primary font-semibold text-white' : isCurrentMonth ? 'text-text dark:text-text-dark' : 'text-muted dark:text-muted-dark',
+                    key === today
+                      ? 'bg-primary font-semibold text-white'
+                      : isCurrentMonth
+                        ? 'text-text dark:text-text-dark'
+                        : 'text-muted dark:text-muted-dark',
                   )}
                 >
                   {day.getDate()}
@@ -200,7 +215,12 @@ export default function CalendarPage() {
                 Delete
               </Button>
             )}
-            <Button type="submit" form="event-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the assignee can edit this event' : undefined}>
+            <Button
+              type="submit"
+              form="event-form"
+              disabled={isSubmitting || readOnly}
+              title={readOnly ? 'Only the assignee can edit this event' : undefined}
+            >
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>

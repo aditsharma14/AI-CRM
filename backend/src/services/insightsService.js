@@ -51,10 +51,16 @@ export async function dashboardOverview(orgId) {
       Lead.aggregate([{ $match: { orgId: oid } }, { $group: { _id: '$status', count: { $sum: 1 } } }]).exec()
     ),
     /** @type {Promise<StageRow[]>} */ (
-      Deal.aggregate([{ $match: { orgId: oid } }, { $group: { _id: '$stageKey', count: { $sum: 1 }, value: { $sum: '$value' } } }]).exec()
+      Deal.aggregate([
+        { $match: { orgId: oid } },
+        { $group: { _id: '$stageKey', count: { $sum: 1 }, value: { $sum: '$value' } } },
+      ]).exec()
     ),
     /** @type {Promise<TotalRow[]>} */ (
-      Deal.aggregate([{ $match: { orgId: oid, status: 'open' } }, { $group: { _id: null, total: { $sum: '$value' } } }]).exec()
+      Deal.aggregate([
+        { $match: { orgId: oid, status: 'open' } },
+        { $group: { _id: null, total: { $sum: '$value' } } },
+      ]).exec()
     ),
     ActivityLog.find({ orgId }).sort({ createdAt: -1 }).limit(10).populate('userId', 'name'),
   ])
@@ -89,7 +95,10 @@ export async function dashboardReports(orgId) {
       ]).exec()
     ),
     /** @type {Promise<CountRow[]>} */ (
-      Deal.aggregate([{ $match: { orgId: oid, status: { $in: ['won', 'lost'] } } }, { $group: { _id: '$status', count: { $sum: 1 } } }]).exec()
+      Deal.aggregate([
+        { $match: { orgId: oid, status: { $in: ['won', 'lost'] } } },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]).exec()
     ),
   ])
 

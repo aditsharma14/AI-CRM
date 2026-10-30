@@ -110,7 +110,11 @@ export default function PipelinePage() {
   const columns = [
     { key: 'title', header: 'Deal' },
     { key: 'value', header: 'Value', render: (row) => formatCurrency(row.value, row.currency) },
-    { key: 'stageKey', header: 'Stage', render: (row) => <Badge variant={STAGE_VARIANT[row.stageKey]}>{labelFor(row.stageKey)}</Badge> },
+    {
+      key: 'stageKey',
+      header: 'Stage',
+      render: (row) => <Badge variant={STAGE_VARIANT[row.stageKey]}>{labelFor(row.stageKey)}</Badge>,
+    },
     { key: 'company', header: 'Company', render: (row) => row.companyId?.name ?? '—' },
   ]
 
@@ -149,7 +153,12 @@ export default function PipelinePage() {
                 Delete
               </Button>
             )}
-            <Button type="submit" form="deal-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the owner can edit this deal' : undefined}>
+            <Button
+              type="submit"
+              form="deal-form"
+              disabled={isSubmitting || readOnly}
+              title={readOnly ? 'Only the owner can edit this deal' : undefined}
+            >
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>
@@ -161,7 +170,13 @@ export default function PipelinePage() {
             <input id="deal-title" className={inputClasses(errors.title)} {...register('title')} />
           </FormField>
           <FormField label="Value" htmlFor="deal-value" error={errors.value}>
-            <input id="deal-value" type="number" step="0.01" className={inputClasses(errors.value)} {...register('value')} />
+            <input
+              id="deal-value"
+              type="number"
+              step="0.01"
+              className={inputClasses(errors.value)}
+              {...register('value')}
+            />
           </FormField>
           <FormField label="Stage" htmlFor="deal-stage">
             <select

@@ -75,11 +75,15 @@ function OverviewTab() {
   const totalDeals = dealsByStage.reduce((sum, s) => sum + s.count, 0)
   const recentActivity = data?.recentActivity ?? []
 
-
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard icon={DollarSign} label="Open pipeline value" value={formatCurrency(data?.openPipelineValue ?? 0)} tone="primary" />
+        <StatCard
+          icon={DollarSign}
+          label="Open pipeline value"
+          value={formatCurrency(data?.openPipelineValue ?? 0)}
+          tone="primary"
+        />
         <StatCard icon={Flame} label="Total leads" value={totalLeads} tone="accent" />
         <StatCard icon={Kanban} label="Total deals" value={totalDeals} tone="success" />
       </div>
@@ -144,7 +148,8 @@ function ReportsTab() {
   // The API returns one row per (year, month, won|lost) combination — group
   // them into one row per month so they can be drawn as a single bar pair.
   const monthKey = (row) => `${row._id.year}-${String(row._id.month).padStart(2, '0')}`
-  const monthLabel = (row) => new Date(row._id.year, row._id.month - 1, 1).toLocaleDateString(undefined, { month: 'short', year: '2-digit' })
+  const monthLabel = (row) =>
+    new Date(row._id.year, row._id.month - 1, 1).toLocaleDateString(undefined, { month: 'short', year: '2-digit' })
 
   const byMonth = new Map()
   for (const row of data?.wonLostByMonth ?? []) {

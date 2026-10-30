@@ -87,14 +87,20 @@ export default function TasksPage() {
           aria-label={row.status === 'done' ? 'Mark as open' : 'Mark as done'}
           className="text-muted hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted dark:text-muted-dark"
         >
-          {row.status === 'done' ? <CheckCircle2 size={18} strokeWidth={1.75} className="text-success" /> : <Circle size={18} strokeWidth={1.75} />}
+          {row.status === 'done' ? (
+            <CheckCircle2 size={18} strokeWidth={1.75} className="text-success" />
+          ) : (
+            <Circle size={18} strokeWidth={1.75} />
+          )}
         </button>
       ),
     },
     {
       key: 'title',
       header: 'Task',
-      render: (row) => <span className={cn(row.status === 'done' && 'text-muted line-through dark:text-muted-dark')}>{row.title}</span>,
+      render: (row) => (
+        <span className={cn(row.status === 'done' && 'text-muted line-through dark:text-muted-dark')}>{row.title}</span>
+      ),
     },
     {
       key: 'priority',
@@ -138,7 +144,12 @@ export default function TasksPage() {
                 Delete
               </Button>
             )}
-            <Button type="submit" form="task-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the assignee can edit this task' : undefined}>
+            <Button
+              type="submit"
+              form="task-form"
+              disabled={isSubmitting || readOnly}
+              title={readOnly ? 'Only the assignee can edit this task' : undefined}
+            >
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>

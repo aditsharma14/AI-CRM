@@ -12,10 +12,20 @@ const LEAD = { _id: 'l1', name: 'Acme', status: 'new', score: 0, ownerId: 'user-
 
 // What the server says for each status, and what the user should read.
 const FAILURES = [
-  [400, 'VALIDATION_ERROR', 'name: Too small: expected string to have >=1 characters', 'name: Too small: expected string to have >=1 characters'],
+  [
+    400,
+    'VALIDATION_ERROR',
+    'name: Too small: expected string to have >=1 characters',
+    'name: Too small: expected string to have >=1 characters',
+  ],
   [403, 'FORBIDDEN', 'You can only change records you own.', 'You can only change records you own.'],
   // A 500's server text is not for users; they get what happened and what to do.
-  [500, 'INTERNAL_ERROR', 'Internal server error', "Something went wrong on our side. Your changes weren't saved. Try again."],
+  [
+    500,
+    'INTERNAL_ERROR',
+    'Internal server error',
+    "Something went wrong on our side. Your changes weren't saved. Try again.",
+  ],
 ]
 
 async function setup() {
@@ -80,7 +90,9 @@ describe.each(FAILURES)('Leads when the API answers %i', (status, code, serverMe
     const dialog = await openLead(user)
 
     await user.click(dialog.getByRole('button', { name: 'Delete' }))
-    await user.click(within(screen.getByRole('dialog', { name: 'Delete this lead?' })).getByRole('button', { name: 'Delete' }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Delete this lead?' })).getByRole('button', { name: 'Delete' }),
+    )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(shown)
     expect(screen.getByRole('cell', { name: 'Acme' })).toBeInTheDocument()
@@ -108,6 +120,8 @@ describe('Leads error lifecycle', () => {
     const dialog = await openLead(user)
     await user.click(dialog.getByRole('button', { name: 'Save' }))
 
-    expect(await dialog.findByRole('alert')).toHaveTextContent("Can't reach the server. Check your connection and try again.")
+    expect(await dialog.findByRole('alert')).toHaveTextContent(
+      "Can't reach the server. Check your connection and try again.",
+    )
   })
 })

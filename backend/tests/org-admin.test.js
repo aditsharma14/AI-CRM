@@ -70,7 +70,10 @@ describe('members and roles', () => {
   // Inviting with a role is granting it: the owner-only admin rule (membership.js)
   // would be moot if an admin could mint admins by invite.
   it('lets only the owner invite an admin', async () => {
-    const byOwner = await request(app).post(`${api}/members/invite`).set(as('owner')).send({ email: uniqueEmail('adm'), role: 'admin' })
+    const byOwner = await request(app)
+      .post(`${api}/members/invite`)
+      .set(as('owner'))
+      .send({ email: uniqueEmail('adm'), role: 'admin' })
     expect(byOwner.status).toBe(201)
 
     const email = uniqueEmail('adm-by-admin')
@@ -83,40 +86,72 @@ describe('members and roles', () => {
 
   it('forbids managers and members from inviting', async () => {
     for (const role of ['manager', 'member']) {
-      const res = await request(app).post(`${api}/members/invite`).set(as(role)).send({ email: uniqueEmail('x'), role: 'member' })
+      const res = await request(app)
+        .post(`${api}/members/invite`)
+        .set(as(role))
+        .send({ email: uniqueEmail('x'), role: 'member' })
       expect(res.status).toBe(403)
     }
   })
 
   it('rejects inviting an email that already has an account', async () => {
-    const res = await request(app).post(`${api}/members/invite`).set(as('owner')).send({ email: ctx.users.member.email, role: 'member' })
+    const res = await request(app)
+      .post(`${api}/members/invite`)
+      .set(as('owner'))
+      .send({ email: ctx.users.member.email, role: 'member' })
     expect(res.status).toBe(400)
     expect(res.body.error.code).toBe('EMAIL_TAKEN')
   })
 
   it('changes a member role', async () => {
-    const res = await request(app).patch(`${api}/members/${idOf(ctx.users.member)}/role`).set(as('owner')).send({ role: 'manager' })
+    const res = await request(app)
+      .patch(`${api}/members/${idOf(ctx.users.member)}/role`)
+      .set(as('owner'))
+      .send({ role: 'manager' })
     expect(res.status).toBe(200)
     expect((await User.findById(ctx.users.member._id)).role).toBe('manager')
   })
 
   it("never assigns 'owner' and never touches the owner's role", async () => {
-    const assignOwner = await request(app).patch(`${api}/members/${idOf(ctx.users.member)}/role`).set(as('owner')).send({ role: 'owner' })
+    const assignOwner = await request(app)
+      .patch(`${api}/members/${idOf(ctx.users.member)}/role`)
+      .set(as('owner'))
+      .send({ role: 'owner' })
     expect(assignOwner.status).toBe(400)
     expect(assignOwner.body.error.code).toBe('VALIDATION_ERROR')
 
-    const demoteOwner = await request(app).patch(`${api}/members/${idOf(ctx.users.owner)}/role`).set(as('admin')).send({ role: 'member' })
+    const demoteOwner = await request(app)
+      .patch(`${api}/members/${idOf(ctx.users.owner)}/role`)
+      .set(as('admin'))
+      .send({ role: 'member' })
     expect(demoteOwner.status).toBe(404)
     expect((await User.findById(ctx.users.owner._id)).role).toBe('owner')
   })
 
-
   it('removes a member but never the owner', async () => {
-    expect((await request(app).delete(`${api}/members/${idOf(ctx.users.member)}`).set(as('manager'))).status).toBe(403)
-    expect((await request(app).delete(`${api}/members/${idOf(ctx.users.member)}`).set(as('owner'))).status).toBe(200)
+    expect(
+      (
+        await request(app)
+          .delete(`${api}/members/${idOf(ctx.users.member)}`)
+          .set(as('manager'))
+      ).status,
+    ).toBe(403)
+    expect(
+      (
+        await request(app)
+          .delete(`${api}/members/${idOf(ctx.users.member)}`)
+          .set(as('owner'))
+      ).status,
+    ).toBe(200)
     expect(await User.findById(ctx.users.member._id)).toBeNull()
 
-    expect((await request(app).delete(`${api}/members/${idOf(ctx.users.owner)}`).set(as('admin'))).status).toBe(404)
+    expect(
+      (
+        await request(app)
+          .delete(`${api}/members/${idOf(ctx.users.owner)}`)
+          .set(as('admin'))
+      ).status,
+    ).toBe(404)
     expect(await User.findById(ctx.users.owner._id)).not.toBeNull()
   })
 })
@@ -126,7 +161,8 @@ describe('role policy (owner-only admin management, never yourself)', () => {
   // actor's own account) or 'peerAdmin' (a second admin created per test).
   const pick = async (actor, target) => {
     if (target === 'self') return ctx.users[actor]
-    if (target === 'peerAdmin') return (await createUserWithPassword(ctx.org, { role: 'admin', email: uniqueEmail('peer') })).user
+    if (target === 'peerAdmin')
+      return (await createUserWithPassword(ctx.org, { role: 'admin', email: uniqueEmail('peer') })).user
     return ctx.users[target]
   }
 
@@ -144,7 +180,10 @@ describe('role policy (owner-only admin management, never yourself)', () => {
   ])('$actor sets $target to $role -> $status', async ({ actor, target, role, status }) => {
     const user = await pick(actor, target)
     const before = user.role
-    const res = await request(app).patch(`${api}/members/${idOf(user)}/role`).set(as(actor)).send({ role })
+    const res = await request(app)
+      .patch(`${api}/members/${idOf(user)}/role`)
+      .set(as(actor))
+      .send({ role })
 
     expect(res.status).toBe(status)
     const after = (await User.findById(user._id)).role
@@ -165,7 +204,9 @@ describe('role policy (owner-only admin management, never yourself)', () => {
     { actor: 'manager', target: 'member', status: 403 },
   ])('$actor removes $target -> $status', async ({ actor, target, status }) => {
     const user = await pick(actor, target)
-    const res = await request(app).delete(`${api}/members/${idOf(user)}`).set(as(actor))
+    const res = await request(app)
+      .delete(`${api}/members/${idOf(user)}`)
+      .set(as(actor))
 
     expect(res.status).toBe(status)
     if (status === 200) {
@@ -185,7 +226,10 @@ describe('teams', () => {
     const teamId = created.body.data._id
 
     const memberIds = [idOf(ctx.users.member), idOf(ctx.users.manager)]
-    const updated = await request(app).patch(`${api}/teams/${teamId}`).set(as('admin')).send({ name: 'Alpha 2', memberIds })
+    const updated = await request(app)
+      .patch(`${api}/teams/${teamId}`)
+      .set(as('admin'))
+      .send({ name: 'Alpha 2', memberIds })
     expect(updated.status).toBe(200)
     expect(updated.body.data.name).toBe('Alpha 2')
     expect(updated.body.data.memberIds).toEqual(memberIds)
@@ -206,7 +250,10 @@ describe('teams', () => {
   it("answers 404 for another org's team id", async () => {
     const other = await seedOrg('Other')
     const theirs = await request(app).post(`${api}/teams`).set(bearer(other.tokens.owner)).send({ name: 'Theirs' })
-    const res = await request(app).patch(`${api}/teams/${theirs.body.data._id}`).set(as('owner')).send({ name: 'Hijacked' })
+    const res = await request(app)
+      .patch(`${api}/teams/${theirs.body.data._id}`)
+      .set(as('owner'))
+      .send({ name: 'Hijacked' })
     expect(res.status).toBe(404)
     expect((await Organization.findById(other.org._id)).teams[0].name).toBe('Theirs')
   })
@@ -228,13 +275,21 @@ describe('teams', () => {
 
 describe('email templates', () => {
   it('creates, lists, partially updates and deletes a template', async () => {
-    const created = await request(app).post(`${api}/email-templates`).set(as('admin')).send({ name: 'Hello', subject: 'Hi', body: 'Body' })
+    const created = await request(app)
+      .post(`${api}/email-templates`)
+      .set(as('admin'))
+      .send({ name: 'Hello', subject: 'Hi', body: 'Body' })
     expect(created.status).toBe(201)
     const id = created.body.data._id
 
-    expect((await request(app).get(`${api}/email-templates`).set(as('member'))).body.data.map((t) => t._id)).toContain(id)
+    expect((await request(app).get(`${api}/email-templates`).set(as('member'))).body.data.map((t) => t._id)).toContain(
+      id,
+    )
 
-    const updated = await request(app).patch(`${api}/email-templates/${id}`).set(as('owner')).send({ subject: 'Hi again' })
+    const updated = await request(app)
+      .patch(`${api}/email-templates/${id}`)
+      .set(as('owner'))
+      .send({ subject: 'Hi again' })
     expect(updated.status).toBe(200)
     expect(updated.body.data).toMatchObject({ name: 'Hello', subject: 'Hi again', body: 'Body' })
 
@@ -243,14 +298,20 @@ describe('email templates', () => {
   })
 
   it('forbids managers from configuring templates', async () => {
-    const res = await request(app).post(`${api}/email-templates`).set(as('manager')).send({ name: 'N', subject: 'S', body: 'B' })
+    const res = await request(app)
+      .post(`${api}/email-templates`)
+      .set(as('manager'))
+      .send({ name: 'N', subject: 'S', body: 'B' })
     expect(res.status).toBe(403)
   })
 
   it('answers 404 when deleting a template id that does not exist', async () => {
     const res = await request(app).delete(`${api}/email-templates/0123456789abcdef01234567`).set(as('owner'))
     expect(res.status).toBe(404)
-    expect(res.body).toMatchObject({ success: false, error: { code: 'NOT_FOUND', message: 'Email template not found.' } })
+    expect(res.body).toMatchObject({
+      success: false,
+      error: { code: 'NOT_FOUND', message: 'Email template not found.' },
+    })
   })
 })
 
@@ -276,15 +337,24 @@ describe('pipeline stages', () => {
 
 describe('me', () => {
   it('updates the caller profile', async () => {
-    const res = await request(app).patch(`${api}/me`).set(as('member')).send({ name: 'New Name', avatarUrl: 'https://x.test/a.png' })
+    const res = await request(app)
+      .patch(`${api}/me`)
+      .set(as('member'))
+      .send({ name: 'New Name', avatarUrl: 'https://x.test/a.png' })
     expect(res.status).toBe(200)
-    expect(await User.findById(ctx.users.member._id)).toMatchObject({ name: 'New Name', avatarUrl: 'https://x.test/a.png' })
+    expect(await User.findById(ctx.users.member._id)).toMatchObject({
+      name: 'New Name',
+      avatarUrl: 'https://x.test/a.png',
+    })
   })
 
   it('rejects a wrong current password and keeps every session', async () => {
     const { email, password, user } = await createUserWithPassword(ctx.org, { email: uniqueEmail('pw-wrong') })
     const { accessToken } = await login(email, password)
-    const res = await request(app).patch(`${api}/me/password`).set(bearer(accessToken)).send({ currentPassword: 'not-it', newPassword: 'password456' })
+    const res = await request(app)
+      .patch(`${api}/me/password`)
+      .set(bearer(accessToken))
+      .send({ currentPassword: 'not-it', newPassword: 'password456' })
     expect(res.status).toBe(400)
     expect(res.body.error.code).toBe('INVALID_PASSWORD')
     expect(await sessionCount(user._id)).toBe(1)
@@ -295,12 +365,17 @@ describe('me', () => {
     const laptop = await login(email, password)
     const phone = await login(email, password)
 
-    const res = await request(app).patch(`${api}/me/password`).set(bearer(laptop.accessToken)).send({ currentPassword: password, newPassword: 'password456' })
+    const res = await request(app)
+      .patch(`${api}/me/password`)
+      .set(bearer(laptop.accessToken))
+      .send({ currentPassword: password, newPassword: 'password456' })
     expect(res.status).toBe(200)
 
     expect(await sessionCount(user._id)).toBe(0)
     for (const device of [laptop, phone]) {
-      expect((await request(app).post('/api/v1/auth/refresh').set('Cookie', asRefreshCookie(device.refresh))).status).toBe(401)
+      expect(
+        (await request(app).post('/api/v1/auth/refresh').set('Cookie', asRefreshCookie(device.refresh))).status,
+      ).toBe(401)
     }
     expect((await request(app).post('/api/v1/auth/login').send({ email, password })).status).toBe(401)
     expect((await request(app).post('/api/v1/auth/login').send({ email, password: 'password456' })).status).toBe(200)

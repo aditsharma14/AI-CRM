@@ -176,7 +176,10 @@ export async function acceptInvite({ token, name, password }) {
     isEmailVerified: true,
   })
   // .set() is what `doc.path = value` calls; it's the form Mongoose's types accept for a DocumentArray.
-  org.set('inviteTokens', org.inviteTokens.filter((t) => t.tokenHash !== hash))
+  org.set(
+    'inviteTokens',
+    org.inviteTokens.filter((t) => t.tokenHash !== hash),
+  )
   await org.save()
 
   return issueSession(user)

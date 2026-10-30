@@ -43,7 +43,8 @@ async function stagesOf(orgId) {
  */
 function stageIn(stages, stageKey) {
   const stage = stages.find((s) => s.key === stageKey)
-  if (!stage) throw badRequest(`stageKey: "${stageKey}" is not a stage in this organization's pipeline.`, 'VALIDATION_ERROR')
+  if (!stage)
+    throw badRequest(`stageKey: "${stageKey}" is not a stage in this organization's pipeline.`, 'VALIDATION_ERROR')
   return stage
 }
 
@@ -151,7 +152,9 @@ async function applyStageTransition(deal, fromKey, toStage, actor, { wonLostReas
         action: isCreate ? 'close' : 'move-stage',
         entityType: 'deal',
         entityId: deal._id,
-        message: isCreate ? `Created deal "${deal.title}" in ${toStage.label}` : `Moved deal "${deal.title}" to ${toStage.label}`,
+        message: isCreate
+          ? `Created deal "${deal.title}" in ${toStage.label}`
+          : `Moved deal "${deal.title}" to ${toStage.label}`,
       },
       { session },
     )

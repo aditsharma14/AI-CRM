@@ -146,7 +146,8 @@ describe('isolation and access', () => {
     const reports = (await request(app).get('/api/v1/dashboard/reports').set(bearer(b.tokens.owner))).body.data
     expect({ won: reports.won, lost: reports.lost }).toEqual({ won: 1, lost: 0 })
 
-    const search = (await request(app).get('/api/v1/search').query({ q: 'Zephyr' }).set(bearer(b.tokens.owner))).body.data
+    const search = (await request(app).get('/api/v1/search').query({ q: 'Zephyr' }).set(bearer(b.tokens.owner))).body
+      .data
     expect(search.leads.map((r) => r.name)).toEqual(['Zephyr B Lead'])
     expect(search.contacts).toEqual([])
   })

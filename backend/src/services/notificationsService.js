@@ -17,7 +17,10 @@ import { notificationList } from '../schemas/notifications.js'
  * @returns {Promise<{ items: unknown[], meta: import('../types/index.js').PageMeta & { unreadCount: number } }>}
  */
 export async function list(actor, query) {
-  const plan = buildListQuery(query, { filterableFields: Object.keys(notificationList.filters), sortableFields: notificationList.sort })
+  const plan = buildListQuery(query, {
+    filterableFields: Object.keys(notificationList.filters),
+    sortableFields: notificationList.sort,
+  })
   const mine = { orgId: actor.orgId, userId: actor.id }
   Object.assign(plan.filter, mine)
   const [{ items, meta }, unreadCount] = await Promise.all([
@@ -34,7 +37,11 @@ export async function list(actor, query) {
  * @throws {import('../utils/http.js').AppError} 404 (also for someone else's notification)
  */
 export async function markRead(actor, id) {
-  const doc = await Notification.findOneAndUpdate({ _id: id, orgId: actor.orgId, userId: actor.id }, { read: true }, { new: true })
+  const doc = await Notification.findOneAndUpdate(
+    { _id: id, orgId: actor.orgId, userId: actor.id },
+    { read: true },
+    { new: true },
+  )
   if (!doc) throw notFound('Notification not found.')
   return doc
 }

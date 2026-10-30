@@ -17,7 +17,9 @@ function expectedStatus(role, action, whose) {
 
 const cases = RESOURCES.flatMap((resource) =>
   ROLES.flatMap((role) =>
-    ACTIONS.flatMap((action) => WHOSE.map((whose) => ({ resource, role, action, whose, status: expectedStatus(role, action, whose) }))),
+    ACTIONS.flatMap((action) =>
+      WHOSE.map((whose) => ({ resource, role, action, whose, status: expectedStatus(role, action, whose) })),
+    ),
   ),
 )
 
@@ -32,38 +34,42 @@ describe('ownership matrix', () => {
     expect(cases).toHaveLength(RESOURCES.length * ROLES.length * ACTIONS.length * WHOSE.length)
   })
 
-  it.each(cases)('$resource: $role $action on $whose record -> $status', async ({ resource, role, action, whose, status }) => {
-    const ownerUser = ctx.users[whose === 'own' ? role : otherRoleThan(role)]
-    const record = await makeRecord(resource, ctx.org, ownerUser)
-    const id = record._id.toString()
-    const auth = bearer(ctx.tokens[role])
-    const Model = MODELS[resource]
+  it.each(cases)(
+    '$resource: $role $action on $whose record -> $status',
+    async ({ resource, role, action, whose, status }) => {
+      const ownerUser = ctx.users[whose === 'own' ? role : otherRoleThan(role)]
+      const record = await makeRecord(resource, ctx.org, ownerUser)
+      const id = record._id.toString()
+      const auth = bearer(ctx.tokens[role])
+      const Model = MODELS[resource]
 
-    let res
-    if (action === 'list') res = await request(app).get(`/api/v1/${resource}`).set(auth)
-    if (action === 'get') res = await request(app).get(`/api/v1/${resource}/${id}`).set(auth)
-    if (action === 'update') res = await request(app).patch(`/api/v1/${resource}/${id}`).set(auth).send(RENAME[resource])
-    if (action === 'delete') res = await request(app).delete(`/api/v1/${resource}/${id}`).set(auth)
+      let res
+      if (action === 'list') res = await request(app).get(`/api/v1/${resource}`).set(auth)
+      if (action === 'get') res = await request(app).get(`/api/v1/${resource}/${id}`).set(auth)
+      if (action === 'update')
+        res = await request(app).patch(`/api/v1/${resource}/${id}`).set(auth).send(RENAME[resource])
+      if (action === 'delete') res = await request(app).delete(`/api/v1/${resource}/${id}`).set(auth)
 
-    expect(res.status).toBe(status)
+      expect(res.status).toBe(status)
 
-    if (status === 403) {
-      expect(res.body).toMatchObject({ success: false, data: null, error: { code: 'FORBIDDEN' }, meta: null })
-      // A refused write must leave the record exactly as it was.
-      const after = await Model.findById(id).lean()
-      expect(after).not.toBeNull()
-      const [field] = Object.keys(RENAME[resource])
-      expect(after[field]).toBe(record[field])
-      return
-    }
+      if (status === 403) {
+        expect(res.body).toMatchObject({ success: false, data: null, error: { code: 'FORBIDDEN' }, meta: null })
+        // A refused write must leave the record exactly as it was.
+        const after = await Model.findById(id).lean()
+        expect(after).not.toBeNull()
+        const [field] = Object.keys(RENAME[resource])
+        expect(after[field]).toBe(record[field])
+        return
+      }
 
-    expect(res.body.success).toBe(true)
-    if (action === 'list') expect(res.body.data.map((d) => d._id)).toContain(id)
-    if (action === 'get') expect(res.body.data._id).toBe(id)
-    if (action === 'update') {
-      const [[field, value]] = Object.entries(RENAME[resource])
-      expect((await Model.findById(id).lean())[field]).toBe(value)
-    }
-    if (action === 'delete') expect(await Model.findById(id)).toBeNull()
-  })
+      expect(res.body.success).toBe(true)
+      if (action === 'list') expect(res.body.data.map((d) => d._id)).toContain(id)
+      if (action === 'get') expect(res.body.data._id).toBe(id)
+      if (action === 'update') {
+        const [[field, value]] = Object.entries(RENAME[resource])
+        expect((await Model.findById(id).lean())[field]).toBe(value)
+      }
+      if (action === 'delete') expect(await Model.findById(id)).toBeNull()
+    },
+  )
 })

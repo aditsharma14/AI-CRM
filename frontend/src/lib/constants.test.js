@@ -5,7 +5,7 @@ import { canManageMember, canModifyRecord, hasPermission, manageableRoles } from
 const user = (role, id = 'u1') => ({ id, role })
 
 describe('canModifyRecord', () => {
-  it.each(['owner', 'admin', 'manager'])('lets %s change anyone\'s record', (role) => {
+  it.each(['owner', 'admin', 'manager'])("lets %s change anyone's record", (role) => {
     expect(canModifyRecord(user(role), { ownerId: 'someone-else' })).toBe(true)
   })
 

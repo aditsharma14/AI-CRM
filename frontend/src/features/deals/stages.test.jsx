@@ -44,10 +44,13 @@ function serve() {
   return { moves, creates }
 }
 
-const optionLabels = (select) => within(select).getAllByRole('option').map((o) => o.textContent)
+const optionLabels = (select) =>
+  within(select)
+    .getAllByRole('option')
+    .map((o) => o.textContent)
 
 describe('Pipeline with an org that has custom stages', () => {
-  it('shows each deal\'s stage by the org\'s label', async () => {
+  it("shows each deal's stage by the org's label", async () => {
     serve()
     renderWithProviders(<PipelinePage />, { session: makeUser('owner') })
 
@@ -55,7 +58,7 @@ describe('Pipeline with an org that has custom stages', () => {
     expect(screen.getByRole('row', { name: /Beta/ })).toHaveTextContent('Signed')
   })
 
-  it('offers the org\'s stages, in order, and moves a deal to a custom stage by its key', async () => {
+  it("offers the org's stages, in order, and moves a deal to a custom stage by its key", async () => {
     const { moves } = serve()
     const user = userEvent.setup()
     renderWithProviders(<PipelinePage />, { session: makeUser('owner') })
@@ -98,7 +101,7 @@ describe('Pipeline with an org that has custom stages', () => {
     expect(patches[0]).not.toHaveProperty('stageKey')
   })
 
-  it('starts a new deal in the org\'s first stage', async () => {
+  it("starts a new deal in the org's first stage", async () => {
     const { creates } = serve()
     const user = userEvent.setup()
     renderWithProviders(<PipelinePage />, { session: makeUser('owner') })
@@ -114,7 +117,7 @@ describe('Pipeline with an org that has custom stages', () => {
     expect(creates[0]).toMatchObject({ title: 'Gamma', stageKey: 'discovery' })
   })
 
-  it('keeps the deal\'s own stage when the dialog opens before the stages have loaded', async () => {
+  it("keeps the deal's own stage when the dialog opens before the stages have loaded", async () => {
     const { moves } = serve()
     let releaseStages
     const stagesArrive = new Promise((resolve) => (releaseStages = resolve))
@@ -148,7 +151,7 @@ describe('Pipeline with an org that has custom stages', () => {
 })
 
 describe('Dashboard funnel with custom stages', () => {
-  it('labels stages by the org\'s names and lists them in pipeline order', async () => {
+  it("labels stages by the org's names and lists them in pipeline order", async () => {
     server.use(
       http.get(`${API}/org/pipeline-stages`, () => ok(CUSTOM_STAGES)),
       http.get(`${API}/dashboard/overview`, () =>

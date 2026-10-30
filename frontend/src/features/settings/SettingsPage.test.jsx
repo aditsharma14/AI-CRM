@@ -33,21 +33,27 @@ describe('Settings: Organization tab (org:manage)', () => {
 })
 
 describe('Settings: Members & Teams tab (members:manage)', () => {
-  it.each(ROLES.map((r) => [r, ['owner', 'admin'].includes(r)]))('%s sees invite and team controls: %s', async (role, allowed) => {
-    await openTab(role, 'Members & Teams')
-    await screen.findByText('Sales')
-    expect(Boolean(screen.queryByRole('button', { name: 'Invite' }))).toBe(allowed)
-    expect(Boolean(screen.queryByRole('button', { name: 'Add team' }))).toBe(allowed)
-    expect(Boolean(screen.queryByRole('button', { name: 'Delete team Sales' }))).toBe(allowed)
-  })
+  it.each(ROLES.map((r) => [r, ['owner', 'admin'].includes(r)]))(
+    '%s sees invite and team controls: %s',
+    async (role, allowed) => {
+      await openTab(role, 'Members & Teams')
+      await screen.findByText('Sales')
+      expect(Boolean(screen.queryByRole('button', { name: 'Invite' }))).toBe(allowed)
+      expect(Boolean(screen.queryByRole('button', { name: 'Add team' }))).toBe(allowed)
+      expect(Boolean(screen.queryByRole('button', { name: 'Delete team Sales' }))).toBe(allowed)
+    },
+  )
 })
 
 describe('Settings: Pipeline & Templates tab (pipeline:configure)', () => {
-  it.each(ROLES.map((r) => [r, ['owner', 'admin'].includes(r)]))('%s can edit stages and templates: %s', async (role, allowed) => {
-    await openTab(role, 'Pipeline & Templates')
-    await screen.findByText('Welcome')
-    expect(screen.getByDisplayValue('New')).toHaveProperty('disabled', !allowed)
-    expect(Boolean(screen.queryByRole('button', { name: 'Add template' }))).toBe(allowed)
-    expect(Boolean(screen.queryByRole('button', { name: 'Delete template Welcome' }))).toBe(allowed)
-  })
+  it.each(ROLES.map((r) => [r, ['owner', 'admin'].includes(r)]))(
+    '%s can edit stages and templates: %s',
+    async (role, allowed) => {
+      await openTab(role, 'Pipeline & Templates')
+      await screen.findByText('Welcome')
+      expect(screen.getByDisplayValue('New')).toHaveProperty('disabled', !allowed)
+      expect(Boolean(screen.queryByRole('button', { name: 'Add template' }))).toBe(allowed)
+      expect(Boolean(screen.queryByRole('button', { name: 'Delete template Welcome' }))).toBe(allowed)
+    },
+  )
 })

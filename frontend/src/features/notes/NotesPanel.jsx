@@ -13,10 +13,7 @@ export default function NotesPanel({ entityType, entityId }) {
   const submit = (e) => {
     e.preventDefault()
     if (!draft.trim()) return
-    createNote.mutate(
-      { entityType, entityId, body: draft.trim() },
-      { onSuccess: () => setDraft('') },
-    )
+    createNote.mutate({ entityType, entityId, body: draft.trim() }, { onSuccess: () => setDraft('') })
   }
 
   return (

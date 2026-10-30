@@ -72,20 +72,34 @@ function ProfileTab() {
       <form onSubmit={passwordForm.handleSubmit((v) => changePassword.mutate(v))}>
         <h2 className="mb-4 font-serif text-lg font-semibold">Change password</h2>
         <FormField label="Current password" error={passwordForm.formState.errors.currentPassword}>
-          <input type="password" className={inputClasses(passwordForm.formState.errors.currentPassword)} {...passwordForm.register('currentPassword')} />
+          <input
+            type="password"
+            className={inputClasses(passwordForm.formState.errors.currentPassword)}
+            {...passwordForm.register('currentPassword')}
+          />
         </FormField>
         <FormField label="New password" error={passwordForm.formState.errors.newPassword} hint="At least 8 characters.">
-          <input type="password" className={inputClasses(passwordForm.formState.errors.newPassword)} {...passwordForm.register('newPassword')} />
+          <input
+            type="password"
+            className={inputClasses(passwordForm.formState.errors.newPassword)}
+            {...passwordForm.register('newPassword')}
+          />
         </FormField>
         <FormField label="Confirm new password" error={passwordForm.formState.errors.confirmPassword}>
-          <input type="password" className={inputClasses(passwordForm.formState.errors.confirmPassword)} {...passwordForm.register('confirmPassword')} />
+          <input
+            type="password"
+            className={inputClasses(passwordForm.formState.errors.confirmPassword)}
+            {...passwordForm.register('confirmPassword')}
+          />
         </FormField>
         <ErrorAlert error={changePassword.error} />
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={changePassword.isPending}>
             Change password
           </Button>
-          {savedPassword && <span className="text-sm text-success">Password changed. You'll stay signed in on this device.</span>}
+          {savedPassword && (
+            <span className="text-sm text-success">Password changed. You'll stay signed in on this device.</span>
+          )}
         </div>
       </form>
     </div>
@@ -101,7 +115,10 @@ const orgSchema = z.object({ name: z.string().trim().min(2, 'Organization name i
 function OrganizationTab() {
   const { can } = useSession()
   const queryClient = useQueryClient()
-  const { data: org, isLoading } = useQuery({ queryKey: ['org'], queryFn: async () => (await api.get('/org')).data.data })
+  const { data: org, isLoading } = useQuery({
+    queryKey: ['org'],
+    queryFn: async () => (await api.get('/org')).data.data,
+  })
   const canManage = can('org', 'manage')
 
   const form = useForm({ resolver: zodResolver(orgSchema), values: { name: org?.name ?? '' } })
@@ -117,7 +134,11 @@ function OrganizationTab() {
       <form onSubmit={form.handleSubmit((v) => updateOrg.mutate(v))}>
         <h2 className="mb-4 font-serif text-lg font-semibold">Organization name</h2>
         <FormField label="Name" error={form.formState.errors.name}>
-          <input disabled={!canManage} className={inputClasses(form.formState.errors.name)} {...form.register('name')} />
+          <input
+            disabled={!canManage}
+            className={inputClasses(form.formState.errors.name)}
+            {...form.register('name')}
+          />
         </FormField>
         {canManage ? (
           <Button type="submit" disabled={updateOrg.isPending}>
@@ -162,7 +183,10 @@ function MembersTab() {
     queryKey: ['org', 'members'],
     queryFn: async () => (await api.get('/org/members')).data.data,
   })
-  const { data: teams } = useQuery({ queryKey: ['org', 'teams'], queryFn: async () => (await api.get('/org/teams')).data.data })
+  const { data: teams } = useQuery({
+    queryKey: ['org', 'teams'],
+    queryFn: async () => (await api.get('/org/teams')).data.data,
+  })
 
   const inviteForm = useForm({ resolver: zodResolver(inviteSchema), defaultValues: { role: 'member' } })
   const [inviteSent, setInviteSent] = useState(false)
@@ -204,7 +228,11 @@ function MembersTab() {
           className="flex items-end gap-3 rounded-lg border border-border bg-card p-4 dark:border-border-dark dark:bg-card-dark"
         >
           <FormField label="Invite by email" error={inviteForm.formState.errors.email} hint={null}>
-            <input className={inputClasses(inviteForm.formState.errors.email)} {...inviteForm.register('email')} placeholder="teammate@company.com" />
+            <input
+              className={inputClasses(inviteForm.formState.errors.email)}
+              {...inviteForm.register('email')}
+              placeholder="teammate@company.com"
+            />
           </FormField>
           <FormField label="Role" htmlFor="invite-role">
             <select id="invite-role" className={inputClasses(false)} {...inviteForm.register('role')}>
@@ -299,7 +327,8 @@ function MembersTab() {
                 className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm dark:border-border-dark"
               >
                 <span>
-                  {team.name} <span className="text-muted dark:text-muted-dark">· {team.memberIds?.length ?? 0} members</span>
+                  {team.name}{' '}
+                  <span className="text-muted dark:text-muted-dark">· {team.memberIds?.length ?? 0} members</span>
                 </span>
                 {canManage && (
                   <button
@@ -402,8 +431,8 @@ function PipelineTab() {
       <div>
         <h2 className="mb-3 font-serif text-lg font-semibold">Pipeline stages</h2>
         <p className="mb-3 text-sm text-muted dark:text-muted-dark">
-          These labels show up everywhere a deal's stage is displayed. The <code>won</code>/<code>lost</code> stages are what trigger a
-          deal closing — only their labels can be changed.
+          These labels show up everywhere a deal's stage is displayed. The <code>won</code>/<code>lost</code> stages are
+          what trigger a deal closing — only their labels can be changed.
         </p>
         <div className="flex flex-col gap-2">
           {activeStages
@@ -439,10 +468,17 @@ function PipelineTab() {
               <input className={inputClasses(templateForm.formState.errors.name)} {...templateForm.register('name')} />
             </FormField>
             <FormField label="Subject" error={templateForm.formState.errors.subject}>
-              <input className={inputClasses(templateForm.formState.errors.subject)} {...templateForm.register('subject')} />
+              <input
+                className={inputClasses(templateForm.formState.errors.subject)}
+                {...templateForm.register('subject')}
+              />
             </FormField>
             <FormField label="Body" error={templateForm.formState.errors.body}>
-              <textarea rows={3} className={inputClasses(templateForm.formState.errors.body)} {...templateForm.register('body')} />
+              <textarea
+                rows={3}
+                className={inputClasses(templateForm.formState.errors.body)}
+                {...templateForm.register('body')}
+              />
             </FormField>
             <Button type="submit" disabled={createTemplate.isPending} className="self-start">
               Add template
@@ -452,7 +488,10 @@ function PipelineTab() {
         {templates?.length ? (
           <ul className="flex flex-col gap-2">
             {templates.map((t) => (
-              <li key={t._id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm dark:border-border-dark">
+              <li
+                key={t._id}
+                className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm dark:border-border-dark"
+              >
                 <div>
                   <p className="font-medium">{t.name}</p>
                   <p className="text-xs text-muted dark:text-muted-dark">{t.subject}</p>
@@ -474,7 +513,10 @@ function PipelineTab() {
             ))}
           </ul>
         ) : (
-          <EmptyState title="No email templates yet" description="Templates you create for AI email generation will show up here." />
+          <EmptyState
+            title="No email templates yet"
+            description="Templates you create for AI email generation will show up here."
+          />
         )}
       </div>
 

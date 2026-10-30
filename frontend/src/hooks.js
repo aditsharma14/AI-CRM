@@ -126,9 +126,12 @@ export function usePipelineStages() {
   const stages = useMemo(() => [...(data ?? [])].sort((a, b) => a.order - b.order), [data])
   // A deal can sit in a stage the org has since removed: show its raw key.
   const labelFor = useCallback((key) => stages.find((s) => s.key === key)?.label ?? key, [stages])
-  const positionOf = useCallback((key) => {
-    const i = stages.findIndex((s) => s.key === key)
-    return i === -1 ? stages.length : i
-  }, [stages])
+  const positionOf = useCallback(
+    (key) => {
+      const i = stages.findIndex((s) => s.key === key)
+      return i === -1 ? stages.length : i
+    },
+    [stages],
+  )
   return { stages, labelFor, positionOf, isLoading }
 }

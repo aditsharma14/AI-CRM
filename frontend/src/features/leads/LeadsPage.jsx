@@ -24,7 +24,13 @@ const leadSchema = z.object({
   status: z.enum(LEAD_STATUSES).optional(),
 })
 
-const STATUS_VARIANT = { new: 'default', contacted: 'warning', qualified: 'success', unqualified: 'danger', converted: 'success' }
+const STATUS_VARIANT = {
+  new: 'default',
+  contacted: 'warning',
+  qualified: 'success',
+  unqualified: 'danger',
+  converted: 'success',
+}
 
 function useConvertLead() {
   const queryClient = useQueryClient()
@@ -49,7 +55,12 @@ export default function LeadsPage() {
   const readOnly = Boolean(editing?._id) && !canModifyRecord(user, editing)
 
   const leads = useCrudQuery('leads')
-  const { data, isLoading, isError } = leads.useList({ page, limit, q: q || undefined, status: statusFilter || undefined })
+  const { data, isLoading, isError } = leads.useList({
+    page,
+    limit,
+    q: q || undefined,
+    status: statusFilter || undefined,
+  })
   const createLead = leads.useCreate()
   const updateLead = leads.useUpdate()
   const removeLead = leads.useRemove()
@@ -94,7 +105,11 @@ export default function LeadsPage() {
   const columns = [
     { key: 'name', header: 'Name' },
     { key: 'email', header: 'Email' },
-    { key: 'status', header: 'Status', render: (row) => <Badge variant={STATUS_VARIANT[row.status]}>{row.status}</Badge> },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (row) => <Badge variant={STATUS_VARIANT[row.status]}>{row.status}</Badge>,
+    },
     { key: 'score', header: 'Score' },
     { key: 'createdAt', header: 'Created', render: (row) => formatDate(row.createdAt) },
   ]
@@ -113,7 +128,12 @@ export default function LeadsPage() {
           placeholder="Search leads…"
           className={`${inputClasses(false)} max-w-xs`}
         />
-        <select aria-label="Filter by status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={`${inputClasses(false)} max-w-[160px]`}>
+        <select
+          aria-label="Filter by status"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className={`${inputClasses(false)} max-w-[160px]`}
+        >
           <option value="">All statuses</option>
           {LEAD_STATUSES.map((s) => (
             <option key={s} value={s}>
@@ -160,7 +180,12 @@ export default function LeadsPage() {
                 Delete
               </Button>
             )}
-            <Button type="submit" form="lead-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the owner can edit this lead' : undefined}>
+            <Button
+              type="submit"
+              form="lead-form"
+              disabled={isSubmitting || readOnly}
+              title={readOnly ? 'Only the owner can edit this lead' : undefined}
+            >
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>

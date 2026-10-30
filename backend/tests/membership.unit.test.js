@@ -22,7 +22,9 @@ describe('manageableRoles', () => {
 describe('assertCanAssign', () => {
   it('lets only the owner grant admin', () => {
     expect(() => assertCanAssign(actor('owner'), 'admin')).not.toThrow()
-    expect(() => assertCanAssign(actor('admin'), 'admin')).toThrow(expect.objectContaining({ status: 403, code: 'FORBIDDEN' }))
+    expect(() => assertCanAssign(actor('admin'), 'admin')).toThrow(
+      expect.objectContaining({ status: 403, code: 'FORBIDDEN' }),
+    )
   })
 
   it('lets an admin assign manager or member', () => {

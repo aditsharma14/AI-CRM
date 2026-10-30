@@ -14,7 +14,10 @@ export const memberRoleUpdate = z.object({ role: assignableRole })
 
 export const teamCreate = z.object({ name: z.string().trim().min(1) })
 
-export const teamUpdate = z.object({ name: z.string().trim().min(1).optional(), memberIds: z.array(objectId).optional() })
+export const teamUpdate = z.object({
+  name: z.string().trim().min(1).optional(),
+  memberIds: z.array(objectId).optional(),
+})
 
 export const pipelineStagesUpdate = z.array(
   z.object({ key: z.string().trim().min(1), label: z.string().trim().min(1), order: z.number() }),
@@ -28,7 +31,10 @@ export const emailTemplateCreate = z.object({
 
 export const emailTemplateUpdate = emailTemplateCreate.partial()
 
-export const profileUpdate = z.object({ name: z.string().trim().min(1).optional(), avatarUrl: z.string().trim().optional() })
+export const profileUpdate = z.object({
+  name: z.string().trim().min(1).optional(),
+  avatarUrl: z.string().trim().optional(),
+})
 
 export const passwordChange = z.object({ currentPassword: z.string().min(1), newPassword: password })
 

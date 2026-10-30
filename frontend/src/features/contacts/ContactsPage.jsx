@@ -109,7 +109,12 @@ export default function ContactsPage() {
                 Delete
               </Button>
             )}
-            <Button type="submit" form="contact-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the owner can edit this contact' : undefined}>
+            <Button
+              type="submit"
+              form="contact-form"
+              disabled={isSubmitting || readOnly}
+              title={readOnly ? 'Only the owner can edit this contact' : undefined}
+            >
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>

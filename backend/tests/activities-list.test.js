@@ -58,7 +58,9 @@ describe('filters', () => {
   })
 
   it('combines filters', async () => {
-    expect((await list({ type: 'task', status: 'open', assigneeId: a.users.owner._id.toString() })).titles).toEqual(['T4'])
+    expect((await list({ type: 'task', status: 'open', assigneeId: a.users.owner._id.toString() })).titles).toEqual([
+      'T4',
+    ])
   })
 
   it('returns every type when none is given', async () => {

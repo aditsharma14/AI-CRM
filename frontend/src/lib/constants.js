@@ -11,9 +11,30 @@ export const ROLES = /** @type {const} */ ({ OWNER: 'owner', ADMIN: 'admin', MAN
 // spec §09) — coarse enough to hide buttons; the API is the real authority.
 /** @type {Record<Role, Record<string, string[]>>} */
 const MATRIX = {
-  [ROLES.OWNER]: { org: ['manage'], members: ['manage'], pipeline: ['configure'], crm: ['read', 'write', 'delete'], reports: ['view'], ai: ['use'] },
-  [ROLES.ADMIN]: { org: [], members: ['manage'], pipeline: ['configure'], crm: ['read', 'write', 'delete'], reports: ['view'], ai: ['use'] },
-  [ROLES.MANAGER]: { org: [], members: [], pipeline: [], crm: ['read', 'write', 'delete'], reports: ['view'], ai: ['use'] },
+  [ROLES.OWNER]: {
+    org: ['manage'],
+    members: ['manage'],
+    pipeline: ['configure'],
+    crm: ['read', 'write', 'delete'],
+    reports: ['view'],
+    ai: ['use'],
+  },
+  [ROLES.ADMIN]: {
+    org: [],
+    members: ['manage'],
+    pipeline: ['configure'],
+    crm: ['read', 'write', 'delete'],
+    reports: ['view'],
+    ai: ['use'],
+  },
+  [ROLES.MANAGER]: {
+    org: [],
+    members: [],
+    pipeline: [],
+    crm: ['read', 'write', 'delete'],
+    reports: ['view'],
+    ai: ['use'],
+  },
   [ROLES.MEMBER]: { org: [], members: [], pipeline: [], crm: ['read', 'write'], reports: ['view'], ai: ['use'] },
 }
 

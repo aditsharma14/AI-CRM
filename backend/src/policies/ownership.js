@@ -105,7 +105,5 @@ export function sanitizeWrite(user, resource, body, { isCreate = false } = {}) {
  */
 export async function missOrForbidden(Model, user, id) {
   const existsInOrg = await Model.exists({ _id: id, orgId: user.orgId })
-  return existsInOrg
-    ? forbidden('You can only change records you own.')
-    : notFound(`${Model.modelName} not found.`)
+  return existsInOrg ? forbidden('You can only change records you own.') : notFound(`${Model.modelName} not found.`)
 }

@@ -107,7 +107,12 @@ export default function CompaniesPage() {
                 Delete
               </Button>
             )}
-            <Button type="submit" form="company-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the owner can edit this company' : undefined}>
+            <Button
+              type="submit"
+              form="company-form"
+              disabled={isSubmitting || readOnly}
+              title={readOnly ? 'Only the owner can edit this company' : undefined}
+            >
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>

@@ -57,7 +57,10 @@ describe('sanitizeWrite', () => {
   })
 
   it("forces a member's owner field to themselves on create", () => {
-    expect(sanitizeWrite(user('member'), 'lead', { name: 'x', ownerId: 'u2' }, { isCreate: true })).toEqual({ name: 'x', ownerId: 'u1' })
+    expect(sanitizeWrite(user('member'), 'lead', { name: 'x', ownerId: 'u2' }, { isCreate: true })).toEqual({
+      name: 'x',
+      ownerId: 'u1',
+    })
   })
 
   it('keeps a manager-chosen owner, defaulting to themselves on create', () => {

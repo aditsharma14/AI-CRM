@@ -49,14 +49,14 @@ export function createCrudService(Model, options) {
     if (!activityLabel) return
     return logActivity(
       {
-      orgId: actor.orgId,
-      userId: actor.id,
-      action,
-      entityType: /** @type {import('./activityService.js').LoggedEntity} */ (activityLabel.toLowerCase()),
-      // Boundary cast: with T generic, Mongoose can't resolve _id's type, but
-      // every model in this app uses the default ObjectId _id.
-      entityId: /** @type {import('mongoose').Types.ObjectId} */ (doc._id),
-      message: `${action === 'create' ? 'Created' : action === 'update' ? 'Updated' : 'Deleted'} ${activityLabel.toLowerCase()} "${labelFor(doc)}"`,
+        orgId: actor.orgId,
+        userId: actor.id,
+        action,
+        entityType: /** @type {import('./activityService.js').LoggedEntity} */ (activityLabel.toLowerCase()),
+        // Boundary cast: with T generic, Mongoose can't resolve _id's type, but
+        // every model in this app uses the default ObjectId _id.
+        entityId: /** @type {import('mongoose').Types.ObjectId} */ (doc._id),
+        message: `${action === 'create' ? 'Created' : action === 'update' ? 'Updated' : 'Deleted'} ${activityLabel.toLowerCase()} "${labelFor(doc)}"`,
       },
       { session },
     )
@@ -115,9 +115,10 @@ export function createCrudService(Model, options) {
       // orgId last, so nothing in the body can ever override it.
       // Boundary cast: `clean` was validated by the resource's Zod schema and
       // sanitised by the policy, but tsc can't relate that to the generic T.
-      const created = /** @type {import('mongoose').DeepPartial<import('mongoose').ApplyBasicCreateCasting<import('mongoose').Require_id<T>>>} */ (
-        /** @type {unknown} */ ({ ...clean, orgId: actor.orgId })
-      )
+      const created =
+        /** @type {import('mongoose').DeepPartial<import('mongoose').ApplyBasicCreateCasting<import('mongoose').Require_id<T>>>} */ (
+          /** @type {unknown} */ ({ ...clean, orgId: actor.orgId })
+        )
       // Array form: it's the only way Model.create takes a session.
       const [first] = await Model.create([created], { session })
       // Boundary cast: create([one doc]) resolves to exactly one document, but tsc only
@@ -139,10 +140,14 @@ export function createCrudService(Model, options) {
       await assertOwnerInOrg(actor, clean)
       // One atomic, scoped write: a record the caller can't change is simply
       // not matched, so there's no check-then-write race.
-      const doc = await Model.findOneAndUpdate({ _id: id, orgId: actor.orgId, ...scopeFor(actor, resource, 'write') }, clean, {
-        new: true,
-        runValidators: true,
-      })
+      const doc = await Model.findOneAndUpdate(
+        { _id: id, orgId: actor.orgId, ...scopeFor(actor, resource, 'write') },
+        clean,
+        {
+          new: true,
+          runValidators: true,
+        },
+      )
       if (!doc) throw await missOrForbidden(Model, actor, id)
       await log(actor, 'update', doc)
       return doc

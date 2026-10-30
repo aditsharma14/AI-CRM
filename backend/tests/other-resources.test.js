@@ -22,7 +22,10 @@ describe('ownership on contacts, companies, activities, notes', () => {
   it.each(cases)('$resource: $role update on $whose record -> $status', async ({ resource, role, whose, status }) => {
     const ownerUser = whose === 'own' ? ctx.users[role] : ctx.users.owner
     const record = await makeRecord(resource, ctx.org, ownerUser)
-    const res = await request(app).patch(`/api/v1/${resource}/${record._id}`).set(bearer(ctx.tokens[role])).send(RENAME[resource])
+    const res = await request(app)
+      .patch(`/api/v1/${resource}/${record._id}`)
+      .set(bearer(ctx.tokens[role]))
+      .send(RENAME[resource])
     expect(res.status).toBe(status)
     if (status === 403) expect(res.body.error.code).toBe('FORBIDDEN')
   })

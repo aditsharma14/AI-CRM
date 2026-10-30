@@ -10,7 +10,6 @@ import { Button } from '../../components/ui.jsx'
 import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { apiErrorMessage } from '../../lib/utils.js'
 
-
 const loginSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(1, 'Password is required'),
@@ -50,7 +49,10 @@ export function LoginPage() {
         {isSubmitting ? 'Signing in…' : 'Sign in'}
       </Button>
       <p className="mt-4 text-center text-sm text-muted dark:text-muted-dark">
-        New organization? <Link to="/register" className="text-primary dark:text-primary-dark">Create one</Link>
+        New organization?{' '}
+        <Link to="/register" className="text-primary dark:text-primary-dark">
+          Create one
+        </Link>
       </p>
     </form>
   )
@@ -102,7 +104,10 @@ export function RegisterOrgPage() {
         {isSubmitting ? 'Creating…' : 'Create organization'}
       </Button>
       <p className="mt-4 text-center text-sm text-muted dark:text-muted-dark">
-        Already have an account? <Link to="/login" className="text-primary dark:text-primary-dark">Sign in</Link>
+        Already have an account?{' '}
+        <Link to="/login" className="text-primary dark:text-primary-dark">
+          Sign in
+        </Link>
       </p>
     </form>
   )

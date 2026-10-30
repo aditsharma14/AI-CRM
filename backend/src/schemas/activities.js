@@ -8,9 +8,7 @@ export const activityCreate = z.object({
   title: z.string().trim().min(1),
   description: z.string().trim().optional(),
   assigneeId: optionalObjectId,
-  linkedTo: z
-    .object({ entityType: z.enum(['lead', 'contact', 'company', 'deal']), entityId: objectId })
-    .optional(),
+  linkedTo: z.object({ entityType: z.enum(['lead', 'contact', 'company', 'deal']), entityId: objectId }).optional(),
   dueDate: optionalDate,
   priority: z.enum(['low', 'medium', 'high']).optional(),
   startAt: optionalDate,

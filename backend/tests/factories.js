@@ -48,7 +48,10 @@ export async function createUserWithPassword(org, { role = 'member', email, pass
  */
 export async function issueInvite(orgId, { email, role, expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) }) {
   const raw = newRawToken()
-  await Organization.updateOne({ _id: orgId }, { $push: { inviteTokens: { tokenHash: hashToken(raw), email, role, expiresAt } } })
+  await Organization.updateOne(
+    { _id: orgId },
+    { $push: { inviteTokens: { tokenHash: hashToken(raw), email, role, expiresAt } } },
+  )
   return raw
 }
 

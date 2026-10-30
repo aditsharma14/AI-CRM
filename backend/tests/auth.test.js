@@ -33,7 +33,9 @@ beforeAll(async () => {
 describe('POST /auth/register-org', () => {
   it('creates the org and its owner, returns a session and sets a locked-down refresh cookie', async () => {
     const email = uniqueEmail('founder')
-    const res = await request(app).post(`${api}/register-org`).send({ orgName: 'Founders', name: 'Fay', email, password: 'password123' })
+    const res = await request(app)
+      .post(`${api}/register-org`)
+      .send({ orgName: 'Founders', name: 'Fay', email, password: 'password123' })
 
     expect(res.status).toBe(200)
     expect(res.body.data.accessToken).toEqual(expect.any(String))
@@ -52,13 +54,17 @@ describe('POST /auth/register-org', () => {
 
   it('rejects an email that is already registered', async () => {
     const { email } = await createUserWithPassword(org, { email: uniqueEmail('taken') })
-    const res = await request(app).post(`${api}/register-org`).send({ orgName: 'Again', name: 'X', email, password: 'password123' })
+    const res = await request(app)
+      .post(`${api}/register-org`)
+      .send({ orgName: 'Again', name: 'X', email, password: 'password123' })
     expect(res.status).toBe(400)
     expect(res.body.error.code).toBe('EMAIL_TAKEN')
   })
 
   it('rejects a password shorter than 8 characters', async () => {
-    const res = await request(app).post(`${api}/register-org`).send({ orgName: 'Weak', name: 'W', email: uniqueEmail('weak'), password: 'short' })
+    const res = await request(app)
+      .post(`${api}/register-org`)
+      .send({ orgName: 'Weak', name: 'W', email: uniqueEmail('weak'), password: 'short' })
     expect(res.status).toBe(400)
     expect(res.body.error.code).toBe('VALIDATION_ERROR')
   })
@@ -76,7 +82,9 @@ describe('POST /auth/login', () => {
   it('answers a wrong password and an unknown email identically, so emails cannot be enumerated', async () => {
     const { email } = await createUserWithPassword(org, { email: uniqueEmail('enum') })
     const wrong = await request(app).post(`${api}/login`).send({ email, password: 'not-the-password' })
-    const unknown = await request(app).post(`${api}/login`).send({ email: uniqueEmail('nobody'), password: 'not-the-password' })
+    const unknown = await request(app)
+      .post(`${api}/login`)
+      .send({ email: uniqueEmail('nobody'), password: 'not-the-password' })
 
     expect(wrong.status).toBe(401)
     expect(unknown.status).toBe(401)
@@ -146,20 +154,28 @@ describe('POST /auth/accept-invite', () => {
     expect(res.status).toBe(200)
     expect(res.body.data.user).toMatchObject({ email, role: 'manager', org: { id: org._id.toString() } })
 
-    const again = await request(app).post(`${api}/accept-invite`).send({ token, name: 'Ivy 2', password: 'password123' })
+    const again = await request(app)
+      .post(`${api}/accept-invite`)
+      .send({ token, name: 'Ivy 2', password: 'password123' })
     expect(again.status).toBe(400)
     expect(again.body.error.code).toBe('INVALID_INVITE')
   })
 
   it('rejects an expired invite', async () => {
-    const token = await issueInvite(org._id, { email: uniqueEmail('late'), role: 'member', expiresAt: new Date(Date.now() - 1000) })
+    const token = await issueInvite(org._id, {
+      email: uniqueEmail('late'),
+      role: 'member',
+      expiresAt: new Date(Date.now() - 1000),
+    })
     const res = await request(app).post(`${api}/accept-invite`).send({ token, name: 'Late', password: 'password123' })
     expect(res.status).toBe(400)
     expect(res.body.error.code).toBe('INVALID_INVITE')
   })
 
   it('rejects an unknown token', async () => {
-    const res = await request(app).post(`${api}/accept-invite`).send({ token: 'f'.repeat(64), name: 'Nope', password: 'password123' })
+    const res = await request(app)
+      .post(`${api}/accept-invite`)
+      .send({ token: 'f'.repeat(64), name: 'Nope', password: 'password123' })
     expect(res.status).toBe(400)
     expect(res.body.error.code).toBe('INVALID_INVITE')
   })
@@ -175,7 +191,9 @@ describe('POST /auth/accept-invite', () => {
 
 describe('POST /auth/forgot-password', () => {
   it('answers 200 for an unknown email (never reveals who is registered)', async () => {
-    const res = await request(app).post(`${api}/forgot-password`).send({ email: uniqueEmail('ghost') })
+    const res = await request(app)
+      .post(`${api}/forgot-password`)
+      .send({ email: uniqueEmail('ghost') })
     expect(res.status).toBe(200)
   })
 
@@ -205,7 +223,9 @@ describe('POST /auth/reset-password', () => {
 
     expect(await sessionCount(user._id)).toBe(0)
     for (const device of [laptop, phone]) {
-      expect((await request(app).post(`${api}/refresh`).set('Cookie', asRefreshCookie(device.refresh))).status).toBe(401)
+      expect((await request(app).post(`${api}/refresh`).set('Cookie', asRefreshCookie(device.refresh))).status).toBe(
+        401,
+      )
     }
     expect((await request(app).post(`${api}/login`).send({ email, password })).status).toBe(401)
     expect((await request(app).post(`${api}/login`).send({ email, password: 'brand-new-password' })).status).toBe(200)

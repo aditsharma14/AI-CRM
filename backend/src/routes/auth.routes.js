@@ -22,29 +22,21 @@ function sendSession(res, { accessToken, rawRefresh, user }) {
   return apiResponse(res, { accessToken, user })
 }
 
-router.post(
-  '/register-org',
-  validate({ body: registerOrg }),
-  async (req, res, next) => {
-    try {
-      sendSession(res, await authService.registerOrg(req.body))
-    } catch (err) {
-      next(err)
-    }
-  },
-)
+router.post('/register-org', validate({ body: registerOrg }), async (req, res, next) => {
+  try {
+    sendSession(res, await authService.registerOrg(req.body))
+  } catch (err) {
+    next(err)
+  }
+})
 
-router.post(
-  '/login',
-  validate({ body: login }),
-  async (req, res, next) => {
-    try {
-      sendSession(res, await authService.login(req.body))
-    } catch (err) {
-      next(err)
-    }
-  },
-)
+router.post('/login', validate({ body: login }), async (req, res, next) => {
+  try {
+    sendSession(res, await authService.login(req.body))
+  } catch (err) {
+    next(err)
+  }
+})
 
 router.post('/refresh', async (req, res, next) => {
   try {
@@ -64,42 +56,30 @@ router.post('/logout', async (req, res, next) => {
   }
 })
 
-router.post(
-  '/accept-invite',
-  validate({ body: acceptInvite }),
-  async (req, res, next) => {
-    try {
-      sendSession(res, await authService.acceptInvite(req.body))
-    } catch (err) {
-      next(err)
-    }
-  },
-)
+router.post('/accept-invite', validate({ body: acceptInvite }), async (req, res, next) => {
+  try {
+    sendSession(res, await authService.acceptInvite(req.body))
+  } catch (err) {
+    next(err)
+  }
+})
 
-router.post(
-  '/forgot-password',
-  validate({ body: forgotPassword }),
-  async (req, res, next) => {
-    try {
-      await authService.forgotPassword(req.body.email)
-      apiResponse(res, null)
-    } catch (err) {
-      next(err)
-    }
-  },
-)
+router.post('/forgot-password', validate({ body: forgotPassword }), async (req, res, next) => {
+  try {
+    await authService.forgotPassword(req.body.email)
+    apiResponse(res, null)
+  } catch (err) {
+    next(err)
+  }
+})
 
-router.post(
-  '/reset-password',
-  validate({ body: resetPassword }),
-  async (req, res, next) => {
-    try {
-      await authService.resetPassword(req.body)
-      apiResponse(res, null)
-    } catch (err) {
-      next(err)
-    }
-  },
-)
+router.post('/reset-password', validate({ body: resetPassword }), async (req, res, next) => {
+  try {
+    await authService.resetPassword(req.body)
+    apiResponse(res, null)
+  } catch (err) {
+    next(err)
+  }
+})
 
 export default router

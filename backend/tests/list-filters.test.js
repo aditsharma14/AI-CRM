@@ -42,7 +42,15 @@ beforeAll(async () => {
     { orgId: other.org._id, name: 'L-other', status: 'qualified', ownerId: other.users.member._id },
   ])
   await Deal.create([
-    { orgId, title: 'D1', value: 10, stageKey: 'proposal', status: 'open', ownerId: users.member._id, companyId: coA._id },
+    {
+      orgId,
+      title: 'D1',
+      value: 10,
+      stageKey: 'proposal',
+      status: 'open',
+      ownerId: users.member._id,
+      companyId: coA._id,
+    },
     { orgId, title: 'D2', value: 20, stageKey: 'won', status: 'won', ownerId: users.manager._id },
     { orgId, title: 'D3', value: 30, stageKey: 'lost', status: 'lost', ownerId: users.member._id, companyId: coB._id },
   ])
@@ -98,7 +106,9 @@ const NARROWS = [
 
 describe('supported filters narrow the list', () => {
   it.each(NARROWS)('%s ?%j', async (path, query, expected) => {
-    const resolved = Object.fromEntries(Object.entries(query).map(([k, v]) => [k, v.startsWith(':') ? ids[v.slice(1)] : v]))
+    const resolved = Object.fromEntries(
+      Object.entries(query).map(([k, v]) => [k, v.startsWith(':') ? ids[v.slice(1)] : v]),
+    )
     const res = await list(path, resolved)
     expect(res.status).toBe(200)
     expect(res.body.data.map(labelOf).sort()).toEqual(expected)
@@ -119,7 +129,14 @@ const BAD_VALUE = [
 
 const PATHS = ['leads', 'deals', 'contacts', 'companies', 'notes', 'notifications']
 // The field each resource's operator-injection attempt targets.
-const OPERATOR_FIELD = { leads: 'status', deals: 'status', contacts: 'ownerId', companies: 'ownerId', notes: 'entityType', notifications: 'read' }
+const OPERATOR_FIELD = {
+  leads: 'status',
+  deals: 'status',
+  contacts: 'ownerId',
+  companies: 'ownerId',
+  notes: 'entityType',
+  notifications: 'read',
+}
 
 function expectValidationError(res, mention) {
   expect(res.status).toBe(400)
@@ -145,7 +162,9 @@ describe('bad filters are rejected, never ignored', () => {
   it.each(PATHS)('%s: a repeated key (array value) is a 400', async (path) => {
     const field = OPERATOR_FIELD[path]
     const value = { read: 'true', status: 'new', entityType: 'lead' }[field] ?? ids.member
-    const res = await request(app).get(`${api}/${path}?${field}=${value}&${field}=${value}`).set(bearer(ctx.tokens.owner))
+    const res = await request(app)
+      .get(`${api}/${path}?${field}=${value}&${field}=${value}`)
+      .set(bearer(ctx.tokens.owner))
     expectValidationError(res, field)
   })
 
@@ -167,7 +186,9 @@ describe('bad filters are rejected, never ignored', () => {
 
 describe('activity log', () => {
   it('takes no filters: an unknown key is a 400', async () => {
-    const res = await request(app).get(`${api}/notifications/activity-log?userId=${ids.member}`).set(bearer(ctx.tokens.owner))
+    const res = await request(app)
+      .get(`${api}/notifications/activity-log?userId=${ids.member}`)
+      .set(bearer(ctx.tokens.owner))
     expectValidationError(res, 'userId')
   })
 })

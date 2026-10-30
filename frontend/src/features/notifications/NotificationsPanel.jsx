@@ -108,7 +108,12 @@ export default function NotificationsPanel({ onClose }) {
             >
               <div className="flex items-start gap-2">
                 {!note.read && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
-                <p className={cn('text-sm', note.read ? 'text-muted dark:text-muted-dark' : 'text-text dark:text-text-dark')}>
+                <p
+                  className={cn(
+                    'text-sm',
+                    note.read ? 'text-muted dark:text-muted-dark' : 'text-text dark:text-text-dark',
+                  )}
+                >
                   {note.message}
                 </p>
               </div>

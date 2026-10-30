@@ -26,7 +26,10 @@ beforeAll(async () => {
       ],
     },
   )
-  await Organization.updateOne({ _id: other.org._id }, { pipelineStages: [{ key: 'only_in_other', label: 'Theirs', order: 0 }] })
+  await Organization.updateOne(
+    { _id: other.org._id },
+    { pipelineStages: [{ key: 'only_in_other', label: 'Theirs', order: 0 }] },
+  )
 })
 
 afterEach(() => vi.restoreAllMocks())
@@ -86,22 +89,28 @@ describe('stage rules on convert', () => {
 })
 
 describe('converting into a closing stage', () => {
-  it.each(['won', 'lost'])('into %s: the deal is closed (status, closedAt, close entry, notification) and the convert is logged', async (stageKey) => {
-    const lead = await makeRecord('leads', base.org, base.users.manager)
-    const res = await convert(base, lead._id, { stageKey })
+  it.each(['won', 'lost'])(
+    'into %s: the deal is closed (status, closedAt, close entry, notification) and the convert is logged',
+    async (stageKey) => {
+      const lead = await makeRecord('leads', base.org, base.users.manager)
+      const res = await convert(base, lead._id, { stageKey })
 
-    expect(res.status).toBe(201)
-    expect(res.body.data).toMatchObject({ stageKey, status: stageKey })
-    expect(res.body.data.closedAt).toBeDefined()
-    const { lead: stored, deals, dealLog, leadLog, notifications } = await stateOf(lead._id)
-    expect(stored.status).toBe('converted')
-    expect(String(stored.convertedToDealId)).toBe(String(deals[0]._id))
-    expect(dealLog).toEqual(['create', 'close'])
-    expect(leadLog).toEqual(['convert'])
-    // The close notification plus the existing "lead was converted" one, both to the lead's owner.
-    expect(notifications.map((n) => n.message).sort()).toEqual([`Deal "Lead" was marked ${stageKey}.`, 'Lead "Lead" was converted into a deal.'])
-    for (const n of notifications) expect(String(n.userId)).toBe(String(base.users.manager._id))
-  })
+      expect(res.status).toBe(201)
+      expect(res.body.data).toMatchObject({ stageKey, status: stageKey })
+      expect(res.body.data.closedAt).toBeDefined()
+      const { lead: stored, deals, dealLog, leadLog, notifications } = await stateOf(lead._id)
+      expect(stored.status).toBe('converted')
+      expect(String(stored.convertedToDealId)).toBe(String(deals[0]._id))
+      expect(dealLog).toEqual(['create', 'close'])
+      expect(leadLog).toEqual(['convert'])
+      // The close notification plus the existing "lead was converted" one, both to the lead's owner.
+      expect(notifications.map((n) => n.message).sort()).toEqual([
+        `Deal "Lead" was marked ${stageKey}.`,
+        'Lead "Lead" was converted into a deal.',
+      ])
+      for (const n of notifications) expect(String(n.userId)).toBe(String(base.users.manager._id))
+    },
+  )
 
   it('into an open stage: no close entry and only the "converted" notification', async () => {
     const lead = await makeRecord('leads', base.org, base.users.owner)
@@ -129,7 +138,13 @@ describe('atomicity', () => {
 
     expect(res.status).toBe(500)
     await expectUntouched(lead._id)
-    expect(await Notification.countDocuments({ message: /^Deal "Lead" was marked won\./, userId: base.users.owner._id, createdAt: { $gte: new Date(Date.now() - 5000) } })).toBe(0)
+    expect(
+      await Notification.countDocuments({
+        message: /^Deal "Lead" was marked won\./,
+        userId: base.users.owner._id,
+        createdAt: { $gte: new Date(Date.now() - 5000) },
+      }),
+    ).toBe(0)
     // And it can still be converted afterwards.
     const retry = await convert(base, lead._id, { stageKey: 'won' })
     expect(retry.status).toBe(201)

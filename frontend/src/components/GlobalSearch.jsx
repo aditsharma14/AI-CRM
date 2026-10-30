@@ -7,7 +7,18 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Search, Users, Building2, Flame, Kanban, ArrowRight, LayoutDashboard, Calendar, ListChecks, Settings } from 'lucide-react'
+import {
+  Search,
+  Users,
+  Building2,
+  Flame,
+  Kanban,
+  ArrowRight,
+  LayoutDashboard,
+  Calendar,
+  ListChecks,
+  Settings,
+} from 'lucide-react'
 import { api } from '../api/client.js'
 import { useDebounce } from '../hooks.js'
 
@@ -121,10 +132,14 @@ export default function GlobalSearch({ isOpen, onClose }) {
                   </button>
                 ))}
 
-              {hasQuery && isFetching && <p className="px-3 py-6 text-center text-sm text-muted dark:text-muted-dark">Searching…</p>}
+              {hasQuery && isFetching && (
+                <p className="px-3 py-6 text-center text-sm text-muted dark:text-muted-dark">Searching…</p>
+              )}
 
               {hasQuery && !isFetching && !hasResults && (
-                <p className="px-3 py-6 text-center text-sm text-muted dark:text-muted-dark">No results for &quot;{query}&quot;</p>
+                <p className="px-3 py-6 text-center text-sm text-muted dark:text-muted-dark">
+                  No results for &quot;{query}&quot;
+                </p>
               )}
 
               {hasQuery &&

@@ -20,7 +20,13 @@ let seq = 0
 export async function seedOrg(name = 'Org') {
   const org = await Organization.create({ name: `${name} ${++seq}` })
   const docs = await User.insertMany(
-    ROLES.map((role) => ({ orgId: org._id, name: `${role} ${seq}`, email: `${role}.${seq}@test.dev`, password: 'unused', role })),
+    ROLES.map((role) => ({
+      orgId: org._id,
+      name: `${role} ${seq}`,
+      email: `${role}.${seq}@test.dev`,
+      password: 'unused',
+      role,
+    })),
   )
   const users = Object.fromEntries(docs.map((u) => [u.role, u]))
   const tokens = Object.fromEntries(
@@ -57,7 +63,14 @@ export const RENAME = {
   notes: { body: 'Renamed' },
 }
 
-export const MODELS = { leads: Lead, deals: Deal, contacts: Contact, companies: Company, activities: Activity, notes: Note }
+export const MODELS = {
+  leads: Lead,
+  deals: Deal,
+  contacts: Contact,
+  companies: Company,
+  activities: Activity,
+  notes: Note,
+}
 
 /** Creates one record of `resource` in `org`, owned by `user`. */
 export function makeRecord(resource, org, user) {
@@ -75,7 +88,13 @@ export function makeRecord(resource, org, user) {
     case 'activities':
       return Activity.create({ orgId, type: 'task', title: 'Task', assigneeId: owner })
     case 'notes':
-      return Note.create({ orgId, entityType: 'lead', entityId: new mongoose.Types.ObjectId(), body: 'Note', authorId: owner })
+      return Note.create({
+        orgId,
+        entityType: 'lead',
+        entityId: new mongoose.Types.ObjectId(),
+        body: 'Note',
+        authorId: owner,
+      })
     default:
       throw new Error(`Unknown resource ${resource}`)
   }

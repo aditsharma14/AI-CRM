@@ -23,12 +23,20 @@ beforeAll(async () => {
   custom = await seedOrg('Custom stages')
   other = await seedOrg('Other')
   await Organization.updateOne({ _id: custom.org._id }, { pipelineStages: CUSTOM_STAGES })
-  await Organization.updateOne({ _id: other.org._id }, { pipelineStages: [{ key: 'only_in_other', label: 'Theirs', order: 0 }] })
+  await Organization.updateOne(
+    { _id: other.org._id },
+    { pipelineStages: [{ key: 'only_in_other', label: 'Theirs', order: 0 }] },
+  )
 })
 
 const as = (ctx, role = 'owner') => bearer(ctx.tokens[role])
-const create = (ctx, body) => request(app).post(api).set(as(ctx)).send({ title: 'Deal', value: 10, ...body })
-const move = (ctx, id, stageKey, role) => request(app).patch(`${api}/${id}/move-stage`).set(as(ctx, role)).send({ stageKey })
+const create = (ctx, body) =>
+  request(app)
+    .post(api)
+    .set(as(ctx))
+    .send({ title: 'Deal', value: 10, ...body })
+const move = (ctx, id, stageKey, role) =>
+  request(app).patch(`${api}/${id}/move-stage`).set(as(ctx, role)).send({ stageKey })
 
 function expectStageRejected(res, mention = 'stageKey') {
   expect(res.status).toBe(400)
@@ -100,7 +108,13 @@ describe('move-stage', () => {
   })
 
   it('accepts a custom stage of the requesting org', async () => {
-    const deal = await Deal.create({ orgId: custom.org._id, title: 'C', value: 1, stageKey: 'discovery', ownerId: custom.users.owner._id })
+    const deal = await Deal.create({
+      orgId: custom.org._id,
+      title: 'C',
+      value: 1,
+      stageKey: 'discovery',
+      ownerId: custom.users.owner._id,
+    })
     const res = await move(custom, deal._id, 'demo')
     expect(res.status).toBe(200)
     expect(res.body.data.stageKey).toBe('demo')
@@ -123,23 +137,26 @@ async function trailOf(dealId) {
 }
 
 describe('closing stages on create', () => {
-  it.each(['won', 'lost'])('creating in %s closes the deal: status, closedAt, one close entry, one notification', async (stageKey) => {
-    const before = Date.now()
-    const res = await create(base, { stageKey })
-    expect(res.status).toBe(201)
-    expect(res.body.data.status).toBe(stageKey)
-    expect(new Date(res.body.data.closedAt).getTime()).toBeGreaterThanOrEqual(before - 1000)
+  it.each(['won', 'lost'])(
+    'creating in %s closes the deal: status, closedAt, one close entry, one notification',
+    async (stageKey) => {
+      const before = Date.now()
+      const res = await create(base, { stageKey })
+      expect(res.status).toBe(201)
+      expect(res.body.data.status).toBe(stageKey)
+      expect(new Date(res.body.data.closedAt).getTime()).toBeGreaterThanOrEqual(before - 1000)
 
-    const stored = await Deal.findById(res.body.data._id)
-    expect(stored.status).toBe(stageKey)
-    expect(stored.closedAt).toBeInstanceOf(Date)
-    const { actions, notifications } = await trailOf(stored._id)
-    // The factory's usual 'create' entry, plus exactly one for the close.
-    expect(actions).toEqual(['create', 'close'])
-    expect(notifications).toHaveLength(1)
-    expect(String(notifications[0].userId)).toBe(String(base.users.owner._id))
-    expect(notifications[0].message).toContain(stageKey)
-  })
+      const stored = await Deal.findById(res.body.data._id)
+      expect(stored.status).toBe(stageKey)
+      expect(stored.closedAt).toBeInstanceOf(Date)
+      const { actions, notifications } = await trailOf(stored._id)
+      // The factory's usual 'create' entry, plus exactly one for the close.
+      expect(actions).toEqual(['create', 'close'])
+      expect(notifications).toHaveLength(1)
+      expect(String(notifications[0].userId)).toBe(String(base.users.owner._id))
+      expect(notifications[0].message).toContain(stageKey)
+    },
+  )
 
   it('creating in an open stage leaves it open: no closedAt, no close entry, no notification', async () => {
     const res = await create(base, { stageKey: 'qualified' })
@@ -162,7 +179,10 @@ describe('closing stages on create', () => {
 describe('closing stages on move-stage', () => {
   it('moving to won closes the deal, keeps the reason, logs one move and notifies the owner once', async () => {
     const deal = await makeRecord('deals', base.org, base.users.manager)
-    const res = await request(app).patch(`${api}/${deal._id}/move-stage`).set(as(base)).send({ stageKey: 'won', wonLostReason: 'Price' })
+    const res = await request(app)
+      .patch(`${api}/${deal._id}/move-stage`)
+      .set(as(base))
+      .send({ stageKey: 'won', wonLostReason: 'Price' })
 
     expect(res.status).toBe(200)
     expect(res.body.data).toMatchObject({ stageKey: 'won', status: 'won', wonLostReason: 'Price' })

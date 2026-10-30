@@ -99,7 +99,9 @@ export default function AppLayout() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  const currentPage = BREADCRUMB_ITEMS.find((item) => (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)))
+  const currentPage = BREADCRUMB_ITEMS.find((item) =>
+    item.end ? location.pathname === item.to : location.pathname.startsWith(item.to),
+  )
 
   return (
     <div className="flex min-h-screen">
@@ -110,7 +112,9 @@ export default function AppLayout() {
         )}
       >
         <div className={cn('flex items-center gap-2 px-4 py-4', isSidebarCollapsed && 'justify-center px-0')}>
-          {!isSidebarCollapsed && <span className="font-serif text-lg font-semibold text-primary dark:text-primary-dark">Clarion</span>}
+          {!isSidebarCollapsed && (
+            <span className="font-serif text-lg font-semibold text-primary dark:text-primary-dark">Clarion</span>
+          )}
         </div>
 
         {/* Organization display. There's one org per account today (see the
@@ -174,7 +178,11 @@ export default function AppLayout() {
           className="m-3 flex items-center justify-center rounded-md p-2 text-muted hover:bg-black/[0.04] dark:text-muted-dark dark:hover:bg-white/[0.06]"
           aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {isSidebarCollapsed ? <PanelLeftOpen size={18} strokeWidth={1.75} /> : <PanelLeftClose size={18} strokeWidth={1.75} />}
+          {isSidebarCollapsed ? (
+            <PanelLeftOpen size={18} strokeWidth={1.75} />
+          ) : (
+            <PanelLeftClose size={18} strokeWidth={1.75} />
+          )}
         </button>
       </aside>
 
@@ -246,10 +254,16 @@ export default function AppLayout() {
               </>
             ) : (
               <>
-                <Link to="/login" className="rounded-md px-3 py-1.5 text-sm text-secondary hover:bg-black/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.06]">
+                <Link
+                  to="/login"
+                  className="rounded-md px-3 py-1.5 text-sm text-secondary hover:bg-black/[0.04] dark:text-secondary-dark dark:hover:bg-white/[0.06]"
+                >
                   Log in
                 </Link>
-                <Link to="/register" className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:opacity-90">
+                <Link
+                  to="/register"
+                  className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+                >
                   Sign up
                 </Link>
               </>

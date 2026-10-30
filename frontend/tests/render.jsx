@@ -29,7 +29,9 @@ export function serveSession(session) {
   server.use(
     http.post(`${API}/auth/refresh`, () => {
       calls.count += 1
-      return session ? ok({ accessToken: `token-for-${session.id}`, user: session }) : fail(401, 'UNAUTHORIZED', 'No session.')
+      return session
+        ? ok({ accessToken: `token-for-${session.id}`, user: session })
+        : fail(401, 'UNAUTHORIZED', 'No session.')
     }),
   )
   return calls

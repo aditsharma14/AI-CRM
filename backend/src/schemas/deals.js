@@ -18,7 +18,10 @@ export const dealCreate = z.object({
 
 export const dealUpdate = dealCreate.partial()
 
-export const dealMoveStage = z.object({ stageKey: z.string().trim().min(1), wonLostReason: z.string().trim().optional() })
+export const dealMoveStage = z.object({
+  stageKey: z.string().trim().min(1),
+  wonLostReason: z.string().trim().optional(),
+})
 
 /** @typedef {z.infer<typeof dealCreate>} DealCreateInput */
 /** @typedef {z.infer<typeof dealUpdate>} DealUpdateInput */

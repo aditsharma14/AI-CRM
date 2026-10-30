@@ -20,7 +20,9 @@ export function validate(schemas) {
       const result = schema.safeParse(req[key])
       if (!result.success) {
         // Prefix the field, so '?status=nope' says which param was wrong.
-        const messages = result.error.issues.map((i) => (i.path.length ? `${i.path.join('.')}: ${i.message}` : i.message))
+        const messages = result.error.issues.map((i) =>
+          i.path.length ? `${i.path.join('.')}: ${i.message}` : i.message,
+        )
         return next(badRequest(messages.join('; '), 'VALIDATION_ERROR'))
       }
       // Express 5's req.query is a prototype getter that re-parses the URL
@@ -28,7 +30,12 @@ export function validate(schemas) {
       // silently vanishes. Shadowing it with an own, writable property is the
       // documented way to make a coerced/defaulted query object stick.
       if (key === 'query') {
-        Object.defineProperty(req, 'query', { value: result.data, writable: true, configurable: true, enumerable: true })
+        Object.defineProperty(req, 'query', {
+          value: result.data,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        })
       } else {
         req[key] = result.data
       }

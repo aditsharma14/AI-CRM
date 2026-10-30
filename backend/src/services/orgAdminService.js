@@ -95,7 +95,8 @@ export async function inviteMember(actor, { email, role }) {
  * @throws {AppError} 400 CANNOT_ASSIGN_OWNER, 403, 404
  */
 export async function updateMemberRole(actor, userId, role) {
-  if (role === 'owner') throw badRequest('Ownership is transferred separately, not assigned like a role.', 'CANNOT_ASSIGN_OWNER')
+  if (role === 'owner')
+    throw badRequest('Ownership is transferred separately, not assigned like a role.', 'CANNOT_ASSIGN_OWNER')
   assertNotSelf(actor, userId, 'change your own role')
   assertCanAssign(actor, role)
   // One atomic, role-scoped write: a member the actor can't manage is simply
@@ -119,7 +120,8 @@ export async function updateMemberRole(actor, userId, role) {
 export async function removeMember(actor, userId) {
   assertNotSelf(actor, userId, 'remove yourself')
   const user = await User.findOneAndDelete({ _id: userId, orgId: actor.orgId, role: { $in: manageableRoles(actor) } })
-  if (!user) throw await memberMissOrForbidden(User, actor, userId, 'Member not found, or you tried to remove the org owner.')
+  if (!user)
+    throw await memberMissOrForbidden(User, actor, userId, 'Member not found, or you tried to remove the org owner.')
 }
 
 // ---- Teams ----
@@ -176,7 +178,10 @@ export async function updateTeam(orgId, teamId, { name, memberIds }) {
 export async function deleteTeam(orgId, teamId) {
   // Matching on the team id too makes "no such team in this org" a miss
   // (404) in the same atomic write, instead of a silent no-op 200.
-  const org = await Organization.findOneAndUpdate({ _id: orgId, 'teams._id': teamId }, { $pull: { teams: { _id: teamId } } })
+  const org = await Organization.findOneAndUpdate(
+    { _id: orgId, 'teams._id': teamId },
+    { $pull: { teams: { _id: teamId } } },
+  )
   if (!org) throw notFound('Team not found.')
 }
 
@@ -200,7 +205,11 @@ export async function getPipelineStages(orgId) {
  * @throws {AppError} 404
  */
 export async function updatePipelineStages(orgId, stages) {
-  const org = await Organization.findByIdAndUpdate(orgId, { pipelineStages: stages }, { new: true, runValidators: true })
+  const org = await Organization.findByIdAndUpdate(
+    orgId,
+    { pipelineStages: stages },
+    { new: true, runValidators: true },
+  )
   if (!org) throw notFound('Organization not found.')
   return org.pipelineStages
 }
