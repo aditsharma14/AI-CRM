@@ -10,9 +10,9 @@ import { apiRateLimiter, requestLogger } from './middleware/observability.js'
 import activitiesRoutes from './routes/activities.routes.js'
 import aiRoutes from './routes/ai.routes.js'
 import authRoutes from './routes/auth.routes.js'
-import crudRoutes from './routes/crud.routes.js'
+import { companiesRoutes, contactsRoutes, notesRoutes } from './routes/crud.routes.js'
 import dealsRoutes from './routes/deals.routes.js'
-import insightsRoutes from './routes/insights.routes.js'
+import { dashboardRoutes, searchRoutes } from './routes/insights.routes.js'
 import leadsRoutes from './routes/leads.routes.js'
 import notificationsRoutes from './routes/notifications.routes.js'
 import orgAdminRoutes from './routes/orgAdmin.routes.js'
@@ -34,9 +34,12 @@ app.use('/api/v1/org', orgAdminRoutes)
 app.use('/api/v1/leads', leadsRoutes)
 app.use('/api/v1/deals', dealsRoutes)
 app.use('/api/v1/activities', activitiesRoutes)
-app.use('/api/v1', crudRoutes) // defines /contacts, /companies, /notes
+app.use('/api/v1/contacts', contactsRoutes)
+app.use('/api/v1/companies', companiesRoutes)
+app.use('/api/v1/notes', notesRoutes)
 app.use('/api/v1/notifications', notificationsRoutes)
-app.use('/api/v1', insightsRoutes) // defines /search, /dashboard/*
+app.use('/api/v1/search', searchRoutes)
+app.use('/api/v1/dashboard', dashboardRoutes)
 app.use('/api/v1/ai', aiRoutes)
 
 app.use(notFoundHandler)

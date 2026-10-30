@@ -1,4 +1,4 @@
-// Mounts the generic CRUD factory for Contacts, Companies, Notes.
+// The generic CRUD factory for Contacts, Companies and Notes: one router each, mounted by app.js.
 import { Router } from 'express'
 
 import { auth } from '../middleware/auth.js'
@@ -24,13 +24,13 @@ import {
 import { createCrudService } from '../services/crudService.js'
 import { apiResponse, asyncHandler } from '../utils/http.js'
 
-const router = Router()
-router.use(auth)
+/** The five REST endpoints for one resource, behind auth, for app.js to mount at the resource's path. */
+function crudRouter(service, { createSchema, updateSchema, listSchema }) {
+  const router = Router()
+  router.use(auth)
 
-/** Wires the five REST endpoints for one resource onto `router`. */
-function mountCrud(path, service, { createSchema, updateSchema, listSchema }) {
   router.get(
-    `/${path}`,
+    '/',
     requirePermission('crm', 'read'),
     validate({ query: listSchema }),
     asyncHandler(async (req, res) => {
@@ -40,14 +40,14 @@ function mountCrud(path, service, { createSchema, updateSchema, listSchema }) {
   )
 
   router.get(
-    `/${path}/:id`,
+    '/:id',
     requirePermission('crm', 'read'),
     validate({ params: idParam }),
     asyncHandler(async (req, res) => apiResponse(res, await service.getById(req.user, req.params.id))),
   )
 
   router.post(
-    `/${path}`,
+    '/',
     requirePermission('crm', 'write'),
     validate({ body: createSchema }),
     asyncHandler(async (req, res) => {
@@ -56,14 +56,14 @@ function mountCrud(path, service, { createSchema, updateSchema, listSchema }) {
   )
 
   router.patch(
-    `/${path}/:id`,
+    '/:id',
     requirePermission('crm', 'write'),
     validate({ params: idParam, body: updateSchema }),
     asyncHandler(async (req, res) => apiResponse(res, await service.update(req.user, req.params.id, req.body))),
   )
 
   router.delete(
-    `/${path}/:id`,
+    '/:id',
     requirePermission('crm', 'delete'),
     validate({ params: idParam }),
     asyncHandler(async (req, res) => {
@@ -71,10 +71,11 @@ function mountCrud(path, service, { createSchema, updateSchema, listSchema }) {
       apiResponse(res, null)
     }),
   )
+
+  return router
 }
 
-mountCrud(
-  'contacts',
+export const contactsRoutes = crudRouter(
   createCrudService(Contact, {
     resource: 'contact',
     list: contactList,
@@ -86,8 +87,7 @@ mountCrud(
   { createSchema: contactCreate, updateSchema: contactUpdate, listSchema: contactListQuery },
 )
 
-mountCrud(
-  'companies',
+export const companiesRoutes = crudRouter(
   createCrudService(Company, {
     resource: 'company',
     list: companyList,
@@ -97,8 +97,7 @@ mountCrud(
   { createSchema: companyCreate, updateSchema: companyUpdate, listSchema: companyListQuery },
 )
 
-mountCrud(
-  'notes',
+export const notesRoutes = crudRouter(
   createCrudService(Note, {
     // authorId is the note's owner field: set to the writer on create, never reassignable.
     resource: 'note',
@@ -112,5 +111,3 @@ mountCrud(
   }),
   { createSchema: noteCreate, updateSchema: noteUpdate, listSchema: noteListQuery },
 )
-
-export default router
