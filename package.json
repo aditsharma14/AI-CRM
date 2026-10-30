@@ -3,12 +3,15 @@
   "private": true,
   "description": "Repo-level tooling only: formatting, lint and typecheck across backend/, frontend/ and AI/. Each service keeps its own package.json.",
   "scripts": {
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "lint": "npm --prefix backend run lint && npm --prefix frontend run lint",
-    "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend run typecheck"
+    "format": "prettier --write . && node scripts/ruff.mjs format AI",
+    "format:check": "prettier --check . && node scripts/ruff.mjs format --check AI",
+    "lint": "npm --prefix backend run lint && npm --prefix frontend run lint && node scripts/ruff.mjs check AI",
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend run typecheck",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "husky": "9.1.7",
+    "lint-staged": "17.6.0",
     "prettier": "3.9.10"
   }
 }

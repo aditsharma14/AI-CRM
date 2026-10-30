@@ -1,0 +1,2 @@
+# Dev-only tools. Install into the venv with: pip install -r requirements-dev.txt
+ruff==0.17.3
