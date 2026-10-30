@@ -20,6 +20,12 @@ export function errorHandler(err, req, res, _next) {
   // A Zod .parse() that threw instead of going through validate(); same message format.
   if (err.name === 'ZodError') return sendError(res, 400, 'VALIDATION_ERROR', zodIssuesMessage(err.issues))
 
+  // express.json(): a body that isn't JSON, or is over the size limit (100 kB).
+  if (err.type === 'entity.parse.failed') return sendError(res, 400, 'VALIDATION_ERROR', 'body: malformed JSON.')
+  if (err.type === 'entity.too.large') {
+    return sendError(res, 413, 'PAYLOAD_TOO_LARGE', 'body: the request body is too large.')
+  }
+
   // Mongoose schema validation.
   if (err.name === 'ValidationError') return sendError(res, 400, 'VALIDATION_ERROR', err.message)
 
