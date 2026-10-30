@@ -4,14 +4,16 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useCrudQuery, useDebounce, useDisclosure, usePaginationState } from '../../hooks.js'
+import { useCrudQuery, useDebounce, useDisclosure, useMutationError, usePaginationState } from '../../hooks.js'
 import { api } from '../../api/client.js'
 import { DataTable } from '../../components/DataTable.jsx'
 import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button, Badge } from '../../components/ui.jsx'
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import NotesPanel from '../notes/NotesPanel.jsx'
-import { LEAD_STATUSES } from '../../lib/constants.js'
+import { useSession } from '../../context/SessionContext.jsx'
+import { LEAD_STATUSES, canModifyRecord } from '../../lib/constants.js'
 import { formatDate } from '../../lib/utils.js'
 
 const leadSchema = z.object({
@@ -42,6 +44,9 @@ export default function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [editing, setEditing] = useState(null) // null = closed, {} = new, {...} = editing
   const confirmDelete = useDisclosure()
+  const { user, can } = useSession()
+  // Members can open anyone's lead but only change their own.
+  const readOnly = Boolean(editing?._id) && !canModifyRecord(user, editing)
 
   const leads = useCrudQuery('leads')
   const { data, isLoading, isError } = leads.useList({ page, limit, q: q || undefined, status: statusFilter || undefined })
@@ -49,6 +54,10 @@ export default function LeadsPage() {
   const updateLead = leads.useUpdate()
   const removeLead = leads.useRemove()
   const convertLead = useConvertLead()
+  // Save and convert fail inside the open dialog; delete closes it first, so
+  // its error shows on the page instead.
+  const dialogError = useMutationError(createLead, updateLead, convertLead)
+  const deleteError = useMutationError(removeLead)
 
   const {
     register,
@@ -58,10 +67,14 @@ export default function LeadsPage() {
   } = useForm({ resolver: zodResolver(leadSchema) })
 
   const openCreate = () => {
+    dialogError.reset()
+    deleteError.reset()
     reset({ name: '', email: '', phone: '', source: '' })
     setEditing({})
   }
   const openEdit = (lead) => {
+    dialogError.reset()
+    deleteError.reset()
     reset(lead)
     setEditing(lead)
   }
@@ -69,9 +82,13 @@ export default function LeadsPage() {
 
   const onSubmit = async (values) => {
     const payload = { ...values, email: values.email || undefined }
-    if (editing?._id) await updateLead.mutateAsync({ id: editing._id, ...payload })
-    else await createLead.mutateAsync(payload)
-    close()
+    try {
+      if (editing?._id) await updateLead.mutateAsync({ id: editing._id, ...payload })
+      else await createLead.mutateAsync(payload)
+      close()
+    } catch {
+      // Shown via dialogError; the dialog stays open with what the user typed.
+    }
   }
 
   const columns = [
@@ -96,7 +113,7 @@ export default function LeadsPage() {
           placeholder="Search leads…"
           className={`${inputClasses(false)} max-w-xs`}
         />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={`${inputClasses(false)} max-w-[160px]`}>
+        <select aria-label="Filter by status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={`${inputClasses(false)} max-w-[160px]`}>
           <option value="">All statuses</option>
           {LEAD_STATUSES.map((s) => (
             <option key={s} value={s}>
@@ -105,6 +122,8 @@ export default function LeadsPage() {
           ))}
         </select>
       </div>
+
+      {!editing && <ErrorAlert message={deleteError.message} />}
 
       <DataTable
         columns={columns}
@@ -127,7 +146,7 @@ export default function LeadsPage() {
             <Button variant="secondary" onClick={close}>
               Cancel
             </Button>
-            {editing?._id && editing.status !== 'converted' && (
+            {editing?._id && editing.status !== 'converted' && !readOnly && (
               <Button
                 variant="secondary"
                 disabled={convertLead.isPending}
@@ -136,33 +155,34 @@ export default function LeadsPage() {
                 Convert to deal
               </Button>
             )}
-            {editing?._id && (
+            {editing?._id && can('crm', 'delete') && (
               <Button variant="danger" onClick={confirmDelete.open}>
                 Delete
               </Button>
             )}
-            <Button type="submit" form="lead-form" disabled={isSubmitting}>
+            <Button type="submit" form="lead-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the owner can edit this lead' : undefined}>
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>
         }
       >
+        <ErrorAlert message={dialogError.message} />
         <form id="lead-form" onSubmit={handleSubmit(onSubmit)}>
-          <FormField label="Name" error={errors.name}>
-            <input className={inputClasses(errors.name)} {...register('name')} />
+          <FormField label="Name" htmlFor="lead-name" error={errors.name}>
+            <input id="lead-name" className={inputClasses(errors.name)} {...register('name')} />
           </FormField>
-          <FormField label="Email" error={errors.email}>
-            <input className={inputClasses(errors.email)} {...register('email')} />
+          <FormField label="Email" htmlFor="lead-email" error={errors.email}>
+            <input id="lead-email" className={inputClasses(errors.email)} {...register('email')} />
           </FormField>
-          <FormField label="Phone">
-            <input className={inputClasses(false)} {...register('phone')} />
+          <FormField label="Phone" htmlFor="lead-phone">
+            <input id="lead-phone" className={inputClasses(false)} {...register('phone')} />
           </FormField>
-          <FormField label="Source">
-            <input className={inputClasses(false)} {...register('source')} />
+          <FormField label="Source" htmlFor="lead-source">
+            <input id="lead-source" className={inputClasses(false)} {...register('source')} />
           </FormField>
           {editing?._id && (
-            <FormField label="Status">
-              <select className={inputClasses(false)} {...register('status')}>
+            <FormField label="Status" htmlFor="lead-status">
+              <select id="lead-status" className={inputClasses(false)} {...register('status')}>
                 {LEAD_STATUSES.map((s) => (
                   <option key={s} value={s}>
                     {s}

@@ -1,51 +1,34 @@
 // List/mark-read notifications; read-only activity-log listing.
 import { Router } from 'express'
-import { z } from 'zod'
-import { Notification, ActivityLog } from '../models/Logs.js'
+import * as notificationsService from '../services/notificationsService.js'
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
-import { apiResponse, asyncHandler, notFound } from '../utils/http.js'
-import { paginationQuery, objectId } from '../utils/validators.js'
+import { apiResponse, asyncHandler } from '../utils/http.js'
+import { idParam } from '../schemas/common.js'
+import { activityLogQuery, notificationListQuery } from '../schemas/notifications.js'
 
 const router = Router()
 router.use(auth)
 
 router.get(
   '/',
-  validate({ query: paginationQuery }),
+  validate({ query: notificationListQuery }),
   asyncHandler(async (req, res) => {
-    const { page, limit } = req.query
-    const filter = { orgId: req.user.orgId, userId: req.user.id }
-    const [items, total, unreadCount] = await Promise.all([
-      Notification.find(filter)
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit),
-      Notification.countDocuments(filter),
-      Notification.countDocuments({ ...filter, read: false }),
-    ])
-    apiResponse(res, items, { page, limit, total, hasMore: page * limit < total, unreadCount })
+    const { items, meta } = await notificationsService.list(req.user, req.query)
+    apiResponse(res, items, meta)
   }),
 )
 
 router.patch(
   '/:id/read',
-  validate({ params: z.object({ id: objectId }) }),
-  asyncHandler(async (req, res) => {
-    const doc = await Notification.findOneAndUpdate(
-      { _id: req.params.id, orgId: req.user.orgId, userId: req.user.id },
-      { read: true },
-      { new: true },
-    )
-    if (!doc) throw notFound('Notification not found.')
-    apiResponse(res, doc)
-  }),
+  validate({ params: idParam }),
+  asyncHandler(async (req, res) => apiResponse(res, await notificationsService.markRead(req.user, req.params.id))),
 )
 
 router.patch(
   '/read-all',
   asyncHandler(async (req, res) => {
-    await Notification.updateMany({ orgId: req.user.orgId, userId: req.user.id, read: false }, { read: true })
+    await notificationsService.markAllRead(req.user)
     apiResponse(res, null)
   }),
 )
@@ -53,19 +36,10 @@ router.patch(
 router.get(
   '/activity-log',
   requirePermission('reports', 'view'),
-  validate({ query: paginationQuery }),
+  validate({ query: activityLogQuery }),
   asyncHandler(async (req, res) => {
-    const { page, limit } = req.query
-    const filter = { orgId: req.user.orgId }
-    const [items, total] = await Promise.all([
-      ActivityLog.find(filter)
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .populate('userId', 'name'),
-      ActivityLog.countDocuments(filter),
-    ])
-    apiResponse(res, items, { page, limit, total, hasMore: page * limit < total })
+    const { items, meta } = await notificationsService.activityLog(req.user, req.query)
+    apiResponse(res, items, meta)
   }),
 )
 

@@ -1,11 +1,29 @@
+// @ts-check
 // Cross-collection search query and dashboard/report aggregations.
 import mongoose from 'mongoose'
 import { Lead, Contact, Company } from '../models/CRM.js'
 import Deal from '../models/Deal.js'
 import { ActivityLog } from '../models/Logs.js'
 
+// Aggregation output shapes. Mongoose types every pipeline result as any[],
+// so each pipeline's rows are named here and the result cast once at the call.
+/** @typedef {{ _id: string, count: number }} CountRow */
+/** @typedef {{ _id: string, count: number, value: number }} StageRow */
+/** @typedef {{ _id: null, total: number }} TotalRow */
+/** @typedef {{ _id: { year: number, month: number, status: 'won' | 'lost' }, count: number, value: number }} MonthRow */
+
+/**
+ * @param {string} s
+ * @returns {string}
+ */
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+/**
+ * @param {string} orgId
+ * @param {string} q
+ * @param {number} [limit]
+ * @returns The first `limit` matches per entity type.
+ */
 export async function search(orgId, q, limit = 5) {
   if (!q?.trim()) return { leads: [], contacts: [], companies: [], deals: [] }
 
@@ -21,13 +39,23 @@ export async function search(orgId, q, limit = 5) {
   return { leads, contacts, companies, deals }
 }
 
+/**
+ * @param {string} orgId
+ * @returns Lead/deal counts, open pipeline value and the latest audit entries.
+ */
 export async function dashboardOverview(orgId) {
   const oid = new mongoose.Types.ObjectId(orgId)
 
   const [leadsByStatus, dealsByStage, openPipeline, recentActivity] = await Promise.all([
-    Lead.aggregate([{ $match: { orgId: oid } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
-    Deal.aggregate([{ $match: { orgId: oid } }, { $group: { _id: '$stageKey', count: { $sum: 1 }, value: { $sum: '$value' } } }]),
-    Deal.aggregate([{ $match: { orgId: oid, status: 'open' } }, { $group: { _id: null, total: { $sum: '$value' } } }]),
+    /** @type {Promise<CountRow[]>} */ (
+      Lead.aggregate([{ $match: { orgId: oid } }, { $group: { _id: '$status', count: { $sum: 1 } } }]).exec()
+    ),
+    /** @type {Promise<StageRow[]>} */ (
+      Deal.aggregate([{ $match: { orgId: oid } }, { $group: { _id: '$stageKey', count: { $sum: 1 }, value: { $sum: '$value' } } }]).exec()
+    ),
+    /** @type {Promise<TotalRow[]>} */ (
+      Deal.aggregate([{ $match: { orgId: oid, status: 'open' } }, { $group: { _id: null, total: { $sum: '$value' } } }]).exec()
+    ),
     ActivityLog.find({ orgId }).sort({ createdAt: -1 }).limit(10).populate('userId', 'name'),
   ])
 
@@ -39,22 +67,30 @@ export async function dashboardOverview(orgId) {
   }
 }
 
+/**
+ * @param {string} orgId
+ * @returns Won/lost counts and value per month, plus the overall win rate (null with no closed deals).
+ */
 export async function dashboardReports(orgId) {
   const oid = new mongoose.Types.ObjectId(orgId)
 
   const [wonLostByMonth, winRateInputs] = await Promise.all([
-    Deal.aggregate([
-      { $match: { orgId: oid, status: { $in: ['won', 'lost'] }, closedAt: { $ne: null } } },
-      {
-        $group: {
-          _id: { year: { $year: '$closedAt' }, month: { $month: '$closedAt' }, status: '$status' },
-          count: { $sum: 1 },
-          value: { $sum: '$value' },
+    /** @type {Promise<MonthRow[]>} */ (
+      Deal.aggregate([
+        { $match: { orgId: oid, status: { $in: ['won', 'lost'] }, closedAt: { $ne: null } } },
+        {
+          $group: {
+            _id: { year: { $year: '$closedAt' }, month: { $month: '$closedAt' }, status: '$status' },
+            count: { $sum: 1 },
+            value: { $sum: '$value' },
+          },
         },
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } },
-    ]),
-    Deal.aggregate([{ $match: { orgId: oid, status: { $in: ['won', 'lost'] } } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+        { $sort: { '_id.year': 1, '_id.month': 1 } },
+      ]).exec()
+    ),
+    /** @type {Promise<CountRow[]>} */ (
+      Deal.aggregate([{ $match: { orgId: oid, status: { $in: ['won', 'lost'] } } }, { $group: { _id: '$status', count: { $sum: 1 } } }]).exec()
+    ),
   ])
 
   const won = winRateInputs.find((r) => r._id === 'won')?.count ?? 0

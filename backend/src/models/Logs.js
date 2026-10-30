@@ -1,3 +1,4 @@
+// @ts-check
 // ActivityLog (audit trail) and Notification schemas.
 import mongoose from 'mongoose'
 
@@ -23,6 +24,8 @@ logSchema.index(
   { createdAt: 1 },
   { expireAfterSeconds: 60 * 60 * 24 * 90, partialFilterExpression: { kind: 'notification' } },
 )
+
+/** @typedef {import('mongoose').InferSchemaType<typeof logSchema>} LogRecord */
 
 export const Log = mongoose.model('Log', logSchema)
 

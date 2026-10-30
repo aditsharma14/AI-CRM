@@ -1,3 +1,4 @@
+// @ts-check
 // Polymorphic note: entityType, entityId, body, authorId.
 import mongoose from 'mongoose'
 
@@ -15,5 +16,8 @@ const noteSchema = new Schema(
 )
 
 noteSchema.index({ orgId: 1, entityType: 1, entityId: 1, createdAt: -1 })
+
+/** Plain field shape inferred from the schema — what services read and write. */
+/** @typedef {import('mongoose').InferSchemaType<typeof noteSchema>} NoteRecord */
 
 export default mongoose.model('Note', noteSchema)

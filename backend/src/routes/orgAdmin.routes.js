@@ -1,16 +1,25 @@
 // Org profile, teams, members/roles, invites, pipeline & template config.
 import { Router } from 'express'
-import { z } from 'zod'
 import * as orgAdminService from '../services/orgAdminService.js'
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
 import { apiResponse, asyncHandler } from '../utils/http.js'
-import { objectId, email, password } from '../utils/validators.js'
+import { idParam } from '../schemas/common.js'
+import {
+  orgProfileUpdate,
+  memberInvite,
+  memberRoleUpdate,
+  teamCreate,
+  teamUpdate,
+  pipelineStagesUpdate,
+  emailTemplateCreate,
+  emailTemplateUpdate,
+  profileUpdate,
+  passwordChange,
+} from '../schemas/org.js'
 
 const router = Router()
 router.use(auth)
-
-const idParam = z.object({ id: objectId })
 
 // ---- Org profile ----
 
@@ -19,7 +28,7 @@ router.get('/', asyncHandler(async (req, res) => apiResponse(res, await orgAdmin
 router.patch(
   '/',
   requirePermission('org', 'manage'),
-  validate({ body: z.object({ name: z.string().trim().min(2) }) }),
+  validate({ body: orgProfileUpdate }),
   asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.updateOrgProfile(req.user.orgId, req.body))),
 )
 
@@ -30,9 +39,9 @@ router.get('/members', asyncHandler(async (req, res) => apiResponse(res, await o
 router.post(
   '/members/invite',
   requirePermission('members', 'manage'),
-  validate({ body: z.object({ email, role: z.enum(['admin', 'manager', 'member']) }) }),
+  validate({ body: memberInvite }),
   asyncHandler(async (req, res) => {
-    await orgAdminService.inviteMember(req.user.orgId, req.body)
+    await orgAdminService.inviteMember(req.user, req.body)
     apiResponse(res, null, null, 201)
   }),
 )
@@ -40,9 +49,9 @@ router.post(
 router.patch(
   '/members/:id/role',
   requirePermission('members', 'manage'),
-  validate({ params: idParam, body: z.object({ role: z.enum(['admin', 'manager', 'member']) }) }),
+  validate({ params: idParam, body: memberRoleUpdate }),
   asyncHandler(async (req, res) => {
-    apiResponse(res, await orgAdminService.updateMemberRole(req.user.orgId, req.params.id, req.body.role))
+    apiResponse(res, await orgAdminService.updateMemberRole(req.user, req.params.id, req.body.role))
   }),
 )
 
@@ -51,7 +60,7 @@ router.delete(
   requirePermission('members', 'manage'),
   validate({ params: idParam }),
   asyncHandler(async (req, res) => {
-    await orgAdminService.removeMember(req.user.orgId, req.params.id)
+    await orgAdminService.removeMember(req.user, req.params.id)
     apiResponse(res, null)
   }),
 )
@@ -63,14 +72,14 @@ router.get('/teams', asyncHandler(async (req, res) => apiResponse(res, await org
 router.post(
   '/teams',
   requirePermission('members', 'manage'),
-  validate({ body: z.object({ name: z.string().trim().min(1) }) }),
+  validate({ body: teamCreate }),
   asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.createTeam(req.user.orgId, req.body.name), null, 201)),
 )
 
 router.patch(
   '/teams/:id',
   requirePermission('members', 'manage'),
-  validate({ params: idParam, body: z.object({ name: z.string().trim().min(1).optional(), memberIds: z.array(objectId).optional() }) }),
+  validate({ params: idParam, body: teamUpdate }),
   asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.updateTeam(req.user.orgId, req.params.id, req.body))),
 )
 
@@ -94,9 +103,7 @@ router.get(
 router.patch(
   '/pipeline-stages',
   requirePermission('pipeline', 'configure'),
-  validate({
-    body: z.array(z.object({ key: z.string().trim().min(1), label: z.string().trim().min(1), order: z.number() })),
-  }),
+  validate({ body: pipelineStagesUpdate }),
   asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.updatePipelineStages(req.user.orgId, req.body))),
 )
 
@@ -107,23 +114,17 @@ router.get(
   asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.listEmailTemplates(req.user.orgId))),
 )
 
-const templateBody = z.object({
-  name: z.string().trim().min(1),
-  subject: z.string().trim().min(1),
-  body: z.string().trim().min(1),
-})
-
 router.post(
   '/email-templates',
   requirePermission('pipeline', 'configure'),
-  validate({ body: templateBody }),
+  validate({ body: emailTemplateCreate }),
   asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.createEmailTemplate(req.user.orgId, req.body), null, 201)),
 )
 
 router.patch(
   '/email-templates/:id',
   requirePermission('pipeline', 'configure'),
-  validate({ params: idParam, body: templateBody.partial() }),
+  validate({ params: idParam, body: emailTemplateUpdate }),
   asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.updateEmailTemplate(req.user.orgId, req.params.id, req.body))),
 )
 
@@ -141,13 +142,13 @@ router.delete(
 
 router.patch(
   '/me',
-  validate({ body: z.object({ name: z.string().trim().min(1).optional(), avatarUrl: z.string().trim().optional() }) }),
+  validate({ body: profileUpdate }),
   asyncHandler(async (req, res) => apiResponse(res, await orgAdminService.updateProfile(req.user.id, req.body))),
 )
 
 router.patch(
   '/me/password',
-  validate({ body: z.object({ currentPassword: z.string().min(1), newPassword: password }) }),
+  validate({ body: passwordChange }),
   asyncHandler(async (req, res) => {
     await orgAdminService.changePassword(req.user.id, req.body)
     apiResponse(res, null)

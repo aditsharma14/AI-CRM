@@ -10,9 +10,13 @@ import { api } from '../../api/client.js'
 import { Tabs, Button, Badge, Loader, EmptyState } from '../../components/ui.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { ConfirmDialog } from '../../components/Modal.jsx'
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { useDisclosure } from '../../hooks.js'
+import { canManageMember, manageableRoles } from '../../lib/constants.js'
 
 const ROLE_VARIANT = { owner: 'success', admin: 'warning', manager: 'default', member: 'default' }
+// Least privilege first, so the invite form's default ('member') is the first option.
+const ROLE_LABEL = { member: 'Member', manager: 'Manager', admin: 'Admin' }
 
 // ---------------------------------------------------------------------------
 // Profile
@@ -76,9 +80,7 @@ function ProfileTab() {
         <FormField label="Confirm new password" error={passwordForm.formState.errors.confirmPassword}>
           <input type="password" className={inputClasses(passwordForm.formState.errors.confirmPassword)} {...passwordForm.register('confirmPassword')} />
         </FormField>
-        {changePassword.isError && (
-          <p className="mb-4 text-sm text-danger">{changePassword.error?.response?.data?.error?.message ?? 'Something went wrong.'}</p>
-        )}
+        <ErrorAlert error={changePassword.error} />
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={changePassword.isPending}>
             Change password
@@ -136,9 +138,19 @@ function OrganizationTab() {
 const inviteSchema = z.object({ email: z.string().trim().email(), role: z.enum(['admin', 'manager', 'member']) })
 
 function MembersTab() {
-  const { can } = useSession()
+  const { user, can } = useSession()
   const queryClient = useQueryClient()
   const canManage = can('members', 'manage')
+  // Same rules as the backend's membership.js: only the owner grants or
+  // manages admin, and the owner row and your own row get no controls.
+  const assignableRoles = manageableRoles(user)
+  const roleOptions = Object.entries(ROLE_LABEL)
+    .filter(([role]) => assignableRoles.includes(role))
+    .map(([role, label]) => (
+      <option key={role} value={role}>
+        {label}
+      </option>
+    ))
   const invalidateMembers = () => queryClient.invalidateQueries({ queryKey: ['org', 'members'] })
 
   const [memberToRemove, setMemberToRemove] = useState(null)
@@ -194,11 +206,9 @@ function MembersTab() {
           <FormField label="Invite by email" error={inviteForm.formState.errors.email} hint={null}>
             <input className={inputClasses(inviteForm.formState.errors.email)} {...inviteForm.register('email')} placeholder="teammate@company.com" />
           </FormField>
-          <FormField label="Role">
-            <select className={inputClasses(false)} {...inviteForm.register('role')}>
-              <option value="member">Member</option>
-              <option value="manager">Manager</option>
-              <option value="admin">Admin</option>
+          <FormField label="Role" htmlFor="invite-role">
+            <select id="invite-role" className={inputClasses(false)} {...inviteForm.register('role')}>
+              {roleOptions}
             </select>
           </FormField>
           <Button type="submit" disabled={invite.isPending} className="mb-4">
@@ -208,6 +218,9 @@ function MembersTab() {
         </form>
       )}
       {inviteSent && <p className="text-sm text-success">Invite sent — they'll get a link to join.</p>}
+      {/* A refused change (e.g. 403 from the policy) must be visible: the
+          role select is controlled by server data, so it just snaps back. */}
+      <ErrorAlert error={updateRole.error ?? removeMember.error ?? invite.error} />
 
       <div>
         <h2 className="mb-3 font-serif text-lg font-semibold">Members</h2>
@@ -225,20 +238,19 @@ function MembersTab() {
                   <p className="text-xs text-muted dark:text-muted-dark">{member.email}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {canManage && member.role !== 'owner' ? (
+                  {canManageMember(user, member) ? (
                     <select
                       value={member.role}
                       onChange={(e) => updateRole.mutate({ id: member._id, role: e.target.value })}
+                      aria-label={`Role for ${member.name}`}
                       className={inputClasses(false)}
                     >
-                      <option value="member">Member</option>
-                      <option value="manager">Manager</option>
-                      <option value="admin">Admin</option>
+                      {roleOptions}
                     </select>
                   ) : (
                     <Badge variant={ROLE_VARIANT[member.role]}>{member.role}</Badge>
                   )}
-                  {canManage && member.role !== 'owner' && (
+                  {canManageMember(user, member) && (
                     <button
                       type="button"
                       onClick={() => {
@@ -246,7 +258,7 @@ function MembersTab() {
                         confirmRemoveMember.open()
                       }}
                       className="text-muted hover:text-danger dark:text-muted-dark"
-                      aria-label="Remove member"
+                      aria-label={`Remove ${member.name}`}
                     >
                       <Trash2 size={16} strokeWidth={1.75} />
                     </button>
@@ -297,6 +309,7 @@ function MembersTab() {
                       confirmDeleteTeam.open()
                     }}
                     className="text-muted hover:text-danger dark:text-muted-dark"
+                    aria-label={`Delete team ${team.name}`}
                   >
                     <Trash2 size={16} strokeWidth={1.75} />
                   </button>
@@ -452,6 +465,7 @@ function PipelineTab() {
                       confirmDeleteTemplate.open()
                     }}
                     className="text-muted hover:text-danger dark:text-muted-dark"
+                    aria-label={`Delete template ${t.name}`}
                   >
                     <Trash2 size={16} strokeWidth={1.75} />
                   </button>

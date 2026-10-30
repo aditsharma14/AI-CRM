@@ -7,15 +7,9 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useSession } from '../../context/SessionContext.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button } from '../../components/ui.jsx'
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
+import { apiErrorMessage } from '../../lib/utils.js'
 
-function serverErrorMessage(err) {
-  return err?.response?.data?.error?.message || 'Something went wrong. Please try again.'
-}
-
-function AuthFormError({ message }) {
-  if (!message) return null
-  return <p className="mb-4 rounded bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">{message}</p>
-}
 
 const loginSchema = z.object({
   email: z.string().trim().email(),
@@ -39,13 +33,13 @@ export function LoginPage() {
       await login(values)
       navigate(location.state?.from?.pathname ?? '/', { replace: true })
     } catch (err) {
-      setServerError(serverErrorMessage(err))
+      setServerError(apiErrorMessage(err))
     }
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <AuthFormError message={serverError} />
+      <ErrorAlert message={serverError} />
       <FormField label="Email" htmlFor="email" error={errors.email}>
         <input id="email" type="email" className={inputClasses(errors.email)} {...register('email')} />
       </FormField>
@@ -85,13 +79,13 @@ export function RegisterOrgPage() {
       await registerOrg(values)
       navigate('/', { replace: true })
     } catch (err) {
-      setServerError(serverErrorMessage(err))
+      setServerError(apiErrorMessage(err))
     }
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <AuthFormError message={serverError} />
+      <ErrorAlert message={serverError} />
       <FormField label="Organization name" htmlFor="orgName" error={errors.orgName}>
         <input id="orgName" className={inputClasses(errors.orgName)} {...register('orgName')} />
       </FormField>
@@ -136,13 +130,13 @@ export function AcceptInvitePage() {
       await acceptInvite({ ...values, token })
       navigate('/', { replace: true })
     } catch (err) {
-      setServerError(serverErrorMessage(err))
+      setServerError(apiErrorMessage(err))
     }
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <AuthFormError message={serverError} />
+      <ErrorAlert message={serverError} />
       <FormField label="Your name" htmlFor="name" error={errors.name}>
         <input id="name" className={inputClasses(errors.name)} {...register('name')} />
       </FormField>

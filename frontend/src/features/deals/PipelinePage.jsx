@@ -6,14 +6,16 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useCrudQuery, useDisclosure, usePaginationState } from '../../hooks.js'
+import { useCrudQuery, useDisclosure, useMutationError, usePaginationState, usePipelineStages } from '../../hooks.js'
 import { api } from '../../api/client.js'
 import { DataTable } from '../../components/DataTable.jsx'
 import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button, Badge } from '../../components/ui.jsx'
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import NotesPanel from '../notes/NotesPanel.jsx'
-import { PIPELINE_STAGE_DEFAULTS } from '../../lib/constants.js'
+import { useSession } from '../../context/SessionContext.jsx'
+import { canModifyRecord } from '../../lib/constants.js'
 import { formatCurrency } from '../../lib/utils.js'
 
 const dealSchema = z.object({
@@ -22,7 +24,6 @@ const dealSchema = z.object({
   stageKey: z.string().min(1),
 })
 
-const stageLabel = (key) => PIPELINE_STAGE_DEFAULTS.find((s) => s.key === key)?.label ?? key
 const STAGE_VARIANT = { won: 'success', lost: 'danger' }
 
 /**
@@ -44,6 +45,9 @@ export default function PipelinePage() {
   const { page, limit, setPage } = usePaginationState()
   const [editing, setEditing] = useState(null)
   const confirmDelete = useDisclosure()
+  const { user, can } = useSession()
+  // Members can open anyone's deal but only change (or move) their own.
+  const readOnly = Boolean(editing?._id) && !canModifyRecord(user, editing)
 
   const deals = useCrudQuery('deals')
   const { data, isLoading, isError } = deals.useList({ page, limit, sort: '-createdAt' })
@@ -51,6 +55,11 @@ export default function PipelinePage() {
   const updateDeal = deals.useUpdate()
   const removeDeal = deals.useRemove()
   const moveStage = useMoveStage()
+  const { stages, labelFor } = usePipelineStages()
+  // Save and move fail inside the open dialog; delete closes it first, so
+  // its error shows on the page instead.
+  const dialogError = useMutationError(createDeal, updateDeal, moveStage)
+  const deleteError = useMutationError(removeDeal)
 
   const {
     register,
@@ -60,10 +69,14 @@ export default function PipelinePage() {
   } = useForm({ resolver: zodResolver(dealSchema) })
 
   const openCreate = () => {
-    reset({ title: '', value: 0, stageKey: PIPELINE_STAGE_DEFAULTS[0].key })
+    dialogError.reset()
+    deleteError.reset()
+    reset({ title: '', value: 0, stageKey: stages[0]?.key ?? '' })
     setEditing({})
   }
   const openEdit = (deal) => {
+    dialogError.reset()
+    deleteError.reset()
     reset(deal)
     setEditing(deal)
   }
@@ -72,23 +85,32 @@ export default function PipelinePage() {
   const onSubmit = async (values) => {
     const { stageKey, ...rest } = values
 
-    if (editing?._id) {
-      // Stage changes and everything-else changes are two different
-      // endpoints on the backend — send each field set where it belongs.
-      if (stageKey !== editing.stageKey) {
-        await moveStage.mutateAsync({ id: editing._id, stageKey })
+    try {
+      if (editing?._id) {
+        // Stage changes and everything-else changes are two different
+        // endpoints on the backend — send each field set where it belongs.
+        if (stageKey !== editing.stageKey) {
+          await moveStage.mutateAsync({ id: editing._id, stageKey })
+          // The move is saved even if the PATCH below fails; a retry must
+          // only resend the PATCH, not move (and log, and notify) again.
+          setEditing((prev) => ({ ...prev, stageKey }))
+        }
+        await updateDeal.mutateAsync({ id: editing._id, ...rest })
+      } else {
+        await createDeal.mutateAsync(values)
       }
-      await updateDeal.mutateAsync({ id: editing._id, ...rest })
-    } else {
-      await createDeal.mutateAsync(values)
+      close()
+    } catch {
+      // Shown via dialogError; the dialog keeps what the user typed. If the
+      // move succeeded and the PATCH failed, useMoveStage's onSuccess has
+      // already refetched the list, so the table shows the real stage.
     }
-    close()
   }
 
   const columns = [
     { key: 'title', header: 'Deal' },
     { key: 'value', header: 'Value', render: (row) => formatCurrency(row.value, row.currency) },
-    { key: 'stageKey', header: 'Stage', render: (row) => <Badge variant={STAGE_VARIANT[row.stageKey]}>{stageLabel(row.stageKey)}</Badge> },
+    { key: 'stageKey', header: 'Stage', render: (row) => <Badge variant={STAGE_VARIANT[row.stageKey]}>{labelFor(row.stageKey)}</Badge> },
     { key: 'company', header: 'Company', render: (row) => row.companyId?.name ?? '—' },
   ]
 
@@ -98,6 +120,8 @@ export default function PipelinePage() {
         <h1 className="font-serif text-xl font-semibold">Pipeline</h1>
         <Button onClick={openCreate}>New deal</Button>
       </div>
+
+      {!editing && <ErrorAlert message={deleteError.message} />}
 
       <DataTable
         columns={columns}
@@ -120,27 +144,35 @@ export default function PipelinePage() {
             <Button variant="secondary" onClick={close}>
               Cancel
             </Button>
-            {editing?._id && (
+            {editing?._id && can('crm', 'delete') && (
               <Button variant="danger" onClick={confirmDelete.open}>
                 Delete
               </Button>
             )}
-            <Button type="submit" form="deal-form" disabled={isSubmitting}>
+            <Button type="submit" form="deal-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the owner can edit this deal' : undefined}>
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>
         }
       >
+        <ErrorAlert message={dialogError.message} />
         <form id="deal-form" onSubmit={handleSubmit(onSubmit)}>
-          <FormField label="Title" error={errors.title}>
-            <input className={inputClasses(errors.title)} {...register('title')} />
+          <FormField label="Title" htmlFor="deal-title" error={errors.title}>
+            <input id="deal-title" className={inputClasses(errors.title)} {...register('title')} />
           </FormField>
-          <FormField label="Value" error={errors.value}>
-            <input type="number" step="0.01" className={inputClasses(errors.value)} {...register('value')} />
+          <FormField label="Value" htmlFor="deal-value" error={errors.value}>
+            <input id="deal-value" type="number" step="0.01" className={inputClasses(errors.value)} {...register('value')} />
           </FormField>
-          <FormField label="Stage">
-            <select className={inputClasses(false)} {...register('stageKey')}>
-              {PIPELINE_STAGE_DEFAULTS.map((s) => (
+          <FormField label="Stage" htmlFor="deal-stage">
+            <select
+              // Remount once the stages arrive, so RHF re-applies the deal's stage
+              // instead of the browser defaulting to the first option.
+              key={stages.length}
+              id="deal-stage"
+              className={inputClasses(false)}
+              {...register('stageKey')}
+            >
+              {stages.map((s) => (
                 <option key={s.key} value={s.key}>
                   {s.label}
                 </option>

@@ -9,6 +9,8 @@ import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button } from '../../components/ui.jsx'
 import { cn } from '../../lib/utils.js'
+import { useSession } from '../../context/SessionContext.jsx'
+import { canModifyRecord } from '../../lib/constants.js'
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -48,6 +50,9 @@ export default function CalendarPage() {
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   const [editing, setEditing] = useState(null)
   const confirmDelete = useDisclosure()
+  const { user, can } = useSession()
+  // Events belong to their assignee: members can only change their own.
+  const readOnly = Boolean(editing?._id) && !canModifyRecord(user, editing, 'assigneeId')
 
   const days = useMemo(() => buildMonthGrid(month), [month])
   const rangeStart = days[0]
@@ -190,12 +195,12 @@ export default function CalendarPage() {
             <Button variant="secondary" onClick={close}>
               Cancel
             </Button>
-            {editing?._id && (
+            {editing?._id && can('crm', 'delete') && (
               <Button variant="danger" onClick={confirmDelete.open}>
                 Delete
               </Button>
             )}
-            <Button type="submit" form="event-form" disabled={isSubmitting}>
+            <Button type="submit" form="event-form" disabled={isSubmitting || readOnly} title={readOnly ? 'Only the assignee can edit this event' : undefined}>
               {editing?._id ? 'Save' : 'Create'}
             </Button>
           </>

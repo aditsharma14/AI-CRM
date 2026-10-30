@@ -10,7 +10,9 @@ export default defineConfig({
       // dev-only convenience: the client always calls same-origin '/api/v1',
       // so it behaves identically to the reverse-proxied production setup.
       '/api': {
-        target: 'http://localhost:5000',
+        // VITE_PROXY_TARGET lets Playwright point the dev server at its own
+        // throwaway API (see playwright.config.js); the client never sees it.
+        target: process.env.VITE_PROXY_TARGET ?? 'http://localhost:5000',
         changeOrigin: true,
       },
     },

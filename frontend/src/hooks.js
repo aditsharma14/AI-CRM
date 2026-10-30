@@ -1,7 +1,8 @@
-// Generic reusable hooks: useCrudQuery, useDebounce, useDisclosure, usePaginationState.
-import { useCallback, useEffect, useState } from 'react'
+// Generic reusable hooks: useCrudQuery, useDebounce, useDisclosure, usePaginationState, useMutationError, usePipelineStages.
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './api/client.js'
+import { SAVE_FAILED, apiErrorMessage } from './lib/utils.js'
 
 /**
  * Generic CRUD data-fetching for any REST resource. A new entity gets full
@@ -90,4 +91,44 @@ export function useClickOutside(ref, onOutsideClick) {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [ref, onOutsideClick])
+}
+
+/**
+ * The latest error across one or more mutations (a form's save, convert,
+ * delete…), ready for <ErrorAlert message={…} />. Minimal on purpose; S1.7
+ * extends it for field-level form errors.
+ *   const saveError = useMutationError(createLead, updateLead)
+ *   <ErrorAlert message={saveError.message} />
+ */
+export function useMutationError(...mutations) {
+  // Several can have failed; show the one the user triggered last.
+  const failed = mutations.filter((m) => m.isError).sort((a, b) => b.submittedAt - a.submittedAt)[0]
+  const error = failed?.error ?? null
+  return {
+    error,
+    message: error ? apiErrorMessage(error, { serverError: SAVE_FAILED }) : null,
+    reset: () => mutations.forEach((m) => m.reset()),
+  }
+}
+
+/**
+ * The org's pipeline stages (Settings → Pipeline edits them), sorted by
+ * `order` — never a hardcoded list, since every org can rename, add or
+ * reorder its own. Shares the Settings tab's cache key, so a saved edit
+ * shows up everywhere.
+ */
+export function usePipelineStages() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['org', 'pipeline-stages'],
+    queryFn: async () => (await api.get('/org/pipeline-stages')).data.data,
+    staleTime: 5 * 60_000,
+  })
+  const stages = useMemo(() => [...(data ?? [])].sort((a, b) => a.order - b.order), [data])
+  // A deal can sit in a stage the org has since removed: show its raw key.
+  const labelFor = useCallback((key) => stages.find((s) => s.key === key)?.label ?? key, [stages])
+  const positionOf = useCallback((key) => {
+    const i = stages.findIndex((s) => s.key === key)
+    return i === -1 ? stages.length : i
+  }, [stages])
+  return { stages, labelFor, positionOf, isLoading }
 }
