@@ -1,10 +1,12 @@
 // @ts-check
 // Credential checks, token issuance/rotation, password reset tokens.
 import crypto from 'node:crypto'
+
 import jwt from 'jsonwebtoken'
-import User from '../models/User.js'
-import Organization from '../models/Organization.js'
+
 import { env } from '../config/index.js'
+import Organization from '../models/Organization.js'
+import User from '../models/User.js'
 import { badRequest, unauthorized } from '../utils/http.js'
 
 /** @typedef {InstanceType<typeof User>} UserDoc A hydrated User, including comparePassword(). */

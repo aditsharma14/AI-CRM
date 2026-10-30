@@ -1,6 +1,7 @@
 // Rate limiter and structured per-request logger.
-import morgan from 'morgan'
 import { rateLimit } from 'express-rate-limit'
+import morgan from 'morgan'
+
 import { env } from '../config/index.js'
 
 // Silent under the test runner — the role matrix makes hundreds of requests

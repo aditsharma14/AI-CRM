@@ -2,23 +2,24 @@
 // This component also IS the Ctrl+K command palette — AppLayout mounts one
 // instance and opens it either from the header's search button or the
 // keyboard shortcut, so there's exactly one search experience, not two.
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  Search,
-  Users,
+  ArrowRight,
   Building2,
+  Calendar,
   Flame,
   Kanban,
-  ArrowRight,
   LayoutDashboard,
-  Calendar,
   ListChecks,
+  Search,
   Settings,
+  Users,
 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
+
 import { api } from '../api/client.js'
 import { useDebounce } from '../hooks.js'
 

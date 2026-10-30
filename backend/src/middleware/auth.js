@@ -1,5 +1,6 @@
 // Verifies the access-token JWT and attaches req.user.
 import jwt from 'jsonwebtoken'
+
 import { env } from '../config/index.js'
 import { unauthorized } from '../utils/http.js'
 

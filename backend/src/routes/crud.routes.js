@@ -1,26 +1,27 @@
 // Mounts the generic CRUD factory for Contacts, Companies, Notes.
 import { Router } from 'express'
-import { Contact, Company } from '../models/CRM.js'
-import Note from '../models/Note.js'
-import { createCrudService } from '../services/crudService.js'
+
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
-import { apiResponse, asyncHandler } from '../utils/http.js'
+import { Company, Contact } from '../models/CRM.js'
+import Note from '../models/Note.js'
 import { idParam } from '../schemas/common.js'
 import {
-  contactCreate,
-  contactUpdate,
-  contactList,
-  contactListQuery,
   companyCreate,
-  companyUpdate,
   companyList,
   companyListQuery,
+  companyUpdate,
+  contactCreate,
+  contactList,
+  contactListQuery,
+  contactUpdate,
   noteCreate,
-  noteUpdate,
   noteList,
   noteListQuery,
+  noteUpdate,
 } from '../schemas/crm.js'
+import { createCrudService } from '../services/crudService.js'
+import { apiResponse, asyncHandler } from '../utils/http.js'
 
 const router = Router()
 router.use(auth)

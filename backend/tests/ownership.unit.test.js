@@ -1,5 +1,6 @@
 // Pure-function tests for the ownership policy (no DB, no HTTP).
 import { describe, expect, it } from 'vitest'
+
 import { canReassign, ownerField, sanitizeWrite, scopeFor } from '../src/policies/ownership.js'
 
 const user = (role) => ({ id: 'u1', orgId: 'o1', role })

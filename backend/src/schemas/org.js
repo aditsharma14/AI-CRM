@@ -1,7 +1,8 @@
 // @ts-check
 // Org admin and "me" request schemas — validators plus z.infer input types for orgAdminService.
 import { z } from 'zod'
-import { objectId, email, password } from '../utils/validators.js'
+
+import { email, objectId, password } from '../utils/validators.js'
 
 export const orgProfileUpdate = z.object({ name: z.string().trim().min(2) })
 

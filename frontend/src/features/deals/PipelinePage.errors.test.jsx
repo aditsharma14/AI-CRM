@@ -1,12 +1,13 @@
 // Pipeline: failed saves, stage moves and deletes show a specific error; after a partial failure the table resyncs with the server.
-import { describe, expect, it } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import PipelinePage from './PipelinePage.jsx'
-import { API, fail, ok, page, server } from '../../../tests/server.js'
+import { describe, expect, it } from 'vitest'
+
 import { makeUser } from '../../../tests/factories.js'
 import { renderWithProviders } from '../../../tests/render.jsx'
+import { API, fail, ok, page, server } from '../../../tests/server.js'
+import PipelinePage from './PipelinePage.jsx'
 
 const DEAL = { _id: 'd1', title: 'Big deal', value: 100, stageKey: 'new', ownerId: 'user-owner' }
 const STAGES = [

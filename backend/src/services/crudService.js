@@ -1,10 +1,10 @@
 // @ts-check
 // Generic factory: list/getById/create/update/remove for any model.
 import User from '../models/User.js'
-import { buildListQuery, paginate } from '../utils/queryBuilder.js'
-import { badRequest, notFound } from '../utils/http.js'
 import { canReassign, missOrForbidden, ownerField, sanitizeWrite, scopeFor } from '../policies/ownership.js'
-import { logActivity, labelFor } from './activityService.js'
+import { badRequest, notFound } from '../utils/http.js'
+import { buildListQuery, paginate } from '../utils/queryBuilder.js'
+import { labelFor, logActivity } from './activityService.js'
 
 /** @typedef {import('../types/index.js').AuthUser} AuthUser */
 /** @typedef {import('../types/index.js').ListQuery} ListQuery */

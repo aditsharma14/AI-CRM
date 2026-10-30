@@ -1,13 +1,14 @@
 // Leads and Pipeline hide what the role or ownership policy would refuse: Delete needs crm:delete; members edit only their own records.
-import { describe, expect, it } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import LeadsPage from './leads/LeadsPage.jsx'
-import PipelinePage from './deals/PipelinePage.jsx'
-import { API, ok, page, server } from '../../tests/server.js'
+import { describe, expect, it } from 'vitest'
+
 import { makeUser } from '../../tests/factories.js'
 import { renderWithProviders } from '../../tests/render.jsx'
+import { API, ok, page, server } from '../../tests/server.js'
+import PipelinePage from './deals/PipelinePage.jsx'
+import LeadsPage from './leads/LeadsPage.jsx'
 
 const MINE = 'user-member' // makeUser('member').id
 const THEIRS = 'user-manager'

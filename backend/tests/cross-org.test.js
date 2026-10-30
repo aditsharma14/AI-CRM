@@ -1,8 +1,9 @@
 // Org A must get 404 — never 403 — on every :id route for org B's records.
 import request from 'supertest'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import app from '../src/app.js'
-import { MODELS, RENAME, bearer, makeRecord, seedOrg } from './helpers.js'
+import { bearer, makeRecord, MODELS, RENAME, seedOrg } from './helpers.js'
 
 const ID_ROUTES = [
   ['leads', 'get', ''],

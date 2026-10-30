@@ -1,6 +1,6 @@
 // @ts-check
 // MSW server shared by every test, plus builders for the API's { success, data, error, meta } envelope.
-import { HttpResponse, http } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 
 /** Same-origin prefix the axios instance in src/api/client.js uses. */

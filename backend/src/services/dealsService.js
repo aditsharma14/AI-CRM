@@ -2,11 +2,11 @@
 // Stage-transition validation, win/loss side effects, logging/notifying.
 import Deal from '../models/Deal.js'
 import Organization from '../models/Organization.js'
-import { createCrudService } from './crudService.js'
-import { logActivity, notify } from './activityService.js'
-import { badRequest, notFound } from '../utils/http.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
 import { dealList } from '../schemas/deals.js'
+import { badRequest, notFound } from '../utils/http.js'
+import { logActivity, notify } from './activityService.js'
+import { createCrudService } from './crudService.js'
 
 export const crud = createCrudService(Deal, {
   resource: 'deal',

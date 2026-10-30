@@ -1,30 +1,31 @@
 // Authenticated shell: sidebar, top nav, command palette, notifications, outlet.
-import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  LayoutDashboard,
-  Flame,
-  Users,
   Building2,
-  Kanban,
-  ListChecks,
   Calendar,
-  Settings,
-  Search,
-  Command,
   ChevronsUpDown,
-  PanelLeftClose,
-  PanelLeftOpen,
+  Command,
+  Flame,
+  Kanban,
+  LayoutDashboard,
+  ListChecks,
   LogOut,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search,
+  Settings,
   Sun,
+  Users,
 } from 'lucide-react'
-import { useSession } from '../context/SessionContext.jsx'
-import { useClickOutside } from '../hooks.js'
-import { initials, cn } from '../lib/utils.js'
+import { useEffect, useRef, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+
 import GlobalSearch from '../components/GlobalSearch.jsx'
+import { useSession } from '../context/SessionContext.jsx'
 import NotificationsPanel, { NotificationsBell } from '../features/notifications/NotificationsPanel.jsx'
+import { useClickOutside } from '../hooks.js'
+import { cn, initials } from '../lib/utils.js'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', end: true, icon: LayoutDashboard },

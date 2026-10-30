@@ -1,8 +1,9 @@
 // Dashboards and search against a fixture with known numbers, plus a second org that must never leak in.
 import request from 'supertest'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import app from '../src/app.js'
-import { Lead, Contact, Company } from '../src/models/CRM.js'
+import { Company, Contact, Lead } from '../src/models/CRM.js'
 import Deal from '../src/models/Deal.js'
 import { ActivityLog } from '../src/models/Logs.js'
 import { bearer, seedOrg } from './helpers.js'

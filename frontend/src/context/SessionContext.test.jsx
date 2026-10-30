@@ -1,13 +1,14 @@
 // SessionProvider: one silent restore even under StrictMode, login/logout lifecycle, can(), and teardown on a failed refresh.
-import { describe, expect, it, vi } from 'vitest'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import { http } from 'msw'
-import { useSession } from './SessionContext.jsx'
-import { api, getAccessToken } from '../api/client.js'
-import { queryClient } from '../lib/queryClient.js'
-import { API, fail, ok, server } from '../../tests/server.js'
+import { describe, expect, it, vi } from 'vitest'
+
 import { makeUser } from '../../tests/factories.js'
 import { renderWithProviders } from '../../tests/render.jsx'
+import { API, fail, ok, server } from '../../tests/server.js'
+import { api, getAccessToken } from '../api/client.js'
+import { queryClient } from '../lib/queryClient.js'
+import { useSession } from './SessionContext.jsx'
 
 /** Renders the session's visible state and hands the live context back to the test. */
 function mountSession(options) {

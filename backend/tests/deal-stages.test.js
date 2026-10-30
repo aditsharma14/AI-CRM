@@ -1,10 +1,11 @@
 // stageKey must be one of the org's stages on create and move-stage (update can't change it); won/lost close the deal either way.
 import request from 'supertest'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import app from '../src/app.js'
 import Deal from '../src/models/Deal.js'
-import Organization from '../src/models/Organization.js'
 import { ActivityLog, Notification } from '../src/models/Logs.js'
+import Organization from '../src/models/Organization.js'
 import { bearer, makeRecord, seedOrg } from './helpers.js'
 
 const api = '/api/v1/deals'

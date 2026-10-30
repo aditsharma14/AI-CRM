@@ -1,10 +1,11 @@
 // Global search plus dashboard/report aggregation reads.
 import { Router } from 'express'
-import * as insightsService from '../services/insightsService.js'
+
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
-import { apiResponse, asyncHandler } from '../utils/http.js'
 import { searchQuery } from '../schemas/insights.js'
+import * as insightsService from '../services/insightsService.js'
+import { apiResponse, asyncHandler } from '../utils/http.js'
 
 const router = Router()
 router.use(auth)

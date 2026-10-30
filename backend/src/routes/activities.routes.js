@@ -1,11 +1,12 @@
 // Task + calendar-event CRUD over the shared Activity model.
 import { Router } from 'express'
-import * as activitiesService from '../services/activitiesService.js'
+
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
-import { apiResponse, asyncHandler } from '../utils/http.js'
+import { activityCreate, activityListQuery, activityUpdate } from '../schemas/activities.js'
 import { idParam } from '../schemas/common.js'
-import { activityCreate, activityUpdate, activityListQuery } from '../schemas/activities.js'
+import * as activitiesService from '../services/activitiesService.js'
+import { apiResponse, asyncHandler } from '../utils/http.js'
 
 const router = Router()
 router.use(auth)

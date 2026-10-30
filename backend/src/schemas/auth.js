@@ -1,6 +1,7 @@
 // @ts-check
 // Auth request schemas — validators plus z.infer input types for authService.
 import { z } from 'zod'
+
 import { email, password } from '../utils/validators.js'
 
 export const registerOrg = z.object({

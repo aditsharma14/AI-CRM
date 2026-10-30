@@ -1,12 +1,13 @@
 // List filters: each allowlisted filter narrows results; unknown keys, bad values, operators and bad sorts are 400, never ignored.
-import request from 'supertest'
 import mongoose from 'mongoose'
+import request from 'supertest'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import app from '../src/app.js'
 import { Company, Contact, Lead } from '../src/models/CRM.js'
 import Deal from '../src/models/Deal.js'
-import Note from '../src/models/Note.js'
 import { Notification } from '../src/models/Logs.js'
+import Note from '../src/models/Note.js'
 import { bearer, seedOrg } from './helpers.js'
 
 const api = '/api/v1'

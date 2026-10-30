@@ -1,11 +1,12 @@
 // Lead CRUD + convert-to-deal + rescore trigger.
 import { Router } from 'express'
-import * as leadsService from '../services/leadsService.js'
+
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
-import { apiResponse, asyncHandler } from '../utils/http.js'
 import { idParam } from '../schemas/common.js'
-import { leadCreate, leadUpdate, leadConvert, leadListQuery } from '../schemas/leads.js'
+import { leadConvert, leadCreate, leadListQuery, leadUpdate } from '../schemas/leads.js'
+import * as leadsService from '../services/leadsService.js'
+import { apiResponse, asyncHandler } from '../utils/http.js'
 
 const router = Router()
 router.use(auth)

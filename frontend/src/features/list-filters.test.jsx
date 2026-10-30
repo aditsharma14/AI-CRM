@@ -1,14 +1,15 @@
 // Filter UIs send exactly the params the backend's strict list schemas accept (see backend tests/list-filters.test.js).
-import { describe, expect, it } from 'vitest'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClientProvider } from '@tanstack/react-query'
-import LeadsPage from './leads/LeadsPage.jsx'
-import NotesPanel from './notes/NotesPanel.jsx'
-import { queryClient } from '../lib/queryClient.js'
-import { recordList } from '../../tests/server.js'
+import { describe, expect, it } from 'vitest'
+
 import { makeUser } from '../../tests/factories.js'
 import { renderWithProviders } from '../../tests/render.jsx'
+import { recordList } from '../../tests/server.js'
+import { queryClient } from '../lib/queryClient.js'
+import LeadsPage from './leads/LeadsPage.jsx'
+import NotesPanel from './notes/NotesPanel.jsx'
 
 describe('Leads status filter', () => {
   it('sends no status at first, then ?status=<choice>, then none again for "All statuses"', async () => {

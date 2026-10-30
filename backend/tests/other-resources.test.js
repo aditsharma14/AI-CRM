@@ -1,8 +1,9 @@
 // Update scoping for the owned resources outside the main leads/deals matrix.
 import request from 'supertest'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import app from '../src/app.js'
-import { RENAME, bearer, makeRecord, seedOrg } from './helpers.js'
+import { bearer, makeRecord, RENAME, seedOrg } from './helpers.js'
 
 const RESOURCES = ['contacts', 'companies', 'activities', 'notes']
 

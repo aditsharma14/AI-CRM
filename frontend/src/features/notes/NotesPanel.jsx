@@ -1,8 +1,9 @@
 // Embeddable note thread mounted inside any detail drawer.
 import { useState } from 'react'
+
+import { Button, Loader } from '../../components/ui.jsx'
 import { useCrudQuery } from '../../hooks.js'
 import { formatDateTime } from '../../lib/utils.js'
-import { Button, Loader } from '../../components/ui.jsx'
 
 export default function NotesPanel({ entityType, entityId }) {
   const [draft, setDraft] = useState('')

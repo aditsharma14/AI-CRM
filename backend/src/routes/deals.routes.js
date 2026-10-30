@@ -1,11 +1,12 @@
 // Deal CRUD + move-stage + win/loss.
 import { Router } from 'express'
-import * as dealsService from '../services/dealsService.js'
+
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
-import { apiResponse, asyncHandler } from '../utils/http.js'
 import { idParam } from '../schemas/common.js'
-import { dealCreate, dealUpdate, dealMoveStage, dealListQuery } from '../schemas/deals.js'
+import { dealCreate, dealListQuery, dealMoveStage, dealUpdate } from '../schemas/deals.js'
+import * as dealsService from '../services/dealsService.js'
+import { apiResponse, asyncHandler } from '../utils/http.js'
 
 const router = Router()
 router.use(auth)

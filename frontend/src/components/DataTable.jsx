@@ -1,6 +1,6 @@
 // Generic sortable, paginated, entity-agnostic table.
 import { cn } from '../lib/utils.js'
-import { Loader, EmptyState, Button } from './ui.jsx'
+import { Button, EmptyState, Loader } from './ui.jsx'
 
 /**
  * columns: [{ key, header, render?(row) }]

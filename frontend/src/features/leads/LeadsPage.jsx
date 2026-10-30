@@ -1,20 +1,21 @@
 // Lead list, filters, detail drawer, form, convert-to-deal.
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useCrudQuery, useDebounce, useDisclosure, useMutationError, usePaginationState } from '../../hooks.js'
+
 import { api } from '../../api/client.js'
 import { DataTable } from '../../components/DataTable.jsx'
-import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
-import { FormField, inputClasses } from '../../components/FormField.jsx'
-import { Button, Badge } from '../../components/ui.jsx'
 import { ErrorAlert } from '../../components/ErrorAlert.jsx'
-import NotesPanel from '../notes/NotesPanel.jsx'
+import { FormField, inputClasses } from '../../components/FormField.jsx'
+import { ConfirmDialog, Modal } from '../../components/Modal.jsx'
+import { Badge, Button } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
-import { LEAD_STATUSES, canModifyRecord } from '../../lib/constants.js'
+import { useCrudQuery, useDebounce, useDisclosure, useMutationError, usePaginationState } from '../../hooks.js'
+import { canModifyRecord, LEAD_STATUSES } from '../../lib/constants.js'
 import { formatDate } from '../../lib/utils.js'
+import NotesPanel from '../notes/NotesPanel.jsx'
 
 const leadSchema = z.object({
   name: z.string().trim().min(1, 'Name is required'),

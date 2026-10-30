@@ -1,7 +1,8 @@
 // Dialog primitive plus a confirm-dialog variant.
+import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+
 import { Button } from './ui.jsx'
 
 export function Modal({ isOpen, onClose, title, children, footer }) {

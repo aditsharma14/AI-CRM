@@ -2,6 +2,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
 import { CHECKED_FOLDERS } from './checked-folders.js'
 
 const root = fileURLToPath(new URL('..', import.meta.url))

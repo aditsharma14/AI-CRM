@@ -1,6 +1,7 @@
 // A token whose org document is gone must get a clean 404, not a 500 crash.
 import request from 'supertest'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import app from '../src/app.js'
 import Organization from '../src/models/Organization.js'
 import { bearer, makeRecord, seedOrg } from './helpers.js'

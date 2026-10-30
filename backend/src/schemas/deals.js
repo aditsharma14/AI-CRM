@@ -1,6 +1,7 @@
 // @ts-check
 // Deal request schemas — the validators and, via z.infer, the service input types.
 import { z } from 'zod'
+
 import { listQuery, objectId, optionalObjectId, stageKeyParam } from '../utils/validators.js'
 
 export const dealCreate = z.object({

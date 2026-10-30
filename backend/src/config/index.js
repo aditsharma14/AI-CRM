@@ -1,7 +1,8 @@
 // Validates required env vars at boot; exports connectDB() and Cloudinary config.
 import 'dotenv/config'
-import mongoose from 'mongoose'
+
 import { v2 as cloudinary } from 'cloudinary'
+import mongoose from 'mongoose'
 
 const REQUIRED = ['MONGO_URI', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'CLIENT_ORIGIN', 'AI_SERVICE_URL']
 

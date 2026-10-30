@@ -1,7 +1,8 @@
 import js from '@eslint/js'
-import globals from 'globals'
-import jsdoc from 'eslint-plugin-jsdoc'
 import { defineConfig, globalIgnores } from 'eslint/config'
+import jsdoc from 'eslint-plugin-jsdoc'
+import globals from 'globals'
+
 import { CHECKED_FOLDERS } from './scripts/checked-folders.js'
 
 export default defineConfig([

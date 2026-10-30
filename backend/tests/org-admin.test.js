@@ -1,11 +1,12 @@
 // Org admin end to end: profile, members/roles, invites, teams, templates, pipeline stages, "me", password change.
 import request from 'supertest'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import app from '../src/app.js'
 import Organization from '../src/models/Organization.js'
 import User from '../src/models/User.js'
-import { bearer, seedOrg } from './helpers.js'
 import { asRefreshCookie, createUserWithPassword, login, sessionCount } from './factories.js'
+import { bearer, seedOrg } from './helpers.js'
 
 const api = '/api/v1/org'
 let n = 0

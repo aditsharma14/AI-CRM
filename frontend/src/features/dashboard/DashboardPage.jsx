@@ -1,11 +1,12 @@
 // Overview (KPIs/funnel) and Reports (forecast) tabs.
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { DollarSign, Flame, Kanban, Percent, History } from 'lucide-react'
+import { DollarSign, Flame, History, Kanban, Percent } from 'lucide-react'
+import { useState } from 'react'
+
 import { api } from '../../api/client.js'
-import { StatCard, Tabs, Loader, EmptyState } from '../../components/ui.jsx'
-import { formatCurrency, formatDateTime, cn } from '../../lib/utils.js'
+import { EmptyState, Loader, StatCard, Tabs } from '../../components/ui.jsx'
 import { usePipelineStages } from '../../hooks.js'
+import { cn, formatCurrency, formatDateTime } from '../../lib/utils.js'
 
 // The default staleTime (see lib/queryClient.js) is 30s, which is right for
 // most lists but wrong here: these numbers are a *summary of everything

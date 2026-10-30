@@ -1,12 +1,12 @@
 // @ts-check
 // Lead CRUD plus convert-to-deal (one transaction, via dealsService.create). The AI rescore is promised, not built.
 import { Lead } from '../models/CRM.js'
-import { createCrudService } from './crudService.js'
-import * as dealsService from './dealsService.js'
-import { logActivity, notify } from './activityService.js'
-import { badRequest } from '../utils/http.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
 import { leadList } from '../schemas/leads.js'
+import { badRequest } from '../utils/http.js'
+import { logActivity, notify } from './activityService.js'
+import { createCrudService } from './crudService.js'
+import * as dealsService from './dealsService.js'
 
 export const crud = createCrudService(Lead, {
   resource: 'lead',

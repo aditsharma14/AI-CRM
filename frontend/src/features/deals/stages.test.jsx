@@ -1,13 +1,14 @@
 // Pipeline stages come from the org (GET /org/pipeline-stages), in `order`, never from a hardcoded frontend list.
-import { describe, expect, it } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import PipelinePage from './PipelinePage.jsx'
-import DashboardPage from '../dashboard/DashboardPage.jsx'
-import { API, ok, page, server } from '../../../tests/server.js'
+import { describe, expect, it } from 'vitest'
+
 import { makeUser } from '../../../tests/factories.js'
 import { renderWithProviders } from '../../../tests/render.jsx'
+import { API, ok, page, server } from '../../../tests/server.js'
+import DashboardPage from '../dashboard/DashboardPage.jsx'
+import PipelinePage from './PipelinePage.jsx'
 
 // A custom pipeline, stored out of order on purpose: display must follow `order`, not array position.
 const CUSTOM_STAGES = [

@@ -1,11 +1,12 @@
 // List/mark-read notifications; read-only activity-log listing.
 import { Router } from 'express'
-import * as notificationsService from '../services/notificationsService.js'
+
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
-import { apiResponse, asyncHandler } from '../utils/http.js'
 import { idParam } from '../schemas/common.js'
 import { activityLogQuery, notificationListQuery } from '../schemas/notifications.js'
+import * as notificationsService from '../services/notificationsService.js'
+import { apiResponse, asyncHandler } from '../utils/http.js'
 
 const router = Router()
 router.use(auth)

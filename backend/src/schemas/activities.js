@@ -1,7 +1,8 @@
 // @ts-check
 // Task/event request schemas — the validators and, via z.infer, the service input types.
 import { z } from 'zod'
-import { listQuery, objectId, optionalObjectId, optionalDate } from '../utils/validators.js'
+
+import { listQuery, objectId, optionalDate, optionalObjectId } from '../utils/validators.js'
 
 export const activityCreate = z.object({
   type: z.enum(['task', 'event', 'call', 'meeting']),

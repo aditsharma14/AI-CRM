@@ -1,6 +1,6 @@
 // RBAC permission check (requirePermission) and schema-validation middleware factory.
+import { badRequest, forbidden } from '../utils/http.js'
 import { hasPermission } from '../utils/permissions.js'
-import { forbidden, badRequest } from '../utils/http.js'
 
 export function requirePermission(resource, action) {
   return (req, res, next) => {

@@ -1,8 +1,9 @@
 // Role x action x ownership matrix for leads and deals (CLAUDE.md §5 policy table).
 import request from 'supertest'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import app from '../src/app.js'
-import { MODELS, RENAME, ROLES, bearer, makeRecord, otherRoleThan, seedOrg } from './helpers.js'
+import { bearer, makeRecord, MODELS, otherRoleThan, RENAME, ROLES, seedOrg } from './helpers.js'
 
 const RESOURCES = ['leads', 'deals']
 const ACTIONS = ['list', 'get', 'update', 'delete']

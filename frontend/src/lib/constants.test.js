@@ -1,5 +1,6 @@
 // The UI mirrors must agree with the backend: canModifyRecord with ownership.js, manageableRoles/canManageMember with membership.js.
 import { describe, expect, it } from 'vitest'
+
 import { canManageMember, canModifyRecord, hasPermission, manageableRoles } from './constants.js'
 
 const user = (role, id = 'u1') => ({ id, role })

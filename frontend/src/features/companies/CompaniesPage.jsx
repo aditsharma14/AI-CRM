@@ -1,16 +1,17 @@
 // Company list, detail drawer, and form.
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useCrudQuery, useDebounce, useDisclosure, usePaginationState } from '../../hooks.js'
+
 import { DataTable } from '../../components/DataTable.jsx'
-import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
+import { ConfirmDialog, Modal } from '../../components/Modal.jsx'
 import { Button } from '../../components/ui.jsx'
-import NotesPanel from '../notes/NotesPanel.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
+import { useCrudQuery, useDebounce, useDisclosure, usePaginationState } from '../../hooks.js'
 import { canModifyRecord } from '../../lib/constants.js'
+import NotesPanel from '../notes/NotesPanel.jsx'
 
 const SIZES = ['1-10', '11-50', '51-200', '201-1000', '1000+']
 

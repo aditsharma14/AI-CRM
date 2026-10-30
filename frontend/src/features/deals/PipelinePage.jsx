@@ -1,22 +1,23 @@
 // Kanban pipeline board, drag-to-move, deal detail and form.
 // Phase 8 ships the underlying CRUD as a table; the Kanban board itself
 // arrives in Phase 9 once the dashboard/visualization layer exists.
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useCrudQuery, useDisclosure, useMutationError, usePaginationState, usePipelineStages } from '../../hooks.js'
+
 import { api } from '../../api/client.js'
 import { DataTable } from '../../components/DataTable.jsx'
-import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
-import { FormField, inputClasses } from '../../components/FormField.jsx'
-import { Button, Badge } from '../../components/ui.jsx'
 import { ErrorAlert } from '../../components/ErrorAlert.jsx'
-import NotesPanel from '../notes/NotesPanel.jsx'
+import { FormField, inputClasses } from '../../components/FormField.jsx'
+import { ConfirmDialog, Modal } from '../../components/Modal.jsx'
+import { Badge, Button } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
+import { useCrudQuery, useDisclosure, useMutationError, usePaginationState, usePipelineStages } from '../../hooks.js'
 import { canModifyRecord } from '../../lib/constants.js'
 import { formatCurrency } from '../../lib/utils.js'
+import NotesPanel from '../notes/NotesPanel.jsx'
 
 const dealSchema = z.object({
   title: z.string().trim().min(1, 'Title is required'),

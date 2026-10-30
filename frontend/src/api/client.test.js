@@ -1,8 +1,9 @@
 // The refresh-on-401 interceptor: concurrent 401s share one refresh, and nothing loops or refreshes for guests.
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import { http } from 'msw'
-import { api, getAccessToken, setAccessToken, setOnUnauthorized } from './client.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { API, fail, ok, server } from '../../tests/server.js'
+import { api, getAccessToken, setAccessToken, setOnUnauthorized } from './client.js'
 
 /** Serves `path` with 200 only for `Bearer fresh`; records every Authorization header it saw. */
 function protectedEndpoint(path) {

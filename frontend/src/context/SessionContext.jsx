@@ -1,5 +1,6 @@
 // Auth + active org + role + permission-check state.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+
 import { api, setAccessToken, setOnUnauthorized } from '../api/client.js'
 import { hasPermission } from '../lib/constants.js'
 import { queryClient } from '../lib/queryClient.js'

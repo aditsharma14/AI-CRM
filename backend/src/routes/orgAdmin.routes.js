@@ -1,22 +1,23 @@
 // Org profile, teams, members/roles, invites, pipeline & template config.
 import { Router } from 'express'
-import * as orgAdminService from '../services/orgAdminService.js'
+
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
-import { apiResponse, asyncHandler } from '../utils/http.js'
 import { idParam } from '../schemas/common.js'
 import {
-  orgProfileUpdate,
-  memberInvite,
-  memberRoleUpdate,
-  teamCreate,
-  teamUpdate,
-  pipelineStagesUpdate,
   emailTemplateCreate,
   emailTemplateUpdate,
-  profileUpdate,
+  memberInvite,
+  memberRoleUpdate,
+  orgProfileUpdate,
   passwordChange,
+  pipelineStagesUpdate,
+  profileUpdate,
+  teamCreate,
+  teamUpdate,
 } from '../schemas/org.js'
+import * as orgAdminService from '../services/orgAdminService.js'
+import { apiResponse, asyncHandler } from '../utils/http.js'
 
 const router = Router()
 router.use(auth)

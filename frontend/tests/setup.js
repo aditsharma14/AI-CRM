@@ -1,11 +1,13 @@
 // @ts-check
 // Global test setup: jest-dom matchers, MSW lifecycle, and resetting the app's module-level singletons.
 import '@testing-library/jest-dom/vitest'
+
 import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll } from 'vitest'
-import { server } from './server.js'
+
 import { setAccessToken, setOnUnauthorized } from '../src/api/client.js'
 import { queryClient } from '../src/lib/queryClient.js'
+import { server } from './server.js'
 
 // A request no handler matches is rejected (MSW's 'error') *and* fails the
 // test. 'error' alone isn't enough: it only logs, the app often swallows the

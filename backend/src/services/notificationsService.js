@@ -1,9 +1,9 @@
 // @ts-check
 // A user's notifications (list, mark read) and the org's read-only activity log.
-import { Notification, ActivityLog } from '../models/Logs.js'
+import { ActivityLog, Notification } from '../models/Logs.js'
+import { notificationList } from '../schemas/notifications.js'
 import { notFound } from '../utils/http.js'
 import { buildListQuery, paginate } from '../utils/queryBuilder.js'
-import { notificationList } from '../schemas/notifications.js'
 
 /** @typedef {import('../types/index.js').AuthUser} AuthUser */
 /** @typedef {import('../schemas/notifications.js').NotificationListQuery} NotificationListQuery */

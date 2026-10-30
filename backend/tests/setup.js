@@ -1,6 +1,6 @@
 // Per-file in-memory MongoDB; the app itself never connects (server.js does that).
-import mongoose from 'mongoose'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
+import mongoose from 'mongoose'
 import { afterAll, beforeAll } from 'vitest'
 
 let replSet

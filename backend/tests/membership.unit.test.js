@@ -1,5 +1,6 @@
 // Pure-function tests for the member-management policy (no DB, no HTTP).
 import { describe, expect, it } from 'vitest'
+
 import { assertCanAssign, assertNotSelf, manageableRoles } from '../src/policies/membership.js'
 
 const actor = (role, id = 'me') => ({ id, orgId: 'o1', role })

@@ -3,6 +3,7 @@
 // valid session for every real read/write, so an unauthenticated visitor
 // just sees empty/error states until they log in (see AppLayout's guest banner).
 import { Outlet } from 'react-router-dom'
+
 import { useSession } from '../context/SessionContext.jsx'
 import { Loader } from './ui.jsx'
 

@@ -1,10 +1,10 @@
 // Auth flows end to end: register, login, refresh rotation (incl. races), logout, invites, password reset.
 import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+
 import app from '../src/app.js'
-import User from '../src/models/User.js'
 import Organization from '../src/models/Organization.js'
-import { seedOrg } from './helpers.js'
+import User from '../src/models/User.js'
 import {
   asRefreshCookie,
   createUserWithPassword,
@@ -15,6 +15,7 @@ import {
   refreshSetCookieLine,
   sessionCount,
 } from './factories.js'
+import { seedOrg } from './helpers.js'
 
 const api = '/api/v1/auth'
 let n = 0

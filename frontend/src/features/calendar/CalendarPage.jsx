@@ -1,16 +1,17 @@
 // Month/week grid over Activity resources of type=event.
+import { zodResolver } from '@hookform/resolvers/zod'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useCrudQuery, useDisclosure } from '../../hooks.js'
-import { Modal, ConfirmDialog } from '../../components/Modal.jsx'
+
 import { FormField, inputClasses } from '../../components/FormField.jsx'
+import { ConfirmDialog, Modal } from '../../components/Modal.jsx'
 import { Button } from '../../components/ui.jsx'
-import { cn } from '../../lib/utils.js'
 import { useSession } from '../../context/SessionContext.jsx'
+import { useCrudQuery, useDisclosure } from '../../hooks.js'
 import { canModifyRecord } from '../../lib/constants.js'
+import { cn } from '../../lib/utils.js'
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 

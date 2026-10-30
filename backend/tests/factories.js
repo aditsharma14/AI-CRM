@@ -1,7 +1,9 @@
 // @ts-check
 // Typed factories for auth/org tests: real-password users, known invite/reset tokens, session cookies.
 import crypto from 'node:crypto'
+
 import request from 'supertest'
+
 import app from '../src/app.js'
 import Organization from '../src/models/Organization.js'
 import User from '../src/models/User.js'

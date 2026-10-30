@@ -1,11 +1,12 @@
 // Convert, move-stage and toggle: the write paths that bypass the CRUD factory.
 import request from 'supertest'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import app from '../src/app.js'
+import Activity from '../src/models/Activity.js'
 import { Lead } from '../src/models/CRM.js'
 import Deal from '../src/models/Deal.js'
-import Activity from '../src/models/Activity.js'
-import { ROLES, bearer, makeRecord, otherRoleThan, seedOrg } from './helpers.js'
+import { bearer, makeRecord, otherRoleThan, ROLES, seedOrg } from './helpers.js'
 
 const ACTIONS = {
   convert: {

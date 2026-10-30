@@ -1,12 +1,13 @@
 // Leads: a refused or failed save, convert or delete is shown through ErrorAlert with a specific message; nothing unsaved shows as saved.
-import { describe, expect, it } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import LeadsPage from './LeadsPage.jsx'
-import { API, fail, page, server } from '../../../tests/server.js'
+import { describe, expect, it } from 'vitest'
+
 import { makeUser } from '../../../tests/factories.js'
 import { renderWithProviders } from '../../../tests/render.jsx'
+import { API, fail, page, server } from '../../../tests/server.js'
+import LeadsPage from './LeadsPage.jsx'
 
 const LEAD = { _id: 'l1', name: 'Acme', status: 'new', score: 0, ownerId: 'user-owner', createdAt: '2026-10-01' }
 

@@ -1,12 +1,13 @@
 // Seeds orgs/users/records straight through the models and signs access tokens.
 import jwt from 'jsonwebtoken'
 import mongoose from 'mongoose'
+
+import Activity from '../src/models/Activity.js'
+import { Company, Contact, Lead } from '../src/models/CRM.js'
+import Deal from '../src/models/Deal.js'
+import Note from '../src/models/Note.js'
 import Organization from '../src/models/Organization.js'
 import User from '../src/models/User.js'
-import { Lead, Contact, Company } from '../src/models/CRM.js'
-import Deal from '../src/models/Deal.js'
-import Activity from '../src/models/Activity.js'
-import Note from '../src/models/Note.js'
 
 export const ROLES = ['owner', 'admin', 'manager', 'member']
 

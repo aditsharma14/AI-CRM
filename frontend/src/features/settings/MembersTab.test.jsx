@@ -1,12 +1,13 @@
 // Settings → Members: each role sees only the controls membership.js allows, and refused changes are shown, not swallowed.
-import { describe, expect, it } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import SettingsPage from './SettingsPage.jsx'
-import { API, fail, ok, server } from '../../../tests/server.js'
+import { describe, expect, it } from 'vitest'
+
 import { makeMember, makeUser } from '../../../tests/factories.js'
 import { renderWithProviders } from '../../../tests/render.jsx'
+import { API, fail, ok, server } from '../../../tests/server.js'
+import SettingsPage from './SettingsPage.jsx'
 
 // One of each role, plus a second admin so an admin viewer has a peer.
 const ROSTER = [

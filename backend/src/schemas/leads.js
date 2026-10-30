@@ -1,7 +1,8 @@
 // @ts-check
 // Lead request schemas — the validators and, via z.infer, the service input types.
 import { z } from 'zod'
-import { listQuery, objectId, optionalObjectId, optionalEmail, phone } from '../utils/validators.js'
+
+import { listQuery, objectId, optionalEmail, optionalObjectId, phone } from '../utils/validators.js'
 
 export const leadCreate = z.object({
   name: z.string().trim().min(1),

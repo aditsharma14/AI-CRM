@@ -1,7 +1,7 @@
 // @ts-check
 // Account schema: credentials, org ref, role, refresh-token hashes, profile.
-import mongoose from 'mongoose'
 import bcrypt from 'bcryptjs'
+import mongoose from 'mongoose'
 
 const { Schema } = mongoose
 

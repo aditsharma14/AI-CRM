@@ -1,6 +1,7 @@
 // GET /activities: every filter, the type-dependent date range and sort, pagination, isolation.
 import request from 'supertest'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import app from '../src/app.js'
 import Activity from '../src/models/Activity.js'
 import { bearer, seedOrg } from './helpers.js'

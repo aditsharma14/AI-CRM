@@ -1,9 +1,10 @@
 // Owner fields and orgId can only move the way the policy allows.
 import request from 'supertest'
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import app from '../src/app.js'
-import { Lead } from '../src/models/CRM.js'
 import Activity from '../src/models/Activity.js'
+import { Lead } from '../src/models/CRM.js'
 import Note from '../src/models/Note.js'
 import { bearer, makeRecord, seedOrg } from './helpers.js'
 

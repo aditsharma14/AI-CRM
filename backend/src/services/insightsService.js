@@ -1,7 +1,8 @@
 // @ts-check
 // Cross-collection search query and dashboard/report aggregations.
 import mongoose from 'mongoose'
-import { Lead, Contact, Company } from '../models/CRM.js'
+
+import { Company, Contact, Lead } from '../models/CRM.js'
 import Deal from '../models/Deal.js'
 import { ActivityLog } from '../models/Logs.js'
 

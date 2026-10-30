@@ -1,7 +1,8 @@
 // @ts-check
 // Contact, company and note request schemas — validators plus z.infer input types.
 import { z } from 'zod'
-import { listQuery, objectId, optionalObjectId, optionalEmail, phone } from '../utils/validators.js'
+
+import { listQuery, objectId, optionalEmail, optionalObjectId, phone } from '../utils/validators.js'
 
 export const contactCreate = z.object({
   name: z.string().trim().min(1),

@@ -1,10 +1,11 @@
 // Register org, login, refresh, logout, password reset, email verify.
 import { Router } from 'express'
-import * as authService from '../services/authService.js'
-import { validate } from '../middleware/guards.js'
-import { apiResponse } from '../utils/http.js'
-import { registerOrg, login, acceptInvite, forgotPassword, resetPassword } from '../schemas/auth.js'
+
 import { env } from '../config/index.js'
+import { validate } from '../middleware/guards.js'
+import { acceptInvite, forgotPassword, login, registerOrg, resetPassword } from '../schemas/auth.js'
+import * as authService from '../services/authService.js'
+import { apiResponse } from '../utils/http.js'
 
 const router = Router()
 

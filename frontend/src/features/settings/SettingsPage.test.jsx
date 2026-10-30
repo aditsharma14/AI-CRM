@@ -1,12 +1,13 @@
 // Settings tabs show management controls only to roles with org:manage, members:manage or pipeline:configure.
-import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
-import SettingsPage from './SettingsPage.jsx'
-import { API, ok, server } from '../../../tests/server.js'
+import { describe, expect, it } from 'vitest'
+
 import { makeMember, makeUser } from '../../../tests/factories.js'
 import { renderWithProviders } from '../../../tests/render.jsx'
+import { API, ok, server } from '../../../tests/server.js'
+import SettingsPage from './SettingsPage.jsx'
 
 const ROLES = ['owner', 'admin', 'manager', 'member']
 

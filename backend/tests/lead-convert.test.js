@@ -1,11 +1,12 @@
 // Convert creates its deal through dealsService.create (stage rules, default stage, close-on-create), all in one transaction.
 import request from 'supertest'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+
 import app from '../src/app.js'
 import { Lead } from '../src/models/CRM.js'
 import Deal from '../src/models/Deal.js'
-import Organization from '../src/models/Organization.js'
 import { ActivityLog, Notification } from '../src/models/Logs.js'
+import Organization from '../src/models/Organization.js'
 import { bearer, makeRecord, seedOrg } from './helpers.js'
 
 let base, custom, other

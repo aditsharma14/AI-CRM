@@ -1,12 +1,13 @@
 // @ts-check
 // Renders UI inside the app's real providers; the session is restored through MSW, never a mocked context.
-import { StrictMode } from 'react'
-import { render } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
+import { render } from '@testing-library/react'
 import { http } from 'msw'
-import { SessionProvider } from '../src/context/SessionContext.jsx'
+import { StrictMode } from 'react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+
 import ProtectedRoute from '../src/components/ProtectedRoute.jsx'
+import { SessionProvider } from '../src/context/SessionContext.jsx'
 import { queryClient } from '../src/lib/queryClient.js'
 import { API, fail, ok, server } from './server.js'
 

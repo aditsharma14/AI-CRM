@@ -1,16 +1,17 @@
 // Profile, organization, teams & members, roles, email templates tabs.
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Send, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Send } from 'lucide-react'
-import { useSession } from '../../context/SessionContext.jsx'
+
 import { api } from '../../api/client.js'
-import { Tabs, Button, Badge, Loader, EmptyState } from '../../components/ui.jsx'
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { ConfirmDialog } from '../../components/Modal.jsx'
-import { ErrorAlert } from '../../components/ErrorAlert.jsx'
+import { Badge, Button, EmptyState, Loader, Tabs } from '../../components/ui.jsx'
+import { useSession } from '../../context/SessionContext.jsx'
 import { useDisclosure } from '../../hooks.js'
 import { canManageMember, manageableRoles } from '../../lib/constants.js'
 

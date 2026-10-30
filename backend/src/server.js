@@ -1,6 +1,6 @@
 // Connects to MongoDB, then starts the HTTP listener.
 import app from './app.js'
-import { env, connectDB } from './config/index.js'
+import { connectDB, env } from './config/index.js'
 
 try {
   await connectDB()
