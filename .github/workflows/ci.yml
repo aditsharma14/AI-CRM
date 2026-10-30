@@ -7,6 +7,25 @@ on:
   pull_request:
 
 jobs:
+  # Formatting (Prettier for JS/JSON/YAML/CSS, ruff for Python) and ruff lint, from the repo root.
+  repo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: npm ci
+      # scripts/ruff.mjs runs ruff from AI/.venv, as the pre-commit hook does.
+      - run: python -m venv AI/.venv && AI/.venv/bin/pip install -r AI/requirements-dev.txt
+      - run: npm run format:check
+      - run: node scripts/ruff.mjs check AI
+
   backend:
     runs-on: ubuntu-latest
     defaults:
