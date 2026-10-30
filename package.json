@@ -1,0 +1,14 @@
+{
+  "name": "nimbus-crm",
+  "private": true,
+  "description": "Repo-level tooling only: formatting, lint and typecheck across backend/, frontend/ and AI/. Each service keeps its own package.json.",
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "npm --prefix backend run lint && npm --prefix frontend run lint",
+    "typecheck": "npm --prefix backend run typecheck && npm --prefix frontend run typecheck"
+  },
+  "devDependencies": {
+    "prettier": "3.9.10"
+  }
+}

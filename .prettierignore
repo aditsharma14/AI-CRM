@@ -1,0 +1,11 @@
+# Generated or vendored
+node_modules
+dist
+coverage
+playwright-report
+test-results
+package-lock.json
+AI/.venv
+
+# Prose is wrapped by hand (and CLAUDE.md has a line budget).
+*.md
