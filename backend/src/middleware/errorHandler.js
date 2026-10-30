@@ -1,46 +1,31 @@
-// Central error formatter -> standard response envelope + status code.
-import { AppError } from '../utils/http.js'
+// The only place that writes an error response: maps every error to the envelope's error branch.
+import { AppError, notFound, zodIssuesMessage } from '../utils/http.js'
 
-export function notFoundHandler(req, res) {
-  res.status(404).json({
-    success: false,
-    data: null,
-    error: { code: 'NOT_FOUND', message: `No route for ${req.method} ${req.originalUrl}` },
-    meta: null,
-  })
+/** Sends `{ success: false, data: null, error: { code, message }, meta: null }`. */
+function sendError(res, status, code, message) {
+  return res.status(status).json({ success: false, data: null, error: { code, message }, meta: null })
 }
 
-// eslint-disable-next-line no-unused-vars
-export function errorHandler(err, req, res, next) {
-  if (err instanceof AppError) {
-    return res
-      .status(err.status)
-      .json({ success: false, data: null, error: { code: err.code, message: err.message }, meta: null })
-  }
+/** No route matched: forwarded to errorHandler like any other error. */
+export function notFoundHandler(req, res, next) {
+  next(notFound(`No route for ${req.method} ${req.originalUrl}`))
+}
 
-  if (err.name === 'ValidationError' || err.name === 'ZodError') {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: { code: 'VALIDATION_ERROR', message: err.message },
-      meta: null,
-    })
-  }
+// Express recognises error middleware by its four parameters, so _next must stay.
+export function errorHandler(err, req, res, _next) {
+  // Thrown on purpose (services, guards, validate()): status, code and message are safe to send.
+  if (err instanceof AppError) return sendError(res, err.status, err.code, err.message)
 
-  if (err.code === 11000) {
-    return res.status(409).json({
-      success: false,
-      data: null,
-      error: { code: 'DUPLICATE_KEY', message: 'A record with that value already exists.' },
-      meta: null,
-    })
-  }
+  // A Zod .parse() that threw instead of going through validate(); same message format.
+  if (err.name === 'ZodError') return sendError(res, 400, 'VALIDATION_ERROR', zodIssuesMessage(err.issues))
 
+  // Mongoose schema validation.
+  if (err.name === 'ValidationError') return sendError(res, 400, 'VALIDATION_ERROR', err.message)
+
+  // Unique index violation.
+  if (err.code === 11000) return sendError(res, 409, 'DUPLICATE_KEY', 'A record with that value already exists.')
+
+  // Anything else is a bug: log it, and never send its details.
   console.error(err)
-  res.status(500).json({
-    success: false,
-    data: null,
-    error: { code: 'INTERNAL_ERROR', message: 'Something went wrong. Please try again.' },
-    meta: null,
-  })
+  return sendError(res, 500, 'INTERNAL_ERROR', 'Something went wrong. Please try again.')
 }

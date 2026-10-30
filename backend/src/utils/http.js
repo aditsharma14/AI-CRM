@@ -1,5 +1,5 @@
 // @ts-check
-// apiResponse() envelope builder, AppError and its helpers, asyncHandler().
+// apiResponse() envelope builder, AppError and its helpers, zodIssuesMessage(), asyncHandler().
 
 /** @typedef {import('express').Request} Request */
 /** @typedef {import('express').Response} Response */
@@ -32,6 +32,15 @@ export class AppError extends Error {
     this.code = code
   }
 }
+
+/**
+ * One VALIDATION_ERROR message from Zod issues, each prefixed with its field ("status: Invalid option…"),
+ * so '?status=nope' says which param was wrong.
+ * @param {ReadonlyArray<{ path: ReadonlyArray<PropertyKey>, message: string }>} issues
+ * @returns {string}
+ */
+export const zodIssuesMessage = (issues) =>
+  issues.map((i) => (i.path.length ? `${i.path.map(String).join('.')}: ${i.message}` : i.message)).join('; ')
 
 /**
  * @param {string} message

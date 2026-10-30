@@ -1,5 +1,5 @@
 // RBAC permission check (requirePermission) and schema-validation middleware factory.
-import { badRequest, forbidden } from '../utils/http.js'
+import { badRequest, forbidden, zodIssuesMessage } from '../utils/http.js'
 import { hasPermission } from '../utils/permissions.js'
 
 export function requirePermission(resource, action) {
@@ -19,11 +19,7 @@ export function validate(schemas) {
       if (!schema) continue
       const result = schema.safeParse(req[key])
       if (!result.success) {
-        // Prefix the field, so '?status=nope' says which param was wrong.
-        const messages = result.error.issues.map((i) =>
-          i.path.length ? `${i.path.join('.')}: ${i.message}` : i.message,
-        )
-        return next(badRequest(messages.join('; '), 'VALIDATION_ERROR'))
+        return next(badRequest(zodIssuesMessage(result.error.issues), 'VALIDATION_ERROR'))
       }
       // Express 5's req.query is a prototype getter that re-parses the URL
       // on every read (never caches), so a plain assignment either throws or
