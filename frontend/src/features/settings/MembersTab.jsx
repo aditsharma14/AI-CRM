@@ -1,7 +1,7 @@
 // Settings → Members & Teams: invites, member roles and removal, teams.
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Send, Trash2 } from 'lucide-react'
+import { Copy, Send, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -52,13 +52,14 @@ export default function MembersTab() {
   })
 
   const inviteForm = useForm({ resolver: zodResolver(inviteSchema), defaultValues: { role: 'member' } })
-  const [inviteSent, setInviteSent] = useState(false)
+  // { email, link }: link is set while the API has no email to send it with (S2.6) and returns it to us instead.
+  const [invited, setInvited] = useState(null)
   const invite = useMutation({
-    mutationFn: (values) => api.post('/org/members/invite', values),
-    onMutate: () => setInviteSent(false),
-    onSuccess: () => {
+    mutationFn: async (values) => (await api.post('/org/members/invite', values)).data.data,
+    onMutate: () => setInvited(null),
+    onSuccess: (data, values) => {
       inviteForm.reset({ email: '', role: 'member' })
-      setInviteSent(true)
+      setInvited({ email: values.email, link: data?.inviteUrl ? `${window.location.origin}${data.inviteUrl}` : null })
     },
   })
 
@@ -111,7 +112,11 @@ export default function MembersTab() {
           </Button>
         </form>
       )}
-      {inviteSent && <p className="text-sm text-success">Invite sent — they'll get a link to join.</p>}
+      {invited?.link ? (
+        <InviteLink email={invited.email} link={invited.link} />
+      ) : (
+        invited && <p className="text-sm text-success">Invite sent — they'll get a link to join.</p>
+      )}
       {/* A refused change (e.g. 403 from the policy) must be visible: the
           role select is controlled by server data, so it just snaps back. */}
       <ErrorAlert message={memberError.message} />
@@ -241,6 +246,43 @@ export default function MembersTab() {
         description={`"${teamToDelete?.name}" will be removed. This doesn't remove any members from the org.`}
         confirmLabel="Delete"
       />
+    </div>
+  )
+}
+
+/**
+ * The invite link, for the admin to send themselves (no email yet). It exists only in the response to their own
+ * invite, so nobody else ever sees it, and it isn't kept: it's gone on reload. It works once, for 7 days.
+ */
+function InviteLink({ email, link }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    await navigator.clipboard.writeText(link)
+    setCopied(true)
+  }
+  return (
+    <div className="rounded-lg border border-border bg-card p-4 text-sm dark:border-border-dark dark:bg-card-dark">
+      <p className="mb-2">
+        Invite created. Email isn&apos;t set up yet, so send {email} this link yourself. It works once, within 7 days.
+      </p>
+      <div className="flex gap-2">
+        <input
+          readOnly
+          value={link}
+          aria-label={`Invite link for ${email}`}
+          onFocus={(e) => e.target.select()}
+          className={inputClasses(false)}
+        />
+        <Button type="button" variant="secondary" onClick={copy}>
+          <Copy size={14} strokeWidth={1.75} />
+          Copy invite link
+        </Button>
+      </div>
+      {copied && (
+        <p role="status" className="mt-2 text-success">
+          Copied
+        </p>
+      )}
     </div>
   )
 }

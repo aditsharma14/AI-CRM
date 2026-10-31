@@ -12,7 +12,7 @@ import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Toast } from '../../components/Toast.jsx'
 import { Button } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
-import { useMutationError } from '../../hooks.js'
+import { useAppConfig, useMutationError } from '../../hooks.js'
 import { PASSWORD_HINT, passwordRule } from '../../lib/password.js'
 import { apiErrorMessage } from '../../lib/utils.js'
 
@@ -27,6 +27,7 @@ export function LoginPage() {
   const { login } = useSession()
   const navigate = useNavigate()
   const location = useLocation()
+  const { emailEnabled } = useAppConfig()
   const [serverError, setServerError] = useState(null)
   // A page that sends the user here (e.g. after a password reset) can pass a one-time notice in router state.
   const [notice, setNotice] = useState(() => location.state?.notice ?? null)
@@ -61,11 +62,14 @@ export function LoginPage() {
       <FormField label="Password" htmlFor="password" error={errors.password}>
         <input id="password" type="password" className={inputClasses(errors.password)} {...register('password')} />
       </FormField>
-      <p className="-mt-2 mb-4 text-right text-sm">
-        <Link to="/forgot-password" className={linkClasses}>
-          Forgot password?
-        </Link>
-      </p>
+      {/* Without email (S2.6) a reset link can't reach anyone, so don't offer one. */}
+      {emailEnabled && (
+        <p className="-mt-2 mb-4 text-right text-sm">
+          <Link to="/forgot-password" className={linkClasses}>
+            Forgot password?
+          </Link>
+        </p>
+      )}
       <Button type="submit" disabled={isSubmitting} className="w-full">
         {isSubmitting ? 'Signing in…' : 'Sign in'}
       </Button>
@@ -180,12 +184,29 @@ export function AcceptInvitePage() {
 const forgotSchema = z.object({ email: z.string().trim().email() })
 
 export function ForgotPasswordPage() {
+  const { emailEnabled, isLoading } = useAppConfig()
   const send = useMutation({ mutationFn: (values) => api.post('/auth/forgot-password', values) })
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm({ resolver: zodResolver(forgotSchema) })
+
+  if (isLoading) return null
+  if (!emailEnabled) {
+    return (
+      <div className="text-center text-sm">
+        <h1 className="mb-2 font-serif text-lg font-semibold">Password reset isn’t available yet</h1>
+        <p className="mb-4 text-muted dark:text-muted-dark">
+          This deployment can&apos;t send email, so there&apos;s no way to get you a reset link. Ask your
+          organization&apos;s owner for help.
+        </p>
+        <Link to="/login" className={linkClasses}>
+          Back to sign in
+        </Link>
+      </div>
+    )
+  }
 
   if (send.isSuccess) {
     // The API answers the same whether or not the email has an account, and so does this.

@@ -21,6 +21,8 @@ Object.assign(process.env, {
   JWT_ACCESS_SECRET: 'e2e-access-secret',
   CLIENT_ORIGIN: process.env.E2E_CLIENT_ORIGIN ?? 'http://localhost:5175',
   RATE_LIMIT_MAX: '1000000',
+  // The reset spec walks Forgot password, which the UI offers only with email on. (Email off: frontend unit tests.)
+  EMAIL_ENABLED: 'true',
 })
 
 // Playwright stops this process when the run ends; take mongod down with it.

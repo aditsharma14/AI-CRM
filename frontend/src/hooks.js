@@ -1,5 +1,5 @@
 // Generic reusable hooks: useCrudQuery, useDebounce, useDisclosure, usePaginationState, useClickOutside,
-// useMutationError, usePipelineStages.
+// useMutationError, usePipelineStages, useAppConfig.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -138,4 +138,17 @@ export function usePipelineStages() {
     [stages],
   )
   return { stages, labelFor, positionOf, isLoading }
+}
+
+/**
+ * What the API says this deployment can offer (public GET /config), e.g. whether there is email for password reset
+ * (S2.6). Until it answers, email counts as off, so nothing is offered that might not work.
+ */
+export function useAppConfig() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['config'],
+    queryFn: async () => (await api.get('/config')).data.data,
+    staleTime: Infinity,
+  })
+  return { emailEnabled: data?.emailEnabled ?? false, isLoading }
 }

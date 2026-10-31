@@ -4,7 +4,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { Route, Routes } from 'react-router-dom'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { renderWithProviders } from '../../../tests/render.jsx'
 import { API, fail, ok, server } from '../../../tests/server.js'
@@ -47,6 +47,8 @@ async function fillAndSubmit(user, password = NEW_PASSWORD, confirm = password) 
   await user.click(screen.getByRole('button', { name: 'Set new password' }))
 }
 
+// A deployment with email (S2.6): sign-in offers Forgot password. Without it: email-disabled.test.jsx.
+beforeEach(() => server.use(http.get(`${API}/config`, () => ok({ emailEnabled: true }))))
 afterEach(() => window.history.replaceState(null, '', '/'))
 
 describe('Reset password: the token', () => {
