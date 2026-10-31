@@ -8,11 +8,12 @@ import { z } from 'zod'
 
 import { api } from '../../api/client.js'
 import { DataTable } from '../../components/DataTable.jsx'
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { ConfirmDialog, Modal } from '../../components/Modal.jsx'
 import { Badge, Button } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
-import { useCrudQuery, useDisclosure, usePaginationState } from '../../hooks.js'
+import { useCrudQuery, useDisclosure, useMutationError, usePaginationState } from '../../hooks.js'
 import { canModifyRecord } from '../../lib/constants.js'
 import { cn, formatDate } from '../../lib/utils.js'
 
@@ -48,6 +49,9 @@ export default function TasksPage() {
   const updateTask = activities.useUpdate()
   const removeTask = activities.useRemove()
   const toggleStatus = useToggleTaskStatus()
+  // Save fails inside the open dialog; delete (which closes it) and the row toggle fail on the page.
+  const dialogError = useMutationError(createTask, updateTask)
+  const pageError = useMutationError(removeTask, toggleStatus)
 
   const {
     register,
@@ -56,11 +60,17 @@ export default function TasksPage() {
     formState: { errors, isSubmitting },
   } = useForm({ resolver: zodResolver(taskSchema) })
 
+  const clearErrors = () => {
+    dialogError.reset()
+    pageError.reset()
+  }
   const openCreate = () => {
+    clearErrors()
     reset({ title: '', description: '', dueDate: '', priority: 'medium' })
     setEditing({})
   }
   const openEdit = (task) => {
+    clearErrors()
     reset({ ...task, dueDate: task.dueDate ? task.dueDate.slice(0, 10) : '' })
     setEditing(task)
   }
@@ -68,9 +78,13 @@ export default function TasksPage() {
 
   const onSubmit = async (values) => {
     const payload = { ...values, type: 'task' }
-    if (editing?._id) await updateTask.mutateAsync({ id: editing._id, ...payload })
-    else await createTask.mutateAsync(payload)
-    close()
+    try {
+      if (editing?._id) await updateTask.mutateAsync({ id: editing._id, ...payload })
+      else await createTask.mutateAsync(payload)
+      close()
+    } catch {
+      // Shown via dialogError; the dialog stays open with what the user typed.
+    }
   }
 
   const columns = [
@@ -119,6 +133,8 @@ export default function TasksPage() {
         <Button onClick={openCreate}>New task</Button>
       </div>
 
+      {!editing && <ErrorAlert message={pageError.message} />}
+
       <DataTable
         columns={columns}
         rows={data?.data ?? []}
@@ -156,6 +172,7 @@ export default function TasksPage() {
           </>
         }
       >
+        <ErrorAlert message={dialogError.message} />
         <form id="task-form" onSubmit={handleSubmit(onSubmit)}>
           <FormField label="Title" error={errors.title}>
             <input className={inputClasses(errors.title)} {...register('title')} />

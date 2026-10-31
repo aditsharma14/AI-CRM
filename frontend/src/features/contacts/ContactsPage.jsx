@@ -5,11 +5,12 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { DataTable } from '../../components/DataTable.jsx'
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { ConfirmDialog, Modal } from '../../components/Modal.jsx'
 import { Button } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
-import { useCrudQuery, useDebounce, useDisclosure, usePaginationState } from '../../hooks.js'
+import { useCrudQuery, useDebounce, useDisclosure, useMutationError, usePaginationState } from '../../hooks.js'
 import { canModifyRecord } from '../../lib/constants.js'
 import NotesPanel from '../notes/NotesPanel.jsx'
 
@@ -35,6 +36,9 @@ export default function ContactsPage() {
   const createContact = contacts.useCreate()
   const updateContact = contacts.useUpdate()
   const removeContact = contacts.useRemove()
+  // Save fails inside the open dialog; delete closes it first, so its error shows on the page.
+  const dialogError = useMutationError(createContact, updateContact)
+  const deleteError = useMutationError(removeContact)
 
   const companies = useCrudQuery('companies')
   const { data: companyOptions } = companies.useList({ limit: 100, sort: 'name' })
@@ -46,11 +50,17 @@ export default function ContactsPage() {
     formState: { errors, isSubmitting },
   } = useForm({ resolver: zodResolver(contactSchema) })
 
+  const clearErrors = () => {
+    dialogError.reset()
+    deleteError.reset()
+  }
   const openCreate = () => {
+    clearErrors()
     reset({ name: '', email: '', phone: '', title: '', companyId: '' })
     setEditing({})
   }
   const openEdit = (contact) => {
+    clearErrors()
     reset({ ...contact, companyId: contact.companyId?._id ?? '' })
     setEditing(contact)
   }
@@ -58,9 +68,13 @@ export default function ContactsPage() {
 
   const onSubmit = async (values) => {
     const payload = { ...values, email: values.email || undefined, companyId: values.companyId || undefined }
-    if (editing?._id) await updateContact.mutateAsync({ id: editing._id, ...payload })
-    else await createContact.mutateAsync(payload)
-    close()
+    try {
+      if (editing?._id) await updateContact.mutateAsync({ id: editing._id, ...payload })
+      else await createContact.mutateAsync(payload)
+      close()
+    } catch {
+      // Shown via dialogError; the dialog stays open with what the user typed.
+    }
   }
 
   const columns = [
@@ -83,6 +97,8 @@ export default function ContactsPage() {
         placeholder="Search contacts…"
         className={`${inputClasses(false)} mb-4 max-w-xs`}
       />
+
+      {!editing && <ErrorAlert message={deleteError.message} />}
 
       <DataTable
         columns={columns}
@@ -121,6 +137,7 @@ export default function ContactsPage() {
           </>
         }
       >
+        <ErrorAlert message={dialogError.message} />
         <form id="contact-form" onSubmit={handleSubmit(onSubmit)}>
           <FormField label="Name" error={errors.name}>
             <input className={inputClasses(errors.name)} {...register('name')} />

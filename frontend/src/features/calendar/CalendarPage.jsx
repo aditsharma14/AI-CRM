@@ -5,11 +5,12 @@ import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { ConfirmDialog, Modal } from '../../components/Modal.jsx'
 import { Button } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
-import { useCrudQuery, useDisclosure } from '../../hooks.js'
+import { useCrudQuery, useDisclosure, useMutationError } from '../../hooks.js'
 import { canModifyRecord } from '../../lib/constants.js'
 import { cn } from '../../lib/utils.js'
 
@@ -60,7 +61,7 @@ export default function CalendarPage() {
   const rangeEnd = days[days.length - 1]
 
   const activities = useCrudQuery('activities')
-  const { data, isLoading } = activities.useList({
+  const { data, isLoading, isError, error, refetch } = activities.useList({
     type: 'event',
     limit: 100,
     dateFrom: rangeStart.toISOString(),
@@ -69,6 +70,9 @@ export default function CalendarPage() {
   const createEvent = activities.useCreate()
   const updateEvent = activities.useUpdate()
   const removeEvent = activities.useRemove()
+  // Save fails inside the open dialog; delete closes it first, so its error shows on the page.
+  const dialogError = useMutationError(createEvent, updateEvent)
+  const deleteError = useMutationError(removeEvent)
 
   const eventsByDay = useMemo(() => {
     const map = new Map()
@@ -87,13 +91,19 @@ export default function CalendarPage() {
     formState: { errors, isSubmitting },
   } = useForm({ resolver: zodResolver(eventSchema) })
 
+  const clearErrors = () => {
+    dialogError.reset()
+    deleteError.reset()
+  }
   const openCreate = (day) => {
+    clearErrors()
     const defaultStart = new Date(day)
     defaultStart.setHours(9, 0, 0, 0)
     reset({ title: '', description: '', startAt: toDateTimeLocal(defaultStart.toISOString()), endAt: '' })
     setEditing({})
   }
   const openEdit = (event) => {
+    clearErrors()
     reset({ ...event, startAt: toDateTimeLocal(event.startAt), endAt: toDateTimeLocal(event.endAt) })
     setEditing(event)
   }
@@ -107,9 +117,13 @@ export default function CalendarPage() {
       startAt: new Date(values.startAt).toISOString(),
       endAt: values.endAt ? new Date(values.endAt).toISOString() : undefined,
     }
-    if (editing?._id) await updateEvent.mutateAsync({ id: editing._id, ...payload })
-    else await createEvent.mutateAsync(payload)
-    close()
+    try {
+      if (editing?._id) await updateEvent.mutateAsync({ id: editing._id, ...payload })
+      else await createEvent.mutateAsync(payload)
+      close()
+    } catch {
+      // Shown via dialogError; the dialog stays open with what the user typed.
+    }
   }
 
   const today = dateKey(new Date())
@@ -138,6 +152,10 @@ export default function CalendarPage() {
           </Button>
         </div>
       </div>
+
+      {/* An empty grid would read as "nothing scheduled". */}
+      {isError && <ErrorAlert error={error} onRetry={refetch} />}
+      {!editing && <ErrorAlert message={deleteError.message} />}
 
       <div className={cn('rounded-lg border border-border dark:border-border-dark', isLoading && 'opacity-50')}>
         <div className="grid grid-cols-7 border-b border-border dark:border-border-dark">
@@ -227,6 +245,7 @@ export default function CalendarPage() {
           </>
         }
       >
+        <ErrorAlert message={dialogError.message} />
         <form id="event-form" onSubmit={handleSubmit(onSubmit)}>
           <FormField label="Title" error={errors.title}>
             <input className={inputClasses(errors.title)} {...register('title')} />

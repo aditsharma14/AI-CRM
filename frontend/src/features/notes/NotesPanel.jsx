@@ -3,7 +3,7 @@ import { useState } from 'react'
 
 import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { Button, Loader } from '../../components/ui.jsx'
-import { useCrudQuery } from '../../hooks.js'
+import { useCrudQuery, useMutationError } from '../../hooks.js'
 import { formatDateTime } from '../../lib/utils.js'
 
 export default function NotesPanel({ entityType, entityId }) {
@@ -11,10 +11,12 @@ export default function NotesPanel({ entityType, entityId }) {
   const notes = useCrudQuery('notes')
   const { data, isLoading, isError, error, refetch } = notes.useList({ entityType, entityId, sort: '-createdAt' })
   const createNote = notes.useCreate()
+  const createError = useMutationError(createNote)
 
   const submit = (e) => {
     e.preventDefault()
     if (!draft.trim()) return
+    // The draft is cleared only once the note is saved, so a failed add keeps what was typed.
     createNote.mutate({ entityType, entityId, body: draft.trim() }, { onSuccess: () => setDraft('') })
   }
 
@@ -25,12 +27,14 @@ export default function NotesPanel({ entityType, entityId }) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Add a note…"
+          aria-label="New note"
           className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm dark:border-border-dark dark:bg-surface-dark"
         />
         <Button type="submit" disabled={createNote.isPending || !draft.trim()}>
           Add
         </Button>
       </form>
+      <ErrorAlert message={createError.message} />
 
       {isLoading ? (
         <Loader className="h-4 w-4" />

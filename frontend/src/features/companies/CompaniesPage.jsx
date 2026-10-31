@@ -5,11 +5,12 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { DataTable } from '../../components/DataTable.jsx'
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { ConfirmDialog, Modal } from '../../components/Modal.jsx'
 import { Button } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
-import { useCrudQuery, useDebounce, useDisclosure, usePaginationState } from '../../hooks.js'
+import { useCrudQuery, useDebounce, useDisclosure, useMutationError, usePaginationState } from '../../hooks.js'
 import { canModifyRecord } from '../../lib/constants.js'
 import NotesPanel from '../notes/NotesPanel.jsx'
 
@@ -36,6 +37,9 @@ export default function CompaniesPage() {
   const createCompany = companies.useCreate()
   const updateCompany = companies.useUpdate()
   const removeCompany = companies.useRemove()
+  // Save fails inside the open dialog; delete closes it first, so its error shows on the page.
+  const dialogError = useMutationError(createCompany, updateCompany)
+  const deleteError = useMutationError(removeCompany)
 
   const {
     register,
@@ -44,11 +48,17 @@ export default function CompaniesPage() {
     formState: { errors, isSubmitting },
   } = useForm({ resolver: zodResolver(companySchema) })
 
+  const clearErrors = () => {
+    dialogError.reset()
+    deleteError.reset()
+  }
   const openCreate = () => {
+    clearErrors()
     reset({ name: '', domain: '', industry: '', size: '' })
     setEditing({})
   }
   const openEdit = (company) => {
+    clearErrors()
     reset(company)
     setEditing(company)
   }
@@ -56,9 +66,13 @@ export default function CompaniesPage() {
 
   const onSubmit = async (values) => {
     const payload = { ...values, size: values.size || undefined }
-    if (editing?._id) await updateCompany.mutateAsync({ id: editing._id, ...payload })
-    else await createCompany.mutateAsync(payload)
-    close()
+    try {
+      if (editing?._id) await updateCompany.mutateAsync({ id: editing._id, ...payload })
+      else await createCompany.mutateAsync(payload)
+      close()
+    } catch {
+      // Shown via dialogError; the dialog stays open with what the user typed.
+    }
   }
 
   const columns = [
@@ -81,6 +95,8 @@ export default function CompaniesPage() {
         placeholder="Search companies…"
         className={`${inputClasses(false)} mb-4 max-w-xs`}
       />
+
+      {!editing && <ErrorAlert message={deleteError.message} />}
 
       <DataTable
         columns={columns}
@@ -119,6 +135,7 @@ export default function CompaniesPage() {
           </>
         }
       >
+        <ErrorAlert message={dialogError.message} />
         <form id="company-form" onSubmit={handleSubmit(onSubmit)}>
           <FormField label="Name" error={errors.name}>
             <input className={inputClasses(errors.name)} {...register('name')} />
