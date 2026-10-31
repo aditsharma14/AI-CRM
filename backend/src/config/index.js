@@ -32,6 +32,18 @@ export const env = {
 // Same fail-fast rule for a lifetime the cookie code couldn't read.
 ttlToMs(env.refreshTokenTtl)
 
+// The placeholders in .env.example and docker-compose.yml are fine for development, never for production:
+// anyone who has read the repo could sign tokens. (The error never includes the secret.)
+const PLACEHOLDER_SECRETS = ['change-me-access-secret', 'dev-only-compose-secret-change-me']
+if (env.nodeEnv === 'production') {
+  const secret = env.jwtAccessSecret ?? ''
+  if (secret.length < 32 || PLACEHOLDER_SECRETS.includes(secret)) {
+    throw new Error(
+      'JWT_ACCESS_SECRET must be at least 32 characters, and not a placeholder, when NODE_ENV=production.',
+    )
+  }
+}
+
 export async function connectDB() {
   mongoose.set('strictQuery', true)
   await mongoose.connect(env.mongoUri)
