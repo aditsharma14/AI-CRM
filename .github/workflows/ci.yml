@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Formatting (Prettier for JS/JSON/YAML/CSS, ruff for Python) and ruff lint, from the repo root.
+  # Prettier over the whole repo (JS, JSON, YAML, CSS). Python formatting is the ai job's.
   repo:
     runs-on: ubuntu-latest
     steps:
@@ -18,14 +18,27 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npx prettier --check .
+
+  # The FastAPI service: ruff lint and format, and pytest (a placeholder until S2.1 builds the app).
+  # Dev tools only; the runtime requirements join when there are real tests to run.
+  ai:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: AI
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: npm ci
-      # scripts/ruff.mjs runs ruff from AI/.venv, as the pre-commit hook does.
-      - run: python -m venv AI/.venv && AI/.venv/bin/pip install -r AI/requirements-dev.txt
-      - run: npm run format:check
-      - run: node scripts/ruff.mjs check AI
+          cache: pip
+          cache-dependency-path: AI/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: pytest
 
   backend:
     runs-on: ubuntu-latest
