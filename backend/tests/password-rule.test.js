@@ -15,11 +15,14 @@ const api = '/api/v1'
 const bytes = (s) => Buffer.byteLength(s, 'utf8')
 
 // [description, password, accepted, issue message when refused]. The frontend mirrors this table (lib/password.test.js).
+// Spelled out: a literal one is invisible, and tooling may turn the escape into one.
+const NBSP = String.fromCodePoint(0xa0)
+
 const CASES = [
   ['7 characters', 'a'.repeat(7), false, 'must be at least 8 characters'],
   ['8 characters', 'a'.repeat(8), true],
   ['8 spaces', ' '.repeat(8), false, 'must not be only whitespace'],
-  ['tabs, newlines and a no-break space', '\t\n  \t\n  ', false, 'must not be only whitespace'],
+  ['tabs, newlines and a no-break space', `\t\n ${NBSP}\t\n ${NBSP}`, false, 'must not be only whitespace'],
   ['spaces around a real password (kept, not trimmed)', '  pass word  ', true],
   ['72 ASCII bytes', 'a'.repeat(72), true],
   ['73 ASCII bytes', 'a'.repeat(73), false, 'must be at most 72 bytes'],
