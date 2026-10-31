@@ -1,5 +1,8 @@
 # Nimbus CRM
 
+[![CI](https://github.com/aditsharma14/AI-CRM/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aditsharma14/AI-CRM/actions/workflows/ci.yml)
+[![Coverage: backend services](https://img.shields.io/badge/coverage%20(services)-99.65%25-brightgreen)](docs/ci.md#coverage)
+
 A multi-tenant CRM with an AI assistant layered on top: leads, contacts, companies, deals
 pipeline, tasks, calendar, and org/role management, backed by an Express API and a FastAPI
 service that handles LLM-powered chat, content generation, and insights.
