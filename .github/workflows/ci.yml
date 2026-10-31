@@ -1,10 +1,11 @@
-# Runs on every push and PR. Make "backend" and "frontend" required status checks in the
-# branch protection rule for main so a failing lint/typecheck/test blocks merges.
+# Runs on every push and PR, and by hand (gh workflow run ci.yml --ref <branch>). There is no branch
+# protection, so this doesn't block merges; the pre-commit hook is the gate. See docs/ci.md.
 name: CI
 
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   # Formatting (Prettier for JS/JSON/YAML/CSS, ruff for Python) and ruff lint, from the repo root.
@@ -84,3 +85,19 @@ jobs:
         with:
           name: playwright-traces
           path: frontend/test-results
+
+  # The compose stack as a user runs it: build, start, prove the replica set and a transactional lead
+  # conversion through the API (scripts/ci/docker-smoke.sh), then tear down.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose version
+      - run: docker compose build
+      # Returns once mongo is healthy (PRIMARY) and the api and client have started.
+      - run: docker compose up -d
+      - run: bash scripts/ci/docker-smoke.sh
+      - if: failure()
+        run: docker compose ps -a && docker compose logs --no-color
+      - if: always()
+        run: docker compose down -v
