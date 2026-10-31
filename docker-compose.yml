@@ -1,3 +1,6 @@
+# Local convenience only: production points MONGO_URI at MongoDB Atlas and supplies real secrets.
+# `docker compose up` starts client, api and mongo. The AI service is a stub until S2.1, so it sits behind
+# a profile: `docker compose --profile ai up` starts it too (S2.1 removes the profile).
 services:
   client:
     build: ./frontend
@@ -8,26 +11,37 @@ services:
 
   api:
     build: ./backend
-    env_file: ./backend/.env
+    # Optional, so a fresh clone (or CI) runs without a local .env. Values below override it, because the
+    # .env.example values (localhost) are wrong inside the compose network.
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      # Dev stack: the image defaults to production, which refuses the dev-only secret below.
+      NODE_ENV: development
+      MONGO_URI: mongodb://mongo:27017/nimbus-crm?replicaSet=rs0
+      CLIENT_ORIGIN: http://localhost:8080
+      # Dev-only default; the backend refuses it when NODE_ENV=production. Override with a real one.
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-compose-secret-change-me}
     ports:
       - '5000:5000'
     depends_on:
       mongo:
         condition: service_healthy
-      ai:
-        condition: service_started
 
   ai:
+    profiles: ['ai']
     build: ./AI
-    env_file: ./AI/.env
+    env_file:
+      - path: ./AI/.env
+        required: false
     ports:
       - '8000:8000'
     depends_on:
       - mongo
 
-  # Local convenience only — production points MONGO_URI at MongoDB Atlas instead.
-  # A one-node replica set, not a standalone server: lead conversion runs in a
-  # transaction, and MongoDB only supports transactions on replica sets.
+  # A one-node replica set, not a standalone server: lead conversion and signup run in transactions,
+  # and MongoDB only supports transactions on replica sets.
   mongo:
     image: mongo:7
     command: ['--replSet', 'rs0', '--bind_ip_all']
@@ -35,15 +49,15 @@ services:
       - '27017:27017'
     volumes:
       - mongo-data:/data/db
-    # Initiates the set on first start (idempotent), then reports healthy, so
-    # the api only starts once transactions work.
+    # Initiates the set on first start (idempotent), then reports healthy only once this node is PRIMARY,
+    # so the api never connects before transactions work.
     healthcheck:
       test:
         - CMD
         - mongosh
         - --quiet
         - --eval
-        - "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }).ok }"
+        - "try { rs.status() } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }) }; quit(rs.status().myState === 1 ? 0 : 1)"
       interval: 5s
       timeout: 10s
       retries: 30

@@ -22,7 +22,8 @@ Read this before changing anything. Overview: [readme.md](readme.md). History: [
   (both empty today).
 - **The AI service reads MongoDB and never writes.** It reads only for RAG context, filtered by the `orgId`
   Express sends. If an AI result must be saved (e.g. a lead score), Express saves it.
-- Containers are wired in [docker-compose.yml](docker-compose.yml): `client`, `api`, `ai`, `mongo` (Mongo 7, dev only; Atlas in prod).
+- Containers are wired in [docker-compose.yml](docker-compose.yml): `client`, `api`, `mongo` (Mongo 7, dev only; Atlas in prod), and
+  `ai` behind the `ai` profile until S2.1 builds it (`docker compose --profile ai up`).
 
 ## 2. Folder map
 
@@ -159,7 +160,7 @@ cd frontend && npm install && npm run dev     # :5173, proxies /api → :5000
 cd frontend && npm run build                  # production bundle → frontend/dist
 cd AI && python -m venv .venv && .venv/Scripts/activate && pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000     # currently FAILS: app/main.py is a stub
-docker compose up --build                     # all services, :8080. See Docker caveat below.
+docker compose up --build                     # client, api, mongo; :8080. See Docker below.
 ```
 
 | Var | Service | Required at boot | Actually read? |
@@ -188,9 +189,8 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
   pre-commit hook runs them on staged files and blocks the commit; see [CONTRIBUTING.md](CONTRIBUTING.md). Logs are pino JSON.
 - **CI:** [.github/workflows/ci.yml](.github/workflows/ci.yml) runs `repo` (format, ruff), `backend`, `frontend` and `e2e` on every
   push and PR. It doesn't block merges (no branch protection), so the pre-commit hook is the gate.
-- **Docker caveat:** the `.env.example` values use `localhost`. Under Compose, set `MONGO_URI=mongodb://mongo:27017/nimbus-crm`
-  and `CLIENT_ORIGIN=http://localhost:8080`. There is no `.dockerignore`, so local `.env`
-  files and `node_modules` get copied into images.
+- **Docker:** compose sets the api's container values itself (`MONGO_URI` with `replicaSet=rs0`, `CLIENT_ORIGIN`, a dev-only JWT
+  secret, `NODE_ENV=development`); `backend/.env` is optional. No `.dockerignore`: local `.env` and `node_modules` get copied in.
 - **Replica set:** a standalone mongod makes lead convert fail ("Transaction numbers are only allowed on a replica set").
   To convert a local service: add `replication:` / `  replSetName: rs0` to `mongod.cfg`, restart the service, then run
   `mongosh --eval "rs.initiate()"` once. Tests and e2e start their own in-memory replica sets.
