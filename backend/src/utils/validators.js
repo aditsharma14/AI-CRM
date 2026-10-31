@@ -92,4 +92,15 @@ export const phone = optional(z.string().trim().min(6).max(20))
 // has to run first — same fix, same reason, one more field type.
 export const optionalDate = optional(z.coerce.date())
 
-export const password = z.string().min(8, 'Password must be at least 8 characters')
+// The one rule for setting a password (register, accept invite, reset, change); login only checks it's present,
+// so passwords set before a rule change still work. Mirrored by frontend/src/lib/password.js.
+// - Length in characters (code points), not UTF-16 units: '😀'.length is 2.
+// - Not only whitespace, but never trimmed: the stored password is exactly what was typed.
+// - bcrypt hashes only the first 72 bytes and silently ignores the rest, so a longer one is refused. Bytes, not
+//   characters: 'é' is 2 bytes and '😀' is 4.
+export const PASSWORD_MAX_BYTES = 72
+export const password = z
+  .string()
+  .refine((value) => [...value].length >= 8, 'must be at least 8 characters')
+  .refine((value) => value.trim() !== '', 'must not be only whitespace')
+  .refine((value) => Buffer.byteLength(value, 'utf8') <= PASSWORD_MAX_BYTES, 'must be at most 72 bytes')
