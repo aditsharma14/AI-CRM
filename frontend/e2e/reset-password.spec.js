@@ -74,7 +74,7 @@ test('forgot password → reset with the emailed link → old sessions signed ou
     const refresh = page.waitForResponse((r) => r.url().endsWith('/api/v1/auth/refresh'))
     await page.reload()
     expect((await refresh).status()).toBe(401)
-    await expect(page.getByText(/browsing Clarion without an account/)).toBeVisible()
+    await expect(page.getByText(/browsing Nimbus CRM without an account/)).toBeVisible()
   })
 
   await test.step('the same link cannot be used twice', async () => {

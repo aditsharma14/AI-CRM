@@ -114,7 +114,7 @@ export default function AppLayout() {
       >
         <div className={cn('flex items-center gap-2 px-4 py-4', isSidebarCollapsed && 'justify-center px-0')}>
           {!isSidebarCollapsed && (
-            <span className="font-serif text-lg font-semibold text-primary dark:text-primary-dark">Clarion</span>
+            <span className="font-serif text-lg font-semibold text-primary dark:text-primary-dark">Nimbus CRM</span>
           )}
         </div>
 
@@ -190,7 +190,7 @@ export default function AppLayout() {
       <div className="flex min-h-screen flex-1 flex-col">
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-surface/80 px-6 py-3 backdrop-blur dark:border-border-dark dark:bg-surface-dark/80">
           <p className="text-sm text-muted dark:text-muted-dark">
-            Clarion <span className="mx-1.5">/</span>
+            Nimbus CRM <span className="mx-1.5">/</span>
             <span className="font-medium text-text dark:text-text-dark">{currentPage?.label ?? 'Dashboard'}</span>
           </p>
 
@@ -276,7 +276,7 @@ export default function AppLayout() {
             needs one — this is the one honest place that says so. */}
         {!isAuthenticated && (
           <div className="flex items-center justify-center gap-3 border-b border-border bg-accent-50 px-4 py-2 text-sm text-accent dark:border-border-dark dark:bg-accent/10 dark:text-accent-dark">
-            <span>You're browsing Clarion without an account — data won't load or save until you log in.</span>
+            <span>You're browsing Nimbus CRM without an account — data won't load or save until you log in.</span>
             <Link to="/login" className="font-medium underline underline-offset-2">
               Log in
             </Link>

@@ -243,7 +243,5 @@ Open gaps only. Smaller findings, open questions and everything resolved (with d
    [cloudinaryUpload.js](backend/src/utils/cloudinaryUpload.js), [FileUploader.jsx](frontend/src/components/FileUploader.jsx),
    [AIChatWidget.jsx](frontend/src/features/ai/AIChatWidget.jsx) and [AIActionsMenu.jsx](frontend/src/features/ai/AIActionsMenu.jsx).
 4. **No Kanban board.** [PipelinePage.jsx](frontend/src/features/deals/PipelinePage.jsx) renders a table.
-5. **Product name inconsistent.** "Nimbus CRM" in [readme.md](readme.md); "Clarion" in [AppLayout.jsx](frontend/src/layouts/AppLayout.jsx),
-   [AuthLayout.jsx](frontend/src/layouts/AuthLayout.jsx) and [index.html](frontend/index.html).
-6. **Deployment config disagrees with docs.** [vercel.json](vercel.json) declares the backend as a Vercel service, while the readme
+5. **Deployment config disagrees with docs.** [vercel.json](vercel.json) declares the backend as a Vercel service, while the readme
    says it's hosted elsewhere. Its rewrite `"/api/(/.*)?"` likely doesn't match `/api/v1/...` (`"/api(/.*)?"` intended?).

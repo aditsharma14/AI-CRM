@@ -25,11 +25,11 @@ plus a record of what has been resolved. Newest resolutions first.
 - What exactly happens if a token lacked `orgId`? Mongoose likely casts it to `null` and matches nothing. (A token whose
   org *document* is gone gets a 404; see [missing-org.test.js](../backend/tests/missing-org.test.js).) Not tested.
 - Does the [vercel.json](../vercel.json) rewrite really fail on `/api/v1/...`? Reasoned from path-to-regexp; not deployed.
-- Is "Clarion" a deliberate rebrand, or should it be "Nimbus"?
 
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-11-01 | **Product name inconsistent:** "Nimbus CRM" in the readme, another name in the app shell, sign-in and the page title | Nimbus CRM everywhere (S1.8; the database name was already `nimbus-crm`) |
 | 2026-11-01 | **No reset-password page** (CLAUDE.md gap 9.1): the backend issued `/reset-password?token=` links the app couldn't open, and there was no way to ask for one | `/forgot-password` and `/reset-password` (token removed from the URL with `replaceState`; missing, expired and success states) (`2f85355`); e2e with planted tokens, mutation-checked (`a41586c`) |
 | 2026-11-01 | **The password rule was only `min(8)`:** eight spaces were a valid password; bcrypt silently ignored everything after 72 bytes; four emoji counted as 8 characters | one shared rule: 8+ code points, not only whitespace (never trimmed), ≤ 72 UTF-8 bytes, on all four endpoints; client mirror with the same case table (`37a8f60`, `2f85355`). Existing passwords still log in |
 | 2026-11-01 | **[#13] Save errors were silent** on Contacts, Companies, Tasks, Calendar, Notes and Settings (unhandled `mutateAsync` rejections, fire-and-forget `mutate`) | `useMutationError` + `ErrorAlert` everywhere, input kept on failure, field-level 400s via `forFields` (`324b7d7`, `63bfab1`; hook `7a45269`) |
