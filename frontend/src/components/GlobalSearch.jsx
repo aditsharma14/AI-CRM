@@ -16,7 +16,7 @@ import {
   Settings,
   Users,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 
@@ -52,10 +52,11 @@ export default function GlobalSearch({ isOpen, onClose }) {
   // next time it opens. This runs from an event handler (a key press, a
   // click), not an effect — React's own docs recommend against calling
   // setState directly inside useEffect when a handler works just as well.
-  const handleClose = () => {
+  // Memoized on onClose so the Escape listener below can depend on it.
+  const handleClose = useCallback(() => {
     setQuery('')
     onClose()
-  }
+  }, [onClose])
 
   // Refocusing the input IS a legitimate effect (imperatively touching a
   // DOM node rather than updating state), so it stays a useEffect.
@@ -70,8 +71,8 @@ export default function GlobalSearch({ isOpen, onClose }) {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen])
+    // Re-subscribes when onClose changes, so Escape never calls a stale one.
+  }, [isOpen, handleClose])
 
   // GET /api/v1/search does the work (and has its own tests); this just calls it.
   const { data, isFetching } = useQuery({
