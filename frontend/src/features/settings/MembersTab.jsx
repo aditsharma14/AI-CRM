@@ -12,7 +12,7 @@ import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { ConfirmDialog } from '../../components/Modal.jsx'
 import { Badge, Button, Loader } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
-import { useDisclosure } from '../../hooks.js'
+import { useDisclosure, useMutationError } from '../../hooks.js'
 import { canManageMember, manageableRoles } from '../../lib/constants.js'
 
 const ROLE_VARIANT = { owner: 'success', admin: 'warning', manager: 'default', member: 'default' }
@@ -55,6 +55,7 @@ export default function MembersTab() {
   const [inviteSent, setInviteSent] = useState(false)
   const invite = useMutation({
     mutationFn: (values) => api.post('/org/members/invite', values),
+    onMutate: () => setInviteSent(false),
     onSuccess: () => {
       inviteForm.reset({ email: '', role: 'member' })
       setInviteSent(true)
@@ -82,6 +83,8 @@ export default function MembersTab() {
     mutationFn: (id) => api.delete(`/org/teams/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['org', 'teams'] }),
   })
+  const memberError = useMutationError(invite, updateRole, removeMember)
+  const teamError = useMutationError(createTeam, deleteTeam)
 
   return (
     <div className="flex flex-col gap-8">
@@ -111,7 +114,7 @@ export default function MembersTab() {
       {inviteSent && <p className="text-sm text-success">Invite sent — they'll get a link to join.</p>}
       {/* A refused change (e.g. 403 from the policy) must be visible: the
           role select is controlled by server data, so it just snaps back. */}
-      <ErrorAlert error={updateRole.error ?? removeMember.error ?? invite.error} />
+      <ErrorAlert message={memberError.message} />
 
       <div>
         <h2 className="mb-3 font-serif text-lg font-semibold">Members</h2>
@@ -177,6 +180,7 @@ export default function MembersTab() {
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
               placeholder="New team name…"
+              aria-label="New team name"
               className={`${inputClasses(false)} max-w-xs`}
             />
             <Button type="submit" disabled={createTeam.isPending || !teamName.trim()}>
@@ -184,6 +188,7 @@ export default function MembersTab() {
             </Button>
           </form>
         )}
+        <ErrorAlert message={teamError.message} />
         {teams.isLoading ? (
           <Loader className="h-5 w-5" />
         ) : teams.isError ? (

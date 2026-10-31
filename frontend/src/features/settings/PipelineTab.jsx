@@ -12,7 +12,7 @@ import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { ConfirmDialog } from '../../components/Modal.jsx'
 import { Button, EmptyState, Loader } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
-import { useDisclosure } from '../../hooks.js'
+import { useDisclosure, useMutationError } from '../../hooks.js'
 
 const templateSchema = z.object({
   name: z.string().trim().min(1, 'Name is required'),
@@ -64,6 +64,9 @@ export default function PipelineTab() {
     mutationFn: (id) => api.delete(`/org/email-templates/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['org', 'email-templates'] }),
   })
+  // A failed stage save keeps the draft (it's cleared only on success), so the user can retry.
+  const stagesError = useMutationError(saveStages)
+  const templateError = useMutationError(createTemplate, deleteTemplate)
 
   if (isLoading) return <Loader className="h-6 w-6" />
   // An empty stage list would read as "this org has no stages", and saving from it would be wrong.
@@ -91,12 +94,14 @@ export default function PipelineTab() {
                   disabled={!canConfigure}
                   value={stage.label}
                   onChange={(e) => renameStage(stage.key, e.target.value)}
+                  aria-label={`Label for stage ${stage.key}`}
                   className={`${inputClasses(false)} max-w-xs`}
                 />
                 <span className="font-mono text-xs text-muted dark:text-muted-dark">{stage.key}</span>
               </div>
             ))}
         </div>
+        <ErrorAlert message={stagesError.message} className="mt-3" />
         {canConfigure && draftStages && (
           <Button className="mt-3" disabled={saveStages.isPending} onClick={() => saveStages.mutate(draftStages)}>
             Save stage names
@@ -106,6 +111,7 @@ export default function PipelineTab() {
 
       <div>
         <h2 className="mb-3 font-serif text-lg font-semibold">Email templates</h2>
+        <ErrorAlert message={templateError.message} />
         {canConfigure && (
           <form
             onSubmit={templateForm.handleSubmit((v) => createTemplate.mutate(v))}

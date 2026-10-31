@@ -10,6 +10,7 @@ import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
+import { useMutationError } from '../../hooks.js'
 
 const profileSchema = z.object({ name: z.string().trim().min(1, 'Name is required') })
 const passwordSchema = z
@@ -28,6 +29,7 @@ export default function ProfileTab() {
   const profileForm = useForm({ resolver: zodResolver(profileSchema), defaultValues: { name: user?.name ?? '' } })
   const updateProfile = useMutation({
     mutationFn: async (values) => (await api.patch('/org/me', values)).data.data,
+    onMutate: () => setSavedName(false),
     onSuccess: (updatedUser) => {
       updateLocalUser({ name: updatedUser.name })
       setSavedName(true)
@@ -37,11 +39,21 @@ export default function ProfileTab() {
   const passwordForm = useForm({ resolver: zodResolver(passwordSchema) })
   const changePassword = useMutation({
     mutationFn: (values) => api.patch('/org/me/password', values),
+    onMutate: () => setSavedPassword(false),
     onSuccess: () => {
       passwordForm.reset()
       setSavedPassword(true)
     },
   })
+
+  const nameError = useMutationError(updateProfile)
+  // A 400 on one of the password fields shows under that field; anything else goes in the alert.
+  const passwordError = useMutationError(changePassword).forFields([
+    'currentPassword',
+    'newPassword',
+    'confirmPassword',
+  ])
+  const passwordFieldError = (field) => passwordForm.formState.errors[field] ?? passwordError.fieldErrors[field]
 
   return (
     <div className="flex max-w-md flex-col gap-8">
@@ -50,6 +62,7 @@ export default function ProfileTab() {
         <FormField label="Name" error={profileForm.formState.errors.name}>
           <input className={inputClasses(profileForm.formState.errors.name)} {...profileForm.register('name')} />
         </FormField>
+        <ErrorAlert message={nameError.message} />
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={updateProfile.isPending}>
             Save name
@@ -60,28 +73,28 @@ export default function ProfileTab() {
 
       <form onSubmit={passwordForm.handleSubmit((v) => changePassword.mutate(v))}>
         <h2 className="mb-4 font-serif text-lg font-semibold">Change password</h2>
-        <FormField label="Current password" error={passwordForm.formState.errors.currentPassword}>
+        <FormField label="Current password" error={passwordFieldError('currentPassword')}>
           <input
             type="password"
-            className={inputClasses(passwordForm.formState.errors.currentPassword)}
+            className={inputClasses(passwordFieldError('currentPassword'))}
             {...passwordForm.register('currentPassword')}
           />
         </FormField>
-        <FormField label="New password" error={passwordForm.formState.errors.newPassword} hint="At least 8 characters.">
+        <FormField label="New password" error={passwordFieldError('newPassword')} hint="At least 8 characters.">
           <input
             type="password"
-            className={inputClasses(passwordForm.formState.errors.newPassword)}
+            className={inputClasses(passwordFieldError('newPassword'))}
             {...passwordForm.register('newPassword')}
           />
         </FormField>
-        <FormField label="Confirm new password" error={passwordForm.formState.errors.confirmPassword}>
+        <FormField label="Confirm new password" error={passwordFieldError('confirmPassword')}>
           <input
             type="password"
-            className={inputClasses(passwordForm.formState.errors.confirmPassword)}
+            className={inputClasses(passwordFieldError('confirmPassword'))}
             {...passwordForm.register('confirmPassword')}
           />
         </FormField>
-        <ErrorAlert error={changePassword.error} />
+        <ErrorAlert message={passwordError.message} />
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={changePassword.isPending}>
             Change password

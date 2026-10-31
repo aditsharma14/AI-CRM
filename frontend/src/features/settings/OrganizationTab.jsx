@@ -5,9 +5,11 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { api } from '../../api/client.js'
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button, Loader } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
+import { useMutationError } from '../../hooks.js'
 
 const orgSchema = z.object({ name: z.string().trim().min(2, 'Organization name is required') })
 
@@ -25,6 +27,7 @@ export default function OrganizationTab() {
     mutationFn: (values) => api.patch('/org', values),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['org'] }),
   })
+  const saveError = useMutationError(updateOrg)
 
   if (isLoading) return <Loader className="h-6 w-6" />
 
@@ -39,6 +42,7 @@ export default function OrganizationTab() {
             {...form.register('name')}
           />
         </FormField>
+        <ErrorAlert message={saveError.message} />
         {canManage ? (
           <Button type="submit" disabled={updateOrg.isPending}>
             Save
