@@ -36,6 +36,8 @@ export const SAVE_FAILED = "Something went wrong on our side. Your changes weren
  * - no response at all: a network message, so a dropped connection isn't blamed on the server.
  */
 export function apiErrorMessage(err, { serverError = 'Something went wrong on our side. Please try again.' } = {}) {
+  // Set by client.js when a sleeping server didn't wake within the retry schedule.
+  if (err?.wakeTimedOut) return 'The server is still starting up. Try again in a minute.'
   if (err?.response == null) return "Can't reach the server. Check your connection and try again."
   if (err.response.status >= 500) return serverError
   return err.response.data?.error?.message || serverError
