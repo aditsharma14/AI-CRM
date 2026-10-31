@@ -25,6 +25,15 @@ function parseTrustProxy(raw) {
   return Number(raw)
 }
 
+// No email provider until S2.6. While off, the frontend hides password reset and an invite's link goes back to
+// the admin who created it (orgAdminService.inviteMember).
+function parseBoolean(name, raw) {
+  if (raw === undefined || raw === '') return false
+  if (raw !== 'true' && raw !== 'false')
+    throw new Error(`${name} must be "true" or "false", got ${JSON.stringify(raw)}.`)
+  return raw === 'true'
+}
+
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT) || 5000,
@@ -36,6 +45,7 @@ export const env = {
   rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000,
   rateLimitMax: Number(process.env.RATE_LIMIT_MAX) || 100,
   trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
+  emailEnabled: parseBoolean('EMAIL_ENABLED', process.env.EMAIL_ENABLED),
   // Silent under the test runner: the role matrix makes hundreds of requests per file.
   logLevel: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'test' ? 'silent' : 'info'),
 }

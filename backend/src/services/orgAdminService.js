@@ -2,6 +2,7 @@
 // Invite-token lifecycle, team/member/role mutations, org config.
 import crypto from 'node:crypto'
 
+import { env } from '../config/index.js'
 import Organization from '../models/Organization.js'
 import User from '../models/User.js'
 import { assertCanAssign, assertNotSelf, manageableRoles, memberMissOrForbidden } from '../policies/membership.js'
@@ -54,7 +55,8 @@ export async function listMembers(orgId) {
  * Inviting with a role grants it, so the same owner-only admin rule applies.
  * @param {AuthUser} actor
  * @param {import('../schemas/org.js').MemberInviteInput} input
- * @returns {Promise<void>}
+ * @returns {Promise<{ inviteUrl: string } | null>} While email is off, the link, for the inviting admin to pass on
+ *   (it's only ever in this response); null once invites go by email.
  * @throws {AppError} 400 EMAIL_TAKEN, 403, 404
  */
 export async function inviteMember(actor, { email, role }) {
@@ -76,8 +78,12 @@ export async function inviteMember(actor, { email, role }) {
   await org.save()
 
   // Same dev-mode stand-in as authService.forgotPassword — no email
-  // provider wired up yet, so the invite link is logged instead.
-  console.log(`[orgAdminService] Invite link for ${email}: /invite/${rawToken}`)
+  // provider wired up yet, so the invite link is logged instead. Never in production.
+  if (env.nodeEnv !== 'production') {
+    console.log(`[orgAdminService] Invite link for ${email}: /invite/${rawToken}`)
+  }
+
+  return env.emailEnabled ? null : { inviteUrl: `/invite/${rawToken}` }
 }
 
 /**

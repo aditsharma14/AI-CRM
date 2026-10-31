@@ -43,6 +43,9 @@ app.get('/api/v1/health', (req, res) =>
 
 app.use('/api', apiRateLimiter)
 
+// Public: what the frontend may offer before anyone signs in (e.g. no "Forgot password?" without email).
+app.get('/api/v1/config', (req, res) => apiResponse(res, { emailEnabled: env.emailEnabled }))
+
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/org', orgAdminRoutes)
 app.use('/api/v1/leads', leadsRoutes)

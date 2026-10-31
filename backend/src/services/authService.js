@@ -213,8 +213,11 @@ export async function forgotPassword(email) {
   await user.save()
 
   // No transactional email provider is wired up yet — logging the link is
-  // the dev-mode stand-in until one is (S2.6).
-  console.log(`[authService] Password reset link for ${email}: /reset-password?token=${rawToken}`)
+  // the dev-mode stand-in until one is (S2.6). Never in production: logs
+  // are kept and shipped, and this line holds a live token.
+  if (env.nodeEnv !== 'production') {
+    console.log(`[authService] Password reset link for ${email}: /reset-password?token=${rawToken}`)
+  }
 }
 
 /**

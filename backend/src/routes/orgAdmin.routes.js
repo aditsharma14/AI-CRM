@@ -48,8 +48,7 @@ router.post(
   requirePermission('members', 'manage'),
   validate({ body: memberInvite }),
   asyncHandler(async (req, res) => {
-    await orgAdminService.inviteMember(req.user, req.body)
-    apiResponse(res, null, null, 201)
+    apiResponse(res, await orgAdminService.inviteMember(req.user, req.body), null, 201)
   }),
 )
 
