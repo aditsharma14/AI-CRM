@@ -5,7 +5,13 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import { SessionProvider } from './context/SessionContext.jsx'
-import { AcceptInvitePage, LoginPage, RegisterOrgPage } from './features/auth/AuthPages.jsx'
+import {
+  AcceptInvitePage,
+  ForgotPasswordPage,
+  LoginPage,
+  RegisterOrgPage,
+  ResetPasswordPage,
+} from './features/auth/AuthPages.jsx'
 import CalendarPage from './features/calendar/CalendarPage.jsx'
 import CompaniesPage from './features/companies/CompaniesPage.jsx'
 import ContactsPage from './features/contacts/ContactsPage.jsx'
@@ -59,6 +65,8 @@ export default function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterOrgPage />} />
                 <Route path="/invite/:token" element={<AcceptInvitePage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
               </Route>
               <Route element={<ProtectedRoute />}>
                 <Route element={<AppLayout />}>

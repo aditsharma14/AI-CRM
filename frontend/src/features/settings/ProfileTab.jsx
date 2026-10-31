@@ -11,12 +11,13 @@ import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { Button } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
 import { useMutationError } from '../../hooks.js'
+import { PASSWORD_HINT, passwordRule } from '../../lib/password.js'
 
 const profileSchema = z.object({ name: z.string().trim().min(1, 'Name is required') })
 const passwordSchema = z
   .object({
     currentPassword: z.string().min(1, 'Current password is required'),
-    newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+    newPassword: passwordRule,
     confirmPassword: z.string().min(1, 'Please confirm your new password'),
   })
   .refine((v) => v.newPassword === v.confirmPassword, { message: 'Passwords do not match', path: ['confirmPassword'] })
@@ -80,7 +81,7 @@ export default function ProfileTab() {
             {...passwordForm.register('currentPassword')}
           />
         </FormField>
-        <FormField label="New password" error={passwordFieldError('newPassword')} hint="At least 8 characters.">
+        <FormField label="New password" error={passwordFieldError('newPassword')} hint={PASSWORD_HINT}>
           <input
             type="password"
             className={inputClasses(passwordFieldError('newPassword'))}
