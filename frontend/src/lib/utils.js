@@ -40,3 +40,25 @@ export function apiErrorMessage(err, { serverError = 'Something went wrong on ou
   if (err.response.status >= 500) return serverError
   return err.response.data?.error?.message || serverError
 }
+
+/**
+ * Splits a 400 VALIDATION_ERROR (`field: message; field: message`, as the backend's validate() writes it) into
+ * messages for the `fields` a form shows, and the rest for its alert. Any other error is left whole.
+ *   splitFieldErrors(err, ['password']) → { fieldErrors: { password: { message } }, message: 'token: Required' }
+ * @returns {{ fieldErrors: Record<string, { message: string }>, message: string | null }}
+ */
+export function splitFieldErrors(err, fields, options) {
+  if (!err) return { fieldErrors: {}, message: null }
+  const envelope = err.response?.data?.error
+  if (err.response?.status !== 400 || envelope?.code !== 'VALIDATION_ERROR' || !envelope.message) {
+    return { fieldErrors: {}, message: apiErrorMessage(err, options) }
+  }
+  const fieldErrors = {}
+  const rest = []
+  for (const issue of envelope.message.split('; ')) {
+    const [, field, message] = /^([\w.]+): (.+)$/s.exec(issue) ?? []
+    if (field && fields.includes(field) && !fieldErrors[field]) fieldErrors[field] = { message }
+    else rest.push(issue)
+  }
+  return { fieldErrors, message: rest.length ? rest.join('; ') : null }
+}

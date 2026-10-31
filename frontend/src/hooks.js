@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api } from './api/client.js'
-import { apiErrorMessage, SAVE_FAILED } from './lib/utils.js'
+import { apiErrorMessage, SAVE_FAILED, splitFieldErrors } from './lib/utils.js'
 
 /**
  * Generic CRUD data-fetching for any REST resource. A new entity gets full
@@ -96,10 +96,12 @@ export function useClickOutside(ref, onOutsideClick) {
 
 /**
  * The latest error across one or more mutations (a form's save, convert,
- * delete…), ready for <ErrorAlert message={…} />. Minimal on purpose; S1.7
- * extends it for field-level form errors.
+ * delete…), ready for <ErrorAlert message={…} />.
  *   const saveError = useMutationError(createLead, updateLead)
  *   <ErrorAlert message={saveError.message} />
+ * forFields(names) moves a 400's issues for those fields under the fields:
+ *   const { fieldErrors, message } = saveError.forFields(['password'])
+ *   <FormField error={errors.password ?? fieldErrors.password}> … <ErrorAlert message={message} />
  */
 export function useMutationError(...mutations) {
   // Several can have failed; show the one the user triggered last.
@@ -108,6 +110,7 @@ export function useMutationError(...mutations) {
   return {
     error,
     message: error ? apiErrorMessage(error, { serverError: SAVE_FAILED }) : null,
+    forFields: (fields) => splitFieldErrors(error, fields, { serverError: SAVE_FAILED }),
     reset: () => mutations.forEach((m) => m.reset()),
   }
 }
