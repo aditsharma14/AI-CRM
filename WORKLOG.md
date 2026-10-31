@@ -727,3 +727,57 @@ The fix has two layers in one module, [references.js](backend/src/policies/refer
 - The lesson: tenant scoping has to cover every id a request *names*, not just the documents it queries.
 
 **Next:** S1.7 (#10–#13). Run `audit-references.js` against any database that holds real data before deploying.
+
+---
+
+## 2026-11-01 · S1.6-lite: Finish CI
+
+**Goal:** add what CI was missing: a Docker job that proves the compose stack and its replica set (#21), a coverage
+gate, an AI job, concurrency and caching, README badges and [docs/ci.md](docs/ci.md).
+
+**How Docker was done without red commits on `main`.**
+- Commits 1–2 went on a short-lived `ci/docker` branch, run with `gh workflow run ci.yml --ref ci/docker` (run
+  41229131461). It was green on the first attempt.
+- `main` was then fast-forwarded to the branch (`git merge --ff-only`), and the branch was deleted locally and on GitHub.
+- The push also triggered its own run on the branch, which was green too.
+
+**Commits** (all on `main`, each gated by the pre-commit hook, CI green for every one)
+
+| Commit | Change |
+|---|---|
+| `68b2463` | compose: optional `env_file`s, container values in `environment` (`MONGO_URI` with `replicaSet=rs0`, `CLIENT_ORIGIN`, `NODE_ENV=development`, a dev-only JWT secret), a healthcheck that waits for PRIMARY, AI behind the `ai` profile |
+| `72e51fb` | `docker` job + [docker-smoke.sh](scripts/ci/docker-smoke.sh), `workflow_dispatch` (fixes #21) |
+| `0950524` | production refuses a missing, short (< 32) or placeholder `JWT_ACCESS_SECRET` |
+| `baaf502` | notification tests: `notificationsService` 66.7% → 100%; `src/services` 98.25% → 99.65% (no bug found) |
+| `403942c` | coverage gate: `src/services` lines ≥ **98.65%** (99.65 − 1), backend job runs `test:coverage` |
+| `5f3aa3b` | `ai` job: ruff check, ruff format, pytest (placeholder until S2.1); ruff out of `repo` |
+| `b578538` | concurrency group per ref with cancel-in-progress; npm cache on e2e |
+| `f29a3b4` | README: CI badge and static coverage badge |
+
+**The docker job's own output** (run 41229131461):
+```
+Container ai-crm-mongo-1  Healthy
+member 0: PRIMARY
+GET http://localhost:8080/api/v1/nope -> NOT_FOUND
+POST /leads/6ae6322d9f87dfa49fecaa4f/convert -> 201
+deal 6ae6322d9f87dfa49fecaa51 convertedFromLeadId=6ae6322d9f87dfa49fecaa4f; lead status=converted
+```
+
+**Choices**
+- **Static coverage badge:** a live one needs the number published somewhere (a gist and a token secret, or a bot
+  commit), and the gate already catches a real drop.
+- **Compose's `api` runs `NODE_ENV=development`:** the new production check would rightly refuse compose's dev secret.
+  A real deployment uses the image's `production` default and must supply a real secret.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Coverage gate, both ways | locally, a 99.9% threshold fails ("Coverage for lines (99.65%) does not meet threshold"); 98.65% passes |
+| JWT guard tests | 4 of 8 red first (the missing-secret case was already caught by the required-vars check) |
+| Backend `npm test` | 414 → **429 passed** in 26 files |
+| Frontend `npm test` | **109 passed** |
+| `npm run e2e` | green in every CI run |
+| CI, last 3 runs | **82 s, 70 s, 59 s** wall-clock (was 51–58 s with four jobs); e2e, docker and backend set the pace at about 50–75 s each |
+
+**Next:** S1.7 (#10–#13). S2.1 removes the `ai` profile and the pytest placeholder.

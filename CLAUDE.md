@@ -187,8 +187,8 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
   frontend `src/api` + `src/context` 100% lines / 95.7% branches. Helpers and conventions: [docs/conventions.md](docs/conventions.md).
 - **Checks (repo root):** `npm run lint` (ESLint, zero warnings, plus ruff), `npm run typecheck`, `npm run format:check`. The husky
   pre-commit hook runs them on staged files and blocks the commit; see [CONTRIBUTING.md](CONTRIBUTING.md). Logs are pino JSON.
-- **CI:** [.github/workflows/ci.yml](.github/workflows/ci.yml) runs `repo` (format, ruff), `backend`, `frontend` and `e2e` on every
-  push and PR. It doesn't block merges (no branch protection), so the pre-commit hook is the gate.
+- **CI** ([docs/ci.md](docs/ci.md)): `repo`, `ai`, `backend` (fails below 98.65% `src/services` line coverage), `frontend`, `e2e`,
+  `docker` (compose stack, PRIMARY replica set). It doesn't block merges (no branch protection); the pre-commit hook does.
 - **Docker:** compose sets the api's container values itself (`MONGO_URI` with `replicaSet=rs0`, `CLIENT_ORIGIN`, a dev-only JWT
   secret, `NODE_ENV=development`); `backend/.env` is optional. No `.dockerignore`: local `.env` and `node_modules` get copied in.
 - **Replica set:** a standalone mongod makes lead convert fail ("Transaction numbers are only allowed on a replica set").

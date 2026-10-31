@@ -10,9 +10,6 @@ plus a record of what has been resolved. Newest resolutions first.
   closing a deal is keyed on them). An org that renames its closing stages' *keys* never closes a deal. Open for S2.7.
 - **[#19] Pipeline save is two calls (move-stage, then update), not atomic;** revisit with a single endpoint or transaction in
   S2.7. (S1.3b made the UI resync after a partial failure, and a retry doesn't repeat the move.)
-- **[#21] Docker Compose's replica set is untested.** `docker-compose.yml` now runs mongo with `--replSet rs0` and initiates
-  it from the healthcheck (S1.3e), but Docker isn't installed on the audit machine, so it has never been started. The set
-  advertises `mongo:27017`, so a client on the host may need `?directConnection=true`.
 
 ### Frontend polish (found in S1.4; fix in S1.7)
 - **[#10] Settings → Members crashes if the members query fails:** `members.map` on `undefined` in
@@ -27,11 +24,11 @@ plus a record of what has been resolved. Newest resolutions first.
   org *document* is gone gets a 404; see [missing-org.test.js](../backend/tests/missing-org.test.js).) Not tested.
 - Does the [vercel.json](../vercel.json) rewrite really fail on `/api/v1/...`? Reasoned from path-to-regexp; not deployed.
 - Is "Clarion" a deliberate rebrand, or should it be "Nimbus"?
-- Docker Compose has never been run (Docker isn't installed on the dev machine used for the audits).
 
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-11-01 | **[#21] Docker Compose had never been started**, and couldn't be from a fresh clone (required `.env` files with `localhost` values, a healthcheck that passed before PRIMARY, an AI stub that exits) | compose fixed (`68b2463`); the CI `docker` job builds and starts it, proves PRIMARY and a transactional lead conversion on every push (`72e51fb`). A client on the host may still need `?directConnection=true`, since the set advertises `mongo:27017` |
 | 2026-10-31 | **[#15] References weren't checked against the org, and populate() wasn't org-scoped:** a member could point `companyId`, `contactIds`, a note's `entityId` or an activity's `linkedTo` (and an admin a team's `memberIds`) at another org's document, and the next read populated that org's names (and, for teams, emails) into the response | `assertReferencesInOrg` on every write and `scopedPopulate` on every read, in [references.js](../backend/src/policies/references.js) (`ec78fed`, `f9b29d7`); read-only [audit-references.js](../backend/scripts/audit-references.js) for stored data (`fd980be`) |
 | 2026-10-31 | **[#14] Signup wasn't transactional:** a failed user write left an org with no owner; two parallel invite accepts both got past the invite check | `registerOrg` and `acceptInvite` each run in one transaction; the invite is consumed by a conditional `$pull` (`97eb052`) |
 | 2026-10-31 | **[#17]** `dealsService` exported its CRUD factory, so `crud.create` could skip `dealsService.create` | `crud` is private (`b0408cb`) |
