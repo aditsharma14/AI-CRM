@@ -788,7 +788,7 @@ deal 6ae6322d9f87dfa49fecaa51 convertedFromLeadId=6ae6322d9f87dfa49fecaa4f; lead
 disables. Two changes from review: one shared backend password rule (whitespace-only and > 72 bytes refused), and a
 Dashboard error state.
 
-**Commits** (all on `main`, each gated by the pre-commit hook and pushed; CI green for every one)
+**Commits** (all on `main`, each gated by the pre-commit hook and pushed; CI green for every one except `a41586c`, below)
 
 | Commit | Change | Red first |
 |---|---|---|
@@ -802,6 +802,8 @@ Dashboard error state.
 | `2f85355` | `/forgot-password`, `/reset-password`, sign-in toast and link; client rule mirrors the backend's case table | 14/14 + the mirror file |
 | `fe4b038` | the no-break-space case spelled with `String.fromCodePoint` (tooling had made it a literal, invisible character) | — |
 | `a41586c` | e2e: request → planted token → reset → old password refused → new works → first tab signed out → link single-use; e2e-server control port, production guard | guard 1/1; e2e mutation-checked |
+| `ac20e9c` | docs (this entry, known-issues, conventions, CLAUDE.md) | — |
+| (next) | e2e: wait for the Forgot password page before typing | CI run 41242889770 on `a41586c` |
 
 **Why remove the token from the URL?**
 A reset token in the address bar outlives the reset: it stays in browser history, synced tabs and screenshots, and is
@@ -822,6 +824,10 @@ that calls the backend tests' `issueResetToken`. It exists only in that script, 
 exits with an error under `NODE_ENV=production`. **Mutation check:** without the refresh-token wipe in
 `resetPassword`, the "first tab signed out" step fails (expected 401, received 200).
 
+**A red CI run on `main`.** `a41586c` passed locally but its CI e2e failed (run 41242889770): the trace showed the
+Forgot password form with an empty, invalid Email. Clicking the link navigates client-side, and sign-in has an Email
+field too, so `fill` could land on the old page as it unmounted. The spec now waits for the new page's heading first.
+
 **Lint disables audit:** the GlobalSearch one was the only `react-hooks` disable and is fixed. Three
 `react-refresh/only-export-components` disables hide no bug; logged in known-issues.
 
@@ -831,7 +837,7 @@ exits with an error under `NODE_ENV=production`. **Mutation check:** without the
 |---|---|
 | Backend `npm run test:coverage` | 429 → **490 passed** in 28 files; `src/services` lines 99.65% (gate 98.65%) |
 | Frontend `npm test` | 109 → **232 passed** in 19 files, no unhandled errors |
-| `npm run e2e` | **2 passed** (reset-password, win-rate) |
+| `npm run e2e` | **2 passed** (reset-password, win-rate); after the fix below, 10/10 with `--repeat-each 5` |
 | Lint, typecheck, build | clean (backend and frontend); `vite build` warns that the bundle is > 500 kB (logged) |
 | CLAUDE.md | 249 lines; path check: 63 referenced paths, 0 missing |
 | Issues | #10, #11, #12, #13 closed by their commits |

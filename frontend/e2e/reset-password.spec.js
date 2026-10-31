@@ -33,6 +33,8 @@ test('forgot password → reset with the emailed link → old sessions signed ou
   await test.step('ask for a reset link from the sign-in page', async () => {
     await other.goto('/login')
     await other.getByRole('link', { name: 'Forgot password?' }).click()
+    // Sign-in has an Email field too: wait for the new page, or the fill can land on the old one as it unmounts.
+    await expect(other.getByRole('heading', { name: 'Reset your password' })).toBeVisible()
     await other.getByLabel('Email').fill(email)
     await other.getByRole('button', { name: 'Send reset link' }).click()
     await expect(other.getByRole('status')).toContainText(`If an account exists for ${email}`)
