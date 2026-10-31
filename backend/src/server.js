@@ -8,7 +8,8 @@ try {
   logger.info('MongoDB connected')
 
   app.listen(env.port, () => {
-    logger.info({ port: env.port, nodeEnv: env.nodeEnv }, 'listening')
+    // trustProxy in the startup line, so a deploy's logs show which hop count it runs with.
+    logger.info({ port: env.port, nodeEnv: env.nodeEnv, trustProxy: env.trustProxy }, 'listening')
   })
 } catch (err) {
   logger.fatal({ err }, 'failed to start')

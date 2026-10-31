@@ -15,6 +15,16 @@ if (missing.length) {
   throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
 }
 
+// How many proxy hops of X-Forwarded-For to believe. 0 (the default) locally and in compose, where nothing sits in
+// front of the API; 2 in production (Vercel's rewrite, then Render's ingress), so req.ip is the visitor.
+function parseTrustProxy(raw) {
+  if (raw === undefined || raw === '') return 0
+  if (!/^\d+$/.test(raw) || Number(raw) > 10) {
+    throw new Error(`TRUST_PROXY must be a hop count from 0 to 10, got ${JSON.stringify(raw)}.`)
+  }
+  return Number(raw)
+}
+
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT) || 5000,
@@ -25,6 +35,7 @@ export const env = {
   clientOrigin: process.env.CLIENT_ORIGIN,
   rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000,
   rateLimitMax: Number(process.env.RATE_LIMIT_MAX) || 100,
+  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
   // Silent under the test runner: the role matrix makes hundreds of requests per file.
   logLevel: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'test' ? 'silent' : 'info'),
 }

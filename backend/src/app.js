@@ -16,18 +16,32 @@ import { dashboardRoutes, searchRoutes } from './routes/insights.routes.js'
 import leadsRoutes from './routes/leads.routes.js'
 import notificationsRoutes from './routes/notifications.routes.js'
 import orgAdminRoutes from './routes/orgAdmin.routes.js'
+import { apiResponse } from './utils/http.js'
 
 const app = express()
+// Without it, behind Vercel and Render every visitor has the proxy's IP and shares one rate-limit bucket.
+app.set('trust proxy', env.trustProxy)
 
 // First, so every request gets an id and a log line, even one that fails in body parsing.
 app.use(requestLogger)
 app.use(helmet())
 app.use(cors({ origin: env.clientOrigin, credentials: true }))
+// Before body parsing, so its errors carry it too: sessions and tenant data must never be kept by a CDN or browser.
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store')
+  next()
+})
 app.use(express.json())
 app.use(cookieParser())
-app.use('/api', apiRateLimiter)
 
+// compose's healthcheck uses /health; Vercel only proxies /api/*, so deploy checks and keep-warm pings use
+// /api/v1/health, which reports the deployed commit (Render sets RENDER_GIT_COMMIT). Ahead of the rate limiter.
 app.get('/health', (req, res) => res.json({ success: true, data: { status: 'ok' } }))
+app.get('/api/v1/health', (req, res) =>
+  apiResponse(res, { status: 'ok', commit: process.env.RENDER_GIT_COMMIT || null }),
+)
+
+app.use('/api', apiRateLimiter)
 
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/org', orgAdminRoutes)
