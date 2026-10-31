@@ -44,7 +44,9 @@ jobs:
       - run: npm run typecheck
       # mongodb-memory-server downloads a mongod binary on first use; the
       # runner has network access, so no service container is needed.
-      - run: npm test
+      # test:coverage fails the job if src/services line coverage drops below the
+      # threshold in vitest.config.js (98.65%).
+      - run: npm run test:coverage
 
   frontend:
     runs-on: ubuntu-latest

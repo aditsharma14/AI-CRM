@@ -32,6 +32,9 @@ export default defineConfig({
       // meaningless 100% and inflate the services total.
       exclude: ['src/services/aiProxyService.js'],
       reporter: ['text', 'json-summary'],
+      // CI gate (the backend job runs test:coverage): src/services line coverage was 99.65% when this was
+      // set (S1.6); this is that minus 1. Raise it with coverage, never lower it to make a change pass.
+      thresholds: { 'src/services/**': { lines: 98.65 } },
     },
   },
 })
