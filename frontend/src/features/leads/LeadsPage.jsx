@@ -47,8 +47,8 @@ function useConvertLead() {
 export default function LeadsPage() {
   const [search, setSearch] = useState('')
   const q = useDebounce(search)
-  const { page, limit, setPage } = usePaginationState()
   const [statusFilter, setStatusFilter] = useState('')
+  const { page, limit, setPage } = usePaginationState({ q, statusFilter })
   const [editing, setEditing] = useState(null) // null = closed, {} = new, {...} = editing
   const confirmDelete = useDisclosure()
   const { user, can } = useSession()

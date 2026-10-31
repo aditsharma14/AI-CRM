@@ -62,9 +62,18 @@ export function useDisclosure(initial = false) {
   return { isOpen, open, close }
 }
 
-export function usePaginationState(initial = { page: 1, limit: 20 }) {
-  const [page, setPage] = useState(initial.page)
-  const [limit] = useState(initial.limit)
+/**
+ * The current page of a list, tied to the filters it was chosen under: when
+ * `filters` change (search, status…) the page is 1 again, so a filter applied
+ * on page 3 can't land on an empty page. Derived during render rather than
+ * reset in an effect, so the stale page is never requested.
+ *   const { page, limit, setPage } = usePaginationState({ q, status })
+ */
+export function usePaginationState(filters = {}, { limit = 20 } = {}) {
+  const key = JSON.stringify(filters)
+  const [chosen, setChosen] = useState({ key, page: 1 })
+  const page = chosen.key === key ? chosen.page : 1
+  const setPage = useCallback((next) => setChosen({ key, page: next }), [key])
   return { page, limit, setPage }
 }
 

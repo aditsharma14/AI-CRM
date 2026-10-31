@@ -25,7 +25,7 @@ const companySchema = z.object({
 export default function CompaniesPage() {
   const [search, setSearch] = useState('')
   const q = useDebounce(search)
-  const { page, limit, setPage } = usePaginationState()
+  const { page, limit, setPage } = usePaginationState({ q })
   const [editing, setEditing] = useState(null)
   const confirmDelete = useDisclosure()
   const { user, can } = useSession()
