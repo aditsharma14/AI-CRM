@@ -803,7 +803,7 @@ Dashboard error state.
 | `fe4b038` | the no-break-space case spelled with `String.fromCodePoint` (tooling had made it a literal, invisible character) | — |
 | `a41586c` | e2e: request → planted token → reset → old password refused → new works → first tab signed out → link single-use; e2e-server control port, production guard | guard 1/1; e2e mutation-checked |
 | `ac20e9c` | docs (this entry, known-issues, conventions, CLAUDE.md) | — |
-| (next) | e2e: wait for the Forgot password page before typing | CI run 41242889770 on `a41586c` |
+| `c7a6ec0` | e2e: wait for the Forgot password page before typing | CI run 41242889770 on `a41586c` |
 
 **Why remove the token from the URL?**
 A reset token in the address bar outlives the reset: it stays in browser history, synced tabs and screenshots, and is
