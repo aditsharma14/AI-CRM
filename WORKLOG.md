@@ -781,3 +781,60 @@ deal 6ae6322d9f87dfa49fecaa51 convertedFromLeadId=6ae6322d9f87dfa49fecaa4f; lead
 | CI, last 3 runs | **82 s, 70 s, 59 s** wall-clock (was 51–58 s with four jobs); e2e, docker and backend set the pace at about 50–75 s each |
 
 **Next:** S1.7 (#10–#13). S2.1 removes the `ai` profile and the pytest placeholder.
+
+## 2026-11-01 · S1.7: Reset-password page and frontend error polish
+
+**Goal:** a working password reset (CLAUDE.md gap 9.1), fix #10–#13, and audit the frontend's `react-hooks` lint
+disables. Two changes from review: one shared backend password rule (whitespace-only and > 72 bytes refused), and a
+Dashboard error state.
+
+**Commits** (all on `main`, each gated by the pre-commit hook and pushed; CI green for every one)
+
+| Commit | Change | Red first |
+|---|---|---|
+| `e80412c` | **#10:** Members shows `ErrorAlert` + Retry instead of crashing; same for teams, NotesPanel, Settings → Pipeline, both Dashboard tabs | 6/6 (Members: `Cannot read properties of undefined (reading 'map')`) |
+| `6717d12` | **#11:** `usePaginationState(filters)`: a search or status change returns to page 1 (Leads, Contacts, Companies) | 5/5 (`page: '2'` sent) |
+| `31f5a69` | **#12:** GlobalSearch's `handleClose` is a `useCallback` in the Escape effect's deps; the disable is gone | 1/2 (called `onClose` v1 after two re-renders; the other test guards the close) |
+| `7a45269` | `forFields()` for field-level 400s; `FormField` wires id, `aria-invalid`, `aria-describedby` (~30 fields had unlinked labels) | 7/7 |
+| `324b7d7` | **#13:** save, delete, toggle and add-note errors on Contacts, Companies, Tasks, Calendar, Notes; Calendar load error | 47/47 (unhandled rejections) |
+| `63bfab1` | **#13:** every Settings write (name, org, invite, teams, stages, templates, password) | 25/27 (invite 400/403 were already shown) |
+| `37a8f60` | backend password rule: 8+ code points, not only whitespace, ≤ 72 UTF-8 bytes; all four endpoints | 28/60 (`8 spaces`: expected 200 to be 400) |
+| `2f85355` | `/forgot-password`, `/reset-password`, sign-in toast and link; client rule mirrors the backend's case table | 14/14 + the mirror file |
+| `fe4b038` | the no-break-space case spelled with `String.fromCodePoint` (tooling had made it a literal, invisible character) | — |
+| `a41586c` | e2e: request → planted token → reset → old password refused → new works → first tab signed out → link single-use; e2e-server control port, production guard | guard 1/1; e2e mutation-checked |
+
+**Why remove the token from the URL?**
+A reset token in the address bar outlives the reset: it stays in browser history, synced tabs and screenshots, and is
+sent in the `Referer` of any link followed from the page. Removing it with `history.replaceState` (no navigation, no new
+history entry) as soon as the page reads it leaves only one copy, in component state, for the single request that uses it.
+
+**Client vs server validation: why both?**
+The server is the authority: anyone can call the API without our UI, so the rule must hold there (tested on all four
+endpoints). The client copy is for the user: it refuses a bad password instantly, under the field, without a round trip.
+The two must agree exactly, so they share one case table, and a server 400 still lands on the field if they ever drift.
+
+**Existing users are unaffected.** The rule applies only when a password is *set* (register, accept invite, reset,
+change). Login checks only that a password was given, so an account whose password is 8 spaces or over 72 bytes still
+signs in (tested), and gets the new rule the next time it changes its password.
+
+**e2e tokens.** The spec never reads the dev-only reset log. e2e-server.js opens a control port on `127.0.0.1:5056`
+that calls the backend tests' `issueResetToken`. It exists only in that script, is not part of `app`, and the script
+exits with an error under `NODE_ENV=production`. **Mutation check:** without the refresh-token wipe in
+`resetPassword`, the "first tab signed out" step fails (expected 401, received 200).
+
+**Lint disables audit:** the GlobalSearch one was the only `react-hooks` disable and is fixed. Three
+`react-refresh/only-export-components` disables hide no bug; logged in known-issues.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Backend `npm run test:coverage` | 429 → **490 passed** in 28 files; `src/services` lines 99.65% (gate 98.65%) |
+| Frontend `npm test` | 109 → **232 passed** in 19 files, no unhandled errors |
+| `npm run e2e` | **2 passed** (reset-password, win-rate) |
+| Lint, typecheck, build | clean (backend and frontend); `vite build` warns that the bundle is > 500 kB (logged) |
+| CLAUDE.md | 249 lines; path check: 63 referenced paths, 0 missing |
+| Issues | #10, #11, #12, #13 closed by their commits |
+
+**Next:** S2.6 brings email (then the dev-only reset and invite logs go, #20) and email verification (gap 9.1). The
+notifications panel's silent mark-read and the bundle size are logged.

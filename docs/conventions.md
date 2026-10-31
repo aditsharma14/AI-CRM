@@ -95,7 +95,22 @@ The backend stays JavaScript and has no build step. [backend/tsconfig.json](../b
   MSW's plain `'error'` mode isn't enough: it only logs, and Vitest hides the logs of passing tests. Mock every
   endpoint a component calls, including the ones it reads in the background (e.g. Pipeline reads `/org/pipeline-stages`).
 - **Failed mutations:** test 400, 403 and 500 with `fail()`. The user must see a specific message in `role="alert"`, and
-  nothing unsaved may appear as saved. See the `*.errors.test.jsx` files.
+  nothing unsaved may appear as saved. See the `*.errors.test.jsx` and `*-save-errors.test.jsx` files.
+- **Failed loads:** a failed query shows `ErrorAlert` with Retry, never an empty state that reads as "no data"
+  ([load-errors.test.jsx](../frontend/src/features/load-errors.test.jsx)). Queries retry once, so allow ~4 s for the alert.
+
+## Frontend errors and forms
+
+- **Every mutation's error is shown.** `useMutationError(...mutations)` in [hooks.js](../frontend/src/hooks.js) +
+  `<ErrorAlert message={…} />`: save errors inside the dialog (which stays open with the user's input), delete and row
+  actions on the page. Wrap `mutateAsync` in `try`/`catch`; clear success notices in `onMutate`.
+- **Field-level 400s:** `useMutationError(m).forFields(['password'])` moves `field: message` issues under those fields
+  (`error={errors.password ?? fieldErrors.password}`); the rest goes to the alert.
+- **`FormField`** gives its input an id if needed and sets `aria-invalid` / `aria-describedby` to the error or hint, so
+  every field is named by its label. Inputs outside a `FormField` need an `aria-label`.
+- **Paginated lists with filters:** `usePaginationState({ q, status })`, so a filter change returns to page 1.
+- **Mirrored rules:** the client password rule ([password.js](../frontend/src/lib/password.js)) copies the backend's;
+  both test files share one case table. Change both together.
 - **Singletons are reset after each test** ([setup.js](../frontend/tests/setup.js)): access token, `onUnauthorized` and
   the shared `queryClient`.
 - **Query by role and accessible name**, not CSS or test ids. If a control can't be found that way, give it a label;
@@ -113,5 +128,8 @@ The backend stays JavaScript and has no build step. [backend/tsconfig.json](../b
     fixed test secrets.
   - Vite on :5175, proxied to that API via `VITE_PROXY_TARGET` (dev-server config only; the client still calls `/api/v1`).
 - Every run starts from an empty database. The spec registers its own org; there are no seeds or shared state.
+- **Tokens are planted, not scraped**, as in the backend tests: e2e-server.js has a control port on `127.0.0.1:5056`
+  (`POST /reset-token {email}` → `{token}`, via `issueResetToken`). It exists only in that script, and the script
+  refuses to start with `NODE_ENV=production`.
 - **Windows:** Playwright stops its servers with `taskkill`, so `C:\Windows\System32` must be on `PATH`. Without it the run
   passes and then hangs on teardown. Normal terminals already have it on `PATH`; some agent or Git Bash shells don't.

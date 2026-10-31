@@ -144,9 +144,10 @@ decides *which records*. It is enforced in services, never routes, and mirrored 
   Invites follow `assertCanAssign` too. UI mirror: `manageableRoles` / `canManageMember` in [constants.js](frontend/src/lib/constants.js).
 
 ### Auth
-15m access JWT (`sub`, `orgId`, `role`) kept in memory only. 7d refresh token in an httpOnly
-  `SameSite=strict` cookie scoped to `/api/v1/auth`, stored hashed and rotated on every use with atomic `$push`/`$pull`
-  (see the comments in `authService.js`; keep them atomic). Role changes take effect when the access token expires.
+15m access JWT (`sub`, `orgId`, `role`) kept in memory only. 7d refresh token in an httpOnly `SameSite=strict` cookie
+  scoped to `/api/v1/auth`, stored hashed, rotated on every use with atomic `$push`/`$pull` (keep them atomic; see
+  `authService.js`), all revoked by a password reset. Role changes take effect when the access token expires. Passwords:
+  one rule, `password` in [validators.js](backend/src/utils/validators.js) (8+ characters, not only whitespace, ≤ 72 UTF-8 bytes), mirrored by [password.js](frontend/src/lib/password.js).
 
 ## 6. Running locally
 
@@ -234,8 +235,7 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
 Open gaps only. Smaller findings, open questions and everything resolved (with dates and commits) are in
 [docs/known-issues.md](docs/known-issues.md). There are no open `// suspect:` tests.
 
-1. **No reset-password page or email verification.** [authService.js](backend/src/services/authService.js) issues
-   `/reset-password?token=`, but [App.jsx](frontend/src/App.jsx) has no such route. All users are created with `isEmailVerified: true`.
+1. **No email verification.** All users are created with `isEmailVerified: true`. (Reset works end to end since S1.7.)
 2. **No email sending.** Links are only logged ([authService.js](backend/src/services/authService.js), [orgAdminService.js](backend/src/services/orgAdminService.js)).
 3. **AI layer is unbuilt.** The rescore promised in [leadsService.js](backend/src/services/leadsService.js) doesn't exist.
    Stub files: everything in [AI/app/](AI/app/), [aiProxyService.js](backend/src/services/aiProxyService.js),

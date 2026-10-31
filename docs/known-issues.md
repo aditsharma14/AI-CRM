@@ -3,21 +3,23 @@
 Everything known to be wrong, missing or unverified that isn't a top-level gap in [CLAUDE.md](../CLAUDE.md) §9,
 plus a record of what has been resolved. Newest resolutions first.
 
-## Open findings (verified 2026-10-29, updated 2026-10-31; GitHub issue numbers in brackets)
-- **[#13] Other mutations still have no error UI.** Leads and Pipeline now use `useMutationError` + `ErrorAlert` (S1.3b), but
-  Contacts, Companies, Tasks, Calendar, Notes and most Settings forms still fail silently. S1.7 extends the hook.
+## Open findings (verified 2026-10-29, updated 2026-11-01; GitHub issue numbers in brackets)
+- **After a password reset, a tab that is already open keeps working for up to 15 minutes.** The reset revokes every
+  refresh token, but an access token already in a tab's memory stays valid until it expires (same as role changes, §5).
+  The next refresh or reload signs the tab out (the e2e checks this).
+- **Marking a notification read from the bell panel fails silently.** The panel closes on click, so there's nowhere to
+  show the error; the dot just stays. The only mutation without error UI (S1.7 audit).
+- **The production bundle is one chunk over 500 kB** (Vite warns on `npm run build`). No code splitting yet.
 - **[#18] The `won`/`lost` stage keys are hardcoded** (`CLOSING_KEYS` in [dealsService.js](../backend/src/services/dealsService.js);
   closing a deal is keyed on them). An org that renames its closing stages' *keys* never closes a deal. Open for S2.7.
 - **[#19] Pipeline save is two calls (move-stage, then update), not atomic;** revisit with a single endpoint or transaction in
   S2.7. (S1.3b made the UI resync after a partial failure, and a retry doesn't repeat the move.)
 
-### Frontend polish (found in S1.4; fix in S1.7)
-- **[#10] Settings → Members crashes if the members query fails:** `members.map` on `undefined` in
-  [MembersTab.jsx](../frontend/src/features/settings/MembersTab.jsx) sends the app to its error boundary.
-- **[#11] Changing the search or status filter doesn't reset the page to 1** (Leads, Contacts, Companies), so a filter can
-  land on an empty page.
-- **[#12] `GlobalSearch` turns off `react-hooks/exhaustive-deps`** for its Escape handler, which can capture a stale
-  `handleClose`.
+### Lint disables (S1.7 audit)
+- No `react-hooks` rule is disabled anywhere in the frontend (the one in `GlobalSearch` was #12).
+- Three `react-refresh/only-export-components` disables remain, in `FormField.jsx` (`inputClasses`), `SessionContext.jsx`
+  (`useSession`) and `NotificationsPanel.jsx`. They only cost Fast Refresh a full reload of those modules; no bug hides
+  behind them. Left as they are.
 
 ## Open questions
 - What exactly happens if a token lacked `orgId`? Mongoose likely casts it to `null` and matches nothing. (A token whose
@@ -28,6 +30,13 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-11-01 | **No reset-password page** (CLAUDE.md gap 9.1): the backend issued `/reset-password?token=` links the app couldn't open, and there was no way to ask for one | `/forgot-password` and `/reset-password` (token removed from the URL with `replaceState`; missing, expired and success states) (`2f85355`); e2e with planted tokens, mutation-checked (`a41586c`) |
+| 2026-11-01 | **The password rule was only `min(8)`:** eight spaces were a valid password; bcrypt silently ignored everything after 72 bytes; four emoji counted as 8 characters | one shared rule: 8+ code points, not only whitespace (never trimmed), ≤ 72 UTF-8 bytes, on all four endpoints; client mirror with the same case table (`37a8f60`, `2f85355`). Existing passwords still log in |
+| 2026-11-01 | **[#13] Save errors were silent** on Contacts, Companies, Tasks, Calendar, Notes and Settings (unhandled `mutateAsync` rejections, fire-and-forget `mutate`) | `useMutationError` + `ErrorAlert` everywhere, input kept on failure, field-level 400s via `forFields` (`324b7d7`, `63bfab1`; hook `7a45269`) |
+| 2026-11-01 | **[#12]** `GlobalSearch`'s Escape listener kept the `onClose` from the render that opened it (`exhaustive-deps` was disabled) | `useCallback` + real deps, rule back on (`31f5a69`) |
+| 2026-11-01 | **[#11]** Changing the search or status filter kept the page number | `usePaginationState(filters)` derives page 1 when the filters change (`6717d12`) |
+| 2026-11-01 | **[#10] Settings → Members crashed** when `/org/members` failed (`members.map` on `undefined`); NotesPanel, Settings → Pipeline, Calendar and the Dashboard showed empty data or zeros on a failed load | `ErrorAlert` with Retry on every failed load (`e80412c`, Calendar `324b7d7`) |
+| 2026-11-01 | About 30 form fields (Calendar, Companies, Contacts, Tasks, Settings) had labels not linked to their inputs, and no field linked its error | `FormField` sets the id, `aria-invalid` and `aria-describedby` (`7a45269`) |
 | 2026-11-01 | **[#21] Docker Compose had never been started**, and couldn't be from a fresh clone (required `.env` files with `localhost` values, a healthcheck that passed before PRIMARY, an AI stub that exits) | compose fixed (`68b2463`); the CI `docker` job builds and starts it, proves PRIMARY and a transactional lead conversion on every push (`72e51fb`). A client on the host may still need `?directConnection=true`, since the set advertises `mongo:27017` |
 | 2026-10-31 | **[#15] References weren't checked against the org, and populate() wasn't org-scoped:** a member could point `companyId`, `contactIds`, a note's `entityId` or an activity's `linkedTo` (and an admin a team's `memberIds`) at another org's document, and the next read populated that org's names (and, for teams, emails) into the response | `assertReferencesInOrg` on every write and `scopedPopulate` on every read, in [references.js](../backend/src/policies/references.js) (`ec78fed`, `f9b29d7`); read-only [audit-references.js](../backend/scripts/audit-references.js) for stored data (`fd980be`) |
 | 2026-10-31 | **[#14] Signup wasn't transactional:** a failed user write left an org with no owner; two parallel invite accepts both got past the invite check | `registerOrg` and `acceptInvite` each run in one transaction; the invite is consumed by a conditional `$pull` (`97eb052`) |
