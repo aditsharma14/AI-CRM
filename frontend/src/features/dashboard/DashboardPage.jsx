@@ -4,6 +4,7 @@ import { DollarSign, Flame, History, Kanban, Percent } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api/client.js'
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { EmptyState, Loader, StatCard, Tabs } from '../../components/ui.jsx'
 import { usePipelineStages } from '../../hooks.js'
 import { cn, formatCurrency, formatDateTime } from '../../lib/utils.js'
@@ -58,7 +59,7 @@ function BreakdownBars({ rows, emptyLabel }) {
 }
 
 function OverviewTab() {
-  const { data, isLoading } = useDashboardOverview()
+  const { data, isLoading, isError, error, refetch } = useDashboardOverview()
   const { labelFor, positionOf } = usePipelineStages()
 
   if (isLoading) {
@@ -68,6 +69,8 @@ function OverviewTab() {
       </div>
     )
   }
+  // Zeros would look like real numbers.
+  if (isError) return <ErrorAlert error={error} onRetry={refetch} />
 
   const leadsByStatus = data?.leadsByStatus ?? {}
   const totalLeads = Object.values(leadsByStatus).reduce((sum, n) => sum + n, 0)
@@ -136,7 +139,7 @@ function OverviewTab() {
 }
 
 function ReportsTab() {
-  const { data, isLoading } = useDashboardReports()
+  const { data, isLoading, isError, error, refetch } = useDashboardReports()
 
   if (isLoading) {
     return (
@@ -145,6 +148,8 @@ function ReportsTab() {
       </div>
     )
   }
+  // Zeros would look like real numbers.
+  if (isError) return <ErrorAlert error={error} onRetry={refetch} />
 
   // The API returns one row per (year, month, won|lost) combination — group
   // them into one row per month so they can be drawn as a single bar pair.

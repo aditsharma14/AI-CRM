@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { api } from '../../api/client.js'
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { ConfirmDialog } from '../../components/Modal.jsx'
 import { Button, EmptyState, Loader } from '../../components/ui.jsx'
@@ -24,7 +25,13 @@ export default function PipelineTab() {
   const queryClient = useQueryClient()
   const canConfigure = can('pipeline', 'configure')
 
-  const { data: stages, isLoading } = useQuery({
+  const {
+    data: stages,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['org', 'pipeline-stages'],
     queryFn: async () => (await api.get('/org/pipeline-stages')).data.data,
   })
@@ -59,6 +66,8 @@ export default function PipelineTab() {
   })
 
   if (isLoading) return <Loader className="h-6 w-6" />
+  // An empty stage list would read as "this org has no stages", and saving from it would be wrong.
+  if (isError) return <ErrorAlert error={error} onRetry={refetch} />
 
   const renameStage = (key, label) => {
     setDraftStages(activeStages.map((s) => (s.key === key ? { ...s, label } : s)))

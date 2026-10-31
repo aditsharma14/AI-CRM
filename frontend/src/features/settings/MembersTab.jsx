@@ -42,11 +42,11 @@ export default function MembersTab() {
   const [teamToDelete, setTeamToDelete] = useState(null)
   const confirmDeleteTeam = useDisclosure()
 
-  const { data: members, isLoading } = useQuery({
+  const members = useQuery({
     queryKey: ['org', 'members'],
     queryFn: async () => (await api.get('/org/members')).data.data,
   })
-  const { data: teams } = useQuery({
+  const teams = useQuery({
     queryKey: ['org', 'teams'],
     queryFn: async () => (await api.get('/org/teams')).data.data,
   })
@@ -115,11 +115,13 @@ export default function MembersTab() {
 
       <div>
         <h2 className="mb-3 font-serif text-lg font-semibold">Members</h2>
-        {isLoading ? (
+        {members.isLoading ? (
           <Loader className="h-5 w-5" />
+        ) : members.isError ? (
+          <ErrorAlert error={members.error} onRetry={members.refetch} />
         ) : (
           <div className="overflow-hidden rounded-lg border border-border dark:border-border-dark">
-            {members.map((member) => (
+            {members.data.map((member) => (
               <div
                 key={member._id}
                 className="flex items-center justify-between border-b border-border px-4 py-3 last:border-0 dark:border-border-dark"
@@ -182,9 +184,13 @@ export default function MembersTab() {
             </Button>
           </form>
         )}
-        {teams?.length ? (
+        {teams.isLoading ? (
+          <Loader className="h-5 w-5" />
+        ) : teams.isError ? (
+          <ErrorAlert error={teams.error} onRetry={teams.refetch} />
+        ) : teams.data.length ? (
           <ul className="flex flex-col gap-2">
-            {teams.map((team) => (
+            {teams.data.map((team) => (
               <li
                 key={team._id}
                 className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm dark:border-border-dark"

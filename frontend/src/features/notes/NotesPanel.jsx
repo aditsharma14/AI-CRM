@@ -1,6 +1,7 @@
 // Embeddable note thread mounted inside any detail modal.
 import { useState } from 'react'
 
+import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { Button, Loader } from '../../components/ui.jsx'
 import { useCrudQuery } from '../../hooks.js'
 import { formatDateTime } from '../../lib/utils.js'
@@ -8,7 +9,7 @@ import { formatDateTime } from '../../lib/utils.js'
 export default function NotesPanel({ entityType, entityId }) {
   const [draft, setDraft] = useState('')
   const notes = useCrudQuery('notes')
-  const { data, isLoading } = notes.useList({ entityType, entityId, sort: '-createdAt' })
+  const { data, isLoading, isError, error, refetch } = notes.useList({ entityType, entityId, sort: '-createdAt' })
   const createNote = notes.useCreate()
 
   const submit = (e) => {
@@ -33,6 +34,8 @@ export default function NotesPanel({ entityType, entityId }) {
 
       {isLoading ? (
         <Loader className="h-4 w-4" />
+      ) : isError ? (
+        <ErrorAlert error={error} onRetry={refetch} />
       ) : data?.data.length ? (
         <ul className="flex flex-col gap-3">
           {data.data.map((note) => (
