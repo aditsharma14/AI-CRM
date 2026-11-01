@@ -82,6 +82,9 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      # The GitHub Pages demo (src/demo/, MSW) must never reach a normal build.
+      - run: npm run build
+      - run: node scripts/check-no-demo.mjs
 
   e2e:
     runs-on: ubuntu-latest
