@@ -1,0 +1,986 @@
+{
+  "DELETE /activities/:id": {
+    "success": "boolean",
+    "data": "null",
+    "error": "null",
+    "meta": "null"
+  },
+  "DELETE /companies/:id": {
+    "success": "boolean",
+    "data": "null",
+    "error": "null",
+    "meta": "null"
+  },
+  "DELETE /contacts/:id": {
+    "success": "boolean",
+    "data": "null",
+    "error": "null",
+    "meta": "null"
+  },
+  "DELETE /deals/:id": {
+    "success": "boolean",
+    "data": "null",
+    "error": "null",
+    "meta": "null"
+  },
+  "DELETE /leads/:id": {
+    "success": "boolean",
+    "data": "null",
+    "error": "null",
+    "meta": "null"
+  },
+  "DELETE /notes/:id": {
+    "success": "boolean",
+    "data": "null",
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /activities": {
+    "success": "boolean",
+    "data": [
+      {
+        "_id": "id",
+        "orgId": "id",
+        "type": "string",
+        "title": "string",
+        "assigneeId": {
+          "_id": "id",
+          "name": "string"
+        },
+        "allDay": "boolean",
+        "status": "string",
+        "createdAt": "date",
+        "updatedAt": "date",
+        "__v": "number",
+        "linkedTo?": {
+          "entityType": "string",
+          "entityId": "id"
+        },
+        "description?": "string",
+        "dueDate?": "date",
+        "priority?": "string",
+        "startAt?": "date",
+        "endAt?": "date"
+      }
+    ],
+    "error": "null",
+    "meta": {
+      "page": "number",
+      "limit": "number",
+      "total": "number",
+      "hasMore": "boolean"
+    }
+  },
+  "GET /activities/:id": {
+    "success": "boolean",
+    "data": {
+      "linkedTo": {
+        "entityType": "string",
+        "entityId": "id"
+      },
+      "_id": "id",
+      "orgId": "id",
+      "type": "string",
+      "title": "string",
+      "description": "string",
+      "assigneeId": {
+        "_id": "id",
+        "name": "string"
+      },
+      "dueDate": "date",
+      "priority": "string",
+      "allDay": "boolean",
+      "status": "string",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /companies": {
+    "success": "boolean",
+    "data": [
+      {
+        "_id": "id",
+        "orgId": "id",
+        "name": "string",
+        "ownerId": "id",
+        "createdAt": "date",
+        "updatedAt": "date",
+        "__v": "number",
+        "domain?": "string",
+        "industry?": "string",
+        "size?": "string"
+      }
+    ],
+    "error": "null",
+    "meta": {
+      "page": "number",
+      "limit": "number",
+      "total": "number",
+      "hasMore": "boolean"
+    }
+  },
+  "GET /companies/:id": {
+    "success": "boolean",
+    "data": {
+      "_id": "id",
+      "orgId": "id",
+      "name": "string",
+      "domain": "string",
+      "industry": "string",
+      "size": "string",
+      "ownerId": "id",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /config": {
+    "success": "boolean",
+    "data": {
+      "emailEnabled": "boolean"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /contacts": {
+    "success": "boolean",
+    "data": [
+      {
+        "_id": "id",
+        "orgId": "id",
+        "name": "string",
+        "ownerId": "id",
+        "tags": ["string"],
+        "createdAt": "date",
+        "updatedAt": "date",
+        "__v": "number",
+        "email?": "string",
+        "phone?": "string",
+        "title?": "string",
+        "companyId?": {
+          "_id": "id",
+          "name": "string"
+        }
+      }
+    ],
+    "error": "null",
+    "meta": {
+      "page": "number",
+      "limit": "number",
+      "total": "number",
+      "hasMore": "boolean"
+    }
+  },
+  "GET /contacts/:id": {
+    "success": "boolean",
+    "data": {
+      "_id": "id",
+      "orgId": "id",
+      "name": "string",
+      "email": "string",
+      "phone": "string",
+      "title": "string",
+      "companyId": {
+        "_id": "id",
+        "name": "string"
+      },
+      "ownerId": "id",
+      "tags": ["string"],
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /dashboard/overview": {
+    "success": "boolean",
+    "data": {
+      "leadsByStatus": {
+        "$map": "number"
+      },
+      "dealsByStage": [
+        {
+          "stageKey": "string",
+          "count": "number",
+          "value": "number"
+        }
+      ],
+      "openPipelineValue": "number",
+      "recentActivity": [
+        {
+          "_id": "id",
+          "orgId": "id",
+          "userId": {
+            "_id": "id",
+            "name": "string"
+          },
+          "entityType": "string",
+          "entityId": "id",
+          "message": "string",
+          "kind": "string",
+          "action": "string",
+          "createdAt": "date",
+          "updatedAt": "date",
+          "__v": "number"
+        }
+      ]
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /dashboard/reports": {
+    "success": "boolean",
+    "data": {
+      "wonLostByMonth": [
+        {
+          "_id": {
+            "year": "number",
+            "month": "number",
+            "status": "string"
+          },
+          "count": "number",
+          "value": "number"
+        }
+      ],
+      "winRate": "number",
+      "won": "number",
+      "lost": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /deals": {
+    "success": "boolean",
+    "data": [
+      {
+        "_id": "id",
+        "orgId": "id",
+        "title": "string",
+        "value": "number",
+        "currency": "string",
+        "stageKey": "string",
+        "probability": "number",
+        "contactIds": [
+          {
+            "_id": "id",
+            "name": "string"
+          }
+        ],
+        "ownerId": "id",
+        "status": "string",
+        "createdAt": "date",
+        "updatedAt": "date",
+        "__v": "number",
+        "companyId?": {
+          "_id": "id",
+          "name": "string"
+        },
+        "closedAt?": "date",
+        "wonLostReason?": "string",
+        "convertedFromLeadId?": "id"
+      }
+    ],
+    "error": "null",
+    "meta": {
+      "page": "number",
+      "limit": "number",
+      "total": "number",
+      "hasMore": "boolean"
+    }
+  },
+  "GET /deals/:id": {
+    "success": "boolean",
+    "data": {
+      "_id": "id",
+      "orgId": "id",
+      "title": "string",
+      "value": "number",
+      "currency": "string",
+      "stageKey": "string",
+      "probability": "number",
+      "companyId": {
+        "_id": "id",
+        "name": "string"
+      },
+      "contactIds": [
+        {
+          "_id": "id",
+          "name": "string"
+        }
+      ],
+      "ownerId": "id",
+      "status": "string",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number",
+      "closedAt": "date",
+      "wonLostReason": "string"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /leads": {
+    "success": "boolean",
+    "data": [
+      {
+        "_id": "id",
+        "orgId": "id",
+        "name": "string",
+        "status": "string",
+        "score": "number",
+        "ownerId": "id",
+        "createdAt": "date",
+        "updatedAt": "date",
+        "__v": "number",
+        "companyId?": {
+          "_id": "id",
+          "name": "string"
+        },
+        "convertedAt?": "date",
+        "convertedToDealId?": "id",
+        "email?": "string",
+        "phone?": "string",
+        "source?": "string"
+      }
+    ],
+    "error": "null",
+    "meta": {
+      "page": "number",
+      "limit": "number",
+      "total": "number",
+      "hasMore": "boolean"
+    }
+  },
+  "GET /leads/:id": {
+    "success": "boolean",
+    "data": {
+      "_id": "id",
+      "orgId": "id",
+      "name": "string",
+      "email": "string",
+      "phone": "string",
+      "source": "string",
+      "status": "string",
+      "score": "number",
+      "companyId": {
+        "_id": "id",
+        "name": "string"
+      },
+      "ownerId": "id",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /notes": {
+    "success": "boolean",
+    "data": [
+      {
+        "_id": "id",
+        "orgId": "id",
+        "entityType": "string",
+        "entityId": "id",
+        "body": "string",
+        "authorId": {
+          "_id": "id",
+          "name": "string",
+          "avatarUrl": "string"
+        },
+        "createdAt": "date",
+        "updatedAt": "date",
+        "__v": "number"
+      }
+    ],
+    "error": "null",
+    "meta": {
+      "page": "number",
+      "limit": "number",
+      "total": "number",
+      "hasMore": "boolean"
+    }
+  },
+  "GET /notifications": {
+    "success": "boolean",
+    "data": [
+      {
+        "_id": "id",
+        "orgId": "id",
+        "userId": "id",
+        "entityType": "string",
+        "entityId": "id",
+        "message": "string",
+        "kind": "string",
+        "read": "boolean",
+        "createdAt": "date",
+        "updatedAt": "date",
+        "__v": "number"
+      }
+    ],
+    "error": "null",
+    "meta": {
+      "page": "number",
+      "limit": "number",
+      "total": "number",
+      "hasMore": "boolean",
+      "unreadCount": "number"
+    }
+  },
+  "GET /org": {
+    "success": "boolean",
+    "data": {
+      "_id": "id",
+      "name": "string",
+      "plan": "string",
+      "currency": "string",
+      "teams": [
+        {
+          "name": "string",
+          "memberIds": [],
+          "_id": "id",
+          "createdAt": "date",
+          "updatedAt": "date"
+        }
+      ],
+      "pipelineStages": [
+        {
+          "key": "string",
+          "label": "string",
+          "order": "number"
+        }
+      ],
+      "emailTemplates": [],
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number",
+      "ownerId": "id"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /org/email-templates": {
+    "success": "boolean",
+    "data": [
+      {
+        "name": "string",
+        "subject": "string",
+        "body": "string",
+        "_id": "id",
+        "createdAt": "date",
+        "updatedAt": "date"
+      }
+    ],
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /org/members": {
+    "success": "boolean",
+    "data": [
+      {
+        "_id": "id",
+        "name": "string",
+        "email": "string",
+        "role": "string",
+        "isEmailVerified": "boolean",
+        "createdAt": "date"
+      }
+    ],
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /org/pipeline-stages": {
+    "success": "boolean",
+    "data": [
+      {
+        "key": "string",
+        "label": "string",
+        "order": "number"
+      }
+    ],
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /org/teams": {
+    "success": "boolean",
+    "data": [
+      {
+        "name": "string",
+        "memberIds": [],
+        "_id": "id",
+        "createdAt": "date",
+        "updatedAt": "date"
+      }
+    ],
+    "error": "null",
+    "meta": "null"
+  },
+  "GET /search": {
+    "success": "boolean",
+    "data": {
+      "leads": [
+        {
+          "_id": "id",
+          "orgId": "id",
+          "name": "string",
+          "status": "string",
+          "score": "number",
+          "ownerId": "id",
+          "createdAt": "date",
+          "updatedAt": "date",
+          "__v": "number",
+          "email?": "string",
+          "phone?": "string",
+          "source?": "string",
+          "companyId?": "id"
+        }
+      ],
+      "contacts": [
+        {
+          "_id": "id",
+          "orgId": "id",
+          "name": "string",
+          "ownerId": "id",
+          "tags": ["string"],
+          "createdAt": "date",
+          "updatedAt": "date",
+          "__v": "number",
+          "email?": "string",
+          "phone?": "string",
+          "title?": "string",
+          "companyId?": "id"
+        }
+      ],
+      "companies": [
+        {
+          "_id": "id",
+          "orgId": "id",
+          "name": "string",
+          "ownerId": "id",
+          "createdAt": "date",
+          "updatedAt": "date",
+          "__v": "number",
+          "domain?": "string",
+          "industry?": "string",
+          "size?": "string"
+        }
+      ],
+      "deals": [
+        {
+          "_id": "id",
+          "orgId": "id",
+          "title": "string",
+          "value": "number",
+          "currency": "string",
+          "stageKey": "string",
+          "probability": "number",
+          "companyId?": "id",
+          "contactIds": ["id"],
+          "ownerId": "id",
+          "status": "string",
+          "createdAt": "date",
+          "updatedAt": "date",
+          "__v": "number",
+          "closedAt?": "date",
+          "wonLostReason?": "string"
+        }
+      ]
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "PATCH /activities/:id": {
+    "success": "boolean",
+    "data": {
+      "linkedTo": {
+        "entityType": "string",
+        "entityId": "id"
+      },
+      "_id": "id",
+      "orgId": "id",
+      "type": "string",
+      "title": "string",
+      "description": "string",
+      "assigneeId": "id",
+      "dueDate": "date",
+      "priority": "string",
+      "allDay": "boolean",
+      "status": "string",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "PATCH /activities/:id/toggle-status": {
+    "success": "boolean",
+    "data": {
+      "linkedTo": {
+        "entityType": "string",
+        "entityId": "id"
+      },
+      "_id": "id",
+      "orgId": "id",
+      "type": "string",
+      "title": "string",
+      "description": "string",
+      "assigneeId": "id",
+      "dueDate": "date",
+      "priority": "string",
+      "allDay": "boolean",
+      "status": "string",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "PATCH /companies/:id": {
+    "success": "boolean",
+    "data": {
+      "_id": "id",
+      "orgId": "id",
+      "name": "string",
+      "domain": "string",
+      "industry": "string",
+      "size": "string",
+      "ownerId": "id",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "PATCH /contacts/:id": {
+    "success": "boolean",
+    "data": {
+      "_id": "id",
+      "orgId": "id",
+      "name": "string",
+      "email": "string",
+      "phone": "string",
+      "title": "string",
+      "companyId": "id",
+      "ownerId": "id",
+      "tags": ["string"],
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "PATCH /deals/:id": {
+    "success": "boolean",
+    "data": {
+      "_id": "id",
+      "orgId": "id",
+      "title": "string",
+      "value": "number",
+      "currency": "string",
+      "stageKey": "string",
+      "probability": "number",
+      "companyId": "id",
+      "contactIds": ["id"],
+      "ownerId": "id",
+      "status": "string",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number",
+      "closedAt": "date",
+      "wonLostReason": "string"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "PATCH /deals/:id/move-stage": {
+    "success": "boolean",
+    "data": {
+      "_id": "id",
+      "orgId": "id",
+      "title": "string",
+      "value": "number",
+      "currency": "string",
+      "stageKey": "string",
+      "probability": "number",
+      "companyId?": "id",
+      "contactIds": ["id"],
+      "ownerId": "id",
+      "status": "string",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number",
+      "closedAt?": "date",
+      "wonLostReason?": "string"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "PATCH /leads/:id": {
+    "success": "boolean",
+    "data": {
+      "_id": "id",
+      "orgId": "id",
+      "name": "string",
+      "email": "string",
+      "phone": "string",
+      "source": "string",
+      "status": "string",
+      "score": "number",
+      "companyId": "id",
+      "ownerId": "id",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "PATCH /notes/:id": {
+    "success": "boolean",
+    "data": {
+      "_id": "id",
+      "orgId": "id",
+      "entityType": "string",
+      "entityId": "id",
+      "body": "string",
+      "authorId": "id",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "PATCH /notifications/:id/read": {
+    "success": "boolean",
+    "data": {
+      "_id": "id",
+      "orgId": "id",
+      "userId": "id",
+      "entityType": "string",
+      "entityId": "id",
+      "message": "string",
+      "kind": "string",
+      "read": "boolean",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "PATCH /notifications/read-all": {
+    "success": "boolean",
+    "data": "null",
+    "error": "null",
+    "meta": "null"
+  },
+  "POST /activities": {
+    "success": "boolean",
+    "data": {
+      "orgId": "id",
+      "type": "string",
+      "title": "string",
+      "description?": "string",
+      "assigneeId": "id",
+      "linkedTo?": {
+        "entityType": "string",
+        "entityId": "id"
+      },
+      "dueDate?": "date",
+      "priority?": "string",
+      "allDay": "boolean",
+      "status": "string",
+      "_id": "id",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number",
+      "startAt?": "date",
+      "endAt?": "date"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "POST /auth/login": {
+    "success": "boolean",
+    "data": {
+      "accessToken": "string",
+      "user": {
+        "id": "id",
+        "name": "string",
+        "email": "string",
+        "role": "string",
+        "avatarUrl": "null|string",
+        "org": {
+          "id": "id",
+          "name": "string",
+          "plan": "string",
+          "currency": "string"
+        }
+      }
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "POST /auth/logout": {
+    "success": "boolean",
+    "data": "null",
+    "error": "null",
+    "meta": "null"
+  },
+  "POST /auth/refresh": {
+    "success": "boolean",
+    "data": {
+      "accessToken": "string",
+      "user": {
+        "id": "id",
+        "name": "string",
+        "email": "string",
+        "role": "string",
+        "avatarUrl": "null|string",
+        "org": {
+          "id": "id",
+          "name": "string",
+          "plan": "string",
+          "currency": "string"
+        }
+      }
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "POST /companies": {
+    "success": "boolean",
+    "data": {
+      "orgId": "id",
+      "name": "string",
+      "domain?": "string",
+      "industry?": "string",
+      "size?": "string",
+      "ownerId": "id",
+      "_id": "id",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "POST /contacts": {
+    "success": "boolean",
+    "data": {
+      "orgId": "id",
+      "name": "string",
+      "email?": "string",
+      "phone?": "string",
+      "title?": "string",
+      "companyId?": "id",
+      "ownerId": "id",
+      "tags": ["string"],
+      "_id": "id",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "POST /deals": {
+    "success": "boolean",
+    "data": {
+      "orgId": "id",
+      "title": "string",
+      "value": "number",
+      "currency": "string",
+      "stageKey": "string",
+      "probability": "number",
+      "companyId?": "id",
+      "contactIds": ["id"],
+      "ownerId": "id",
+      "status": "string",
+      "_id": "id",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "POST /leads": {
+    "success": "boolean",
+    "data": {
+      "orgId": "id",
+      "name": "string",
+      "email?": "string",
+      "phone?": "string",
+      "source?": "string",
+      "status": "string",
+      "score": "number",
+      "companyId?": "id",
+      "ownerId": "id",
+      "_id": "id",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "POST /leads/:id/convert": {
+    "success": "boolean",
+    "data": {
+      "orgId": "id",
+      "title": "string",
+      "value": "number",
+      "currency": "string",
+      "stageKey": "string",
+      "probability": "number",
+      "companyId": "id",
+      "contactIds": [],
+      "ownerId": "id",
+      "convertedFromLeadId": "id",
+      "status": "string",
+      "_id": "id",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "POST /notes": {
+    "success": "boolean",
+    "data": {
+      "orgId": "id",
+      "entityType": "string",
+      "entityId": "id",
+      "body": "string",
+      "authorId": "id",
+      "_id": "id",
+      "createdAt": "date",
+      "updatedAt": "date",
+      "__v": "number"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "error": {
+    "success": "boolean",
+    "data": "null",
+    "error": {
+      "code": "string",
+      "message": "string"
+    },
+    "meta": "null"
+  }
+}
