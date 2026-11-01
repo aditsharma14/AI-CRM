@@ -54,36 +54,45 @@ class ErrorBoundary extends Component {
   }
 }
 
+/** The route table, apart from the router so tests can mount it in a MemoryRouter. */
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route element={<AuthLayout />}>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterOrgPage />} />
+        <Route path="/invite/:token" element={<AcceptInvitePage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+      </Route>
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppLayout />}>
+          <Route index element={<DashboardPage />} />
+          <Route path="/leads" element={<LeadsPage />} />
+          <Route path="/contacts" element={<ContactsPage />} />
+          <Route path="/companies" element={<CompaniesPage />} />
+          <Route path="/deals" element={<PipelinePage />} />
+          {/* The page is called Pipeline; links and bookmarks may use that name. */}
+          <Route path="/pipeline" element={<Navigate to="/deals" replace />} />
+          <Route path="/tasks" element={<TasksPage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          {/* Every member can reach Settings — the tabs gate individual
+              management actions (invite, rename org, etc.) by role themselves. */}
+          <Route path="/settings" element={<SettingsPage />} />
+        </Route>
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <SessionProvider>
-            <Routes>
-              <Route element={<AuthLayout />}>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterOrgPage />} />
-                <Route path="/invite/:token" element={<AcceptInvitePage />} />
-                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                <Route path="/reset-password" element={<ResetPasswordPage />} />
-              </Route>
-              <Route element={<ProtectedRoute />}>
-                <Route element={<AppLayout />}>
-                  <Route index element={<DashboardPage />} />
-                  <Route path="/leads" element={<LeadsPage />} />
-                  <Route path="/contacts" element={<ContactsPage />} />
-                  <Route path="/companies" element={<CompaniesPage />} />
-                  <Route path="/deals" element={<PipelinePage />} />
-                  <Route path="/tasks" element={<TasksPage />} />
-                  <Route path="/calendar" element={<CalendarPage />} />
-                  {/* Every member can reach Settings — the tabs gate individual
-                      management actions (invite, rename org, etc.) by role themselves. */}
-                  <Route path="/settings" element={<SettingsPage />} />
-                </Route>
-              </Route>
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+            <AppRoutes />
           </SessionProvider>
         </BrowserRouter>
       </QueryClientProvider>
