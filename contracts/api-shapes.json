@@ -74,7 +74,7 @@
   "GET /activities/:id": {
     "success": "boolean",
     "data": {
-      "linkedTo": {
+      "linkedTo?": {
         "entityType": "string",
         "entityId": "id"
       },
@@ -82,13 +82,13 @@
       "orgId": "id",
       "type": "string",
       "title": "string",
-      "description": "string",
+      "description?": "string",
       "assigneeId": {
         "_id": "id",
         "name": "string"
       },
-      "dueDate": "date",
-      "priority": "string",
+      "dueDate?": "date",
+      "priority?": "string",
       "allDay": "boolean",
       "status": "string",
       "createdAt": "date",
@@ -128,9 +128,9 @@
       "_id": "id",
       "orgId": "id",
       "name": "string",
-      "domain": "string",
-      "industry": "string",
-      "size": "string",
+      "domain?": "string",
+      "industry?": "string",
+      "size?": "string",
       "ownerId": "id",
       "createdAt": "date",
       "updatedAt": "date",
@@ -182,10 +182,10 @@
       "_id": "id",
       "orgId": "id",
       "name": "string",
-      "email": "string",
-      "phone": "string",
-      "title": "string",
-      "companyId": {
+      "email?": "string",
+      "phone?": "string",
+      "title?": "string",
+      "companyId?": {
         "_id": "id",
         "name": "string"
       },
@@ -304,7 +304,7 @@
       "currency": "string",
       "stageKey": "string",
       "probability": "number",
-      "companyId": {
+      "companyId?": {
         "_id": "id",
         "name": "string"
       },
@@ -319,8 +319,8 @@
       "createdAt": "date",
       "updatedAt": "date",
       "__v": "number",
-      "closedAt": "date",
-      "wonLostReason": "string"
+      "closedAt?": "date",
+      "wonLostReason?": "string"
     },
     "error": "null",
     "meta": "null"
@@ -363,12 +363,12 @@
       "_id": "id",
       "orgId": "id",
       "name": "string",
-      "email": "string",
-      "phone": "string",
-      "source": "string",
+      "email?": "string",
+      "phone?": "string",
+      "source?": "string",
       "status": "string",
       "score": "number",
-      "companyId": {
+      "companyId?": {
         "_id": "id",
         "name": "string"
       },
@@ -392,7 +392,7 @@
         "authorId": {
           "_id": "id",
           "name": "string",
-          "avatarUrl": "string"
+          "avatarUrl?": "string"
         },
         "createdAt": "date",
         "updatedAt": "date",

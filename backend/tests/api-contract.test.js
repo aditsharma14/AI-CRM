@@ -98,6 +98,7 @@ beforeAll(async () => {
   await hit('GET /companies', 200)
   await hit('GET /companies/:id', 200, { path: `/companies/${company._id}` })
   await hit('PATCH /companies/:id', 200, { path: `/companies/${company._id}`, body: { industry: 'Wholesale' } })
+  await hit('GET /companies/:id', 200, { path: `/companies/${bare._id}` })
   await hit('DELETE /companies/:id', 200, { path: `/companies/${bare._id}` })
 
   const contact = await dataOf('POST /contacts', 201, {
@@ -114,6 +115,7 @@ beforeAll(async () => {
   await hit('GET /contacts', 200)
   await hit('GET /contacts/:id', 200, { path: `/contacts/${contact._id}` })
   await hit('PATCH /contacts/:id', 200, { path: `/contacts/${contact._id}`, body: { title: 'Director' } })
+  await hit('GET /contacts/:id', 200, { path: `/contacts/${bareContact._id}` })
   await hit('DELETE /contacts/:id', 200, { path: `/contacts/${bareContact._id}` })
 
   // ---- leads, convert
@@ -136,6 +138,7 @@ beforeAll(async () => {
   await hit('GET /leads', 200)
   await hit('GET /leads/:id', 200, { path: `/leads/${lead._id}` })
   await hit('PATCH /leads/:id', 200, { path: `/leads/${lead._id}`, body: { status: 'contacted' } })
+  await hit('GET /leads/:id', 200, { path: `/leads/${bareLead._id}` })
   await hit('DELETE /leads/:id', 200, { path: `/leads/${bareLead._id}` })
 
   // ---- deals, move-stage with a close
@@ -161,6 +164,7 @@ beforeAll(async () => {
   await hit('GET /deals', 200)
   await hit('GET /deals/:id', 200, { path: `/deals/${deal._id}` })
   await hit('PATCH /deals/:id', 200, { path: `/deals/${deal._id}`, body: { probability: 100 } })
+  await hit('GET /deals/:id', 200, { path: `/deals/${bareDeal._id}` })
   await hit('DELETE /deals/:id', 200, { path: `/deals/${bareDeal._id}` })
 
   // ---- activities (task and event), notes
@@ -188,12 +192,17 @@ beforeAll(async () => {
   await hit('GET /activities/:id', 200, { path: `/activities/${task._id}` })
   await hit('PATCH /activities/:id', 200, { path: `/activities/${task._id}`, body: { priority: 'medium' } })
   await hit('PATCH /activities/:id/toggle-status', 200, { path: `/activities/${task._id}/toggle-status` })
+  await hit('GET /activities/:id', 200, { path: `/activities/${bareTask._id}` })
   await hit('DELETE /activities/:id', 200, { path: `/activities/${bareTask._id}` })
 
   const note = await dataOf('POST /notes', 201, {
     body: { entityType: 'deal', entityId: deal._id, body: 'Wants delivery before Diwali.' },
   })
   const extra = await dataOf('POST /notes', 201, { body: { entityType: 'deal', entityId: deal._id, body: 'Second' } })
+  await hit('POST /notes', 201, {
+    as: memberToken,
+    body: { entityType: 'deal', entityId: deal._id, body: 'Called them back.' },
+  })
   await hit('GET /notes', 200, { query: { entityType: 'deal', entityId: deal._id } })
   await hit('PATCH /notes/:id', 200, { path: `/notes/${note._id}`, body: { body: 'Wants delivery before Diwali!' } })
   await hit('DELETE /notes/:id', 200, { path: `/notes/${extra._id}` })
