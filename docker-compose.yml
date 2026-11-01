@@ -21,6 +21,8 @@ services:
       NODE_ENV: development
       MONGO_URI: mongodb://mongo:27017/nimbus-crm?replicaSet=rs0
       CLIENT_ORIGIN: http://localhost:8080
+      # Browsers reach the API through the client's nginx, one hop; req.ip (and the rate limiter) then sees the visitor.
+      TRUST_PROXY: '1'
       # Dev-only default; the backend refuses it when NODE_ENV=production. Override with a real one.
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-compose-secret-change-me}
     ports:

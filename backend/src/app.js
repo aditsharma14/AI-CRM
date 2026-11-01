@@ -19,7 +19,7 @@ import orgAdminRoutes from './routes/orgAdmin.routes.js'
 import { apiResponse } from './utils/http.js'
 
 const app = express()
-// Without it, behind Vercel and Render every visitor has the proxy's IP and shares one rate-limit bucket.
+// Without it, behind compose's nginx every visitor has nginx's IP and shares one rate-limit bucket.
 app.set('trust proxy', env.trustProxy)
 
 // First, so every request gets an id and a log line, even one that fails in body parsing.

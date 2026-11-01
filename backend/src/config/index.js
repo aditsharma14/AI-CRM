@@ -15,8 +15,8 @@ if (missing.length) {
   throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
 }
 
-// How many proxy hops of X-Forwarded-For to believe. 0 (the default) locally and in compose, where nothing sits in
-// front of the API; 2 in production (Vercel's rewrite, then Render's ingress), so req.ip is the visitor.
+// How many proxy hops of X-Forwarded-For to believe. 0 (the default) for `npm run dev`, where nothing sits in front
+// of the API; 1 in docker compose (the client's nginx), so req.ip is the visitor.
 function parseTrustProxy(raw) {
   if (raw === undefined || raw === '') return 0
   if (!/^\d+$/.test(raw) || Number(raw) > 10) {

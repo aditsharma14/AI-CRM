@@ -46,13 +46,13 @@ describe('TRUST_PROXY', () => {
     return import('../src/config/index.js')
   }
 
-  it('defaults to 0 hops (local and compose: nothing in front of the API to trust)', () => {
+  it('defaults to 0 hops (npm run dev: nothing in front of the API to trust)', () => {
     expect(env.trustProxy).toBe(0)
     expect(app.get('trust proxy')).toBe(0)
   })
 
   it('reads a hop count', async () => {
-    expect((await bootWith('2')).env.trustProxy).toBe(2)
+    expect((await bootWith('1')).env.trustProxy).toBe(1)
   })
 
   it.each(['true', '-1', '1.5', 'two', '11'])('refuses %j at boot', async (value) => {
