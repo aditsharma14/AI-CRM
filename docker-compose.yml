@@ -23,6 +23,8 @@ services:
       CLIENT_ORIGIN: http://localhost:8080
       # Browsers reach the API through the client's nginx, one hop; req.ip (and the rate limiter) then sees the visitor.
       TRUST_PROXY: '1'
+      # Reported by /api/v1/health; CI sets it to the commit under test.
+      GIT_COMMIT: ${GIT_COMMIT:-dev}
       # Dev-only default; the backend refuses it when NODE_ENV=production. Override with a real one.
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-compose-secret-change-me}
     ports:

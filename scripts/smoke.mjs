@@ -12,6 +12,8 @@ if (!/^https?:\/\//.test(base)) {
 }
 const api = `${base}/api/v1`
 
+// Set by CI to the commit under test, so a stale image fails the run.
+const EXPECT_COMMIT = process.env.SMOKE_EXPECT_COMMIT || null
 // Right after `docker compose up` the api may still be connecting to mongo.
 const READY_BUDGET_MS = Number(process.env.SMOKE_READY_BUDGET_MS ?? 60_000)
 
@@ -80,6 +82,7 @@ async function main() {
       const res = await call('GET', '/health', { auth: false }).catch((err) => ({ status: 0, text: String(err) }))
       if (res.status === 200 && res.body?.data?.status === 'ok') {
         console.log(`    commit ${res.body.data.commit}`)
+        if (EXPECT_COMMIT && res.body.data.commit !== EXPECT_COMMIT) fail(`health: expected commit ${EXPECT_COMMIT}`)
         return
       }
       if (Date.now() > deadline) fail(`health: not healthy within ${READY_BUDGET_MS / 1000} s (last: ${res.status})`)
@@ -134,5 +137,5 @@ try {
   console.log(`smoke test passed in ${total} ms`)
 } catch (err) {
   console.error(`FAIL ${err instanceof SmokeError ? err.message : err.stack}`)
-  process.exit(1)
+  process.exitCode = 1
 }

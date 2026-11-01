@@ -53,7 +53,7 @@ leadStatus=$(json "${auth[@]}" "$API/api/v1/leads/$lead" | jq -r '.data.status')
 echo "deal $deal convertedFromLeadId=$fromLead; lead status=$leadStatus"
 [ "$fromLead" = "$lead" ] && [ "$leadStatus" = "converted" ] || { echo "conversion not recorded"; exit 1; }
 
-echo "== the deploy smoke test, through nginx (same origin, as on Vercel)"
+echo "== scripts/smoke.mjs, through nginx (same origin, as a browser)"
 node scripts/smoke.mjs "$CLIENT"
 
 echo "== smoke test passed"
