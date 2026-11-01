@@ -4,16 +4,17 @@
 name: Pages
 
 on:
+  # ci/* branches build and smoke the demo too (deploy stays main-only), so a branch is green before it is merged.
   push:
-    branches: [main]
+    branches: [main, 'ci/**']
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# One deploy at a time; a newer push supersedes a queued one, never a running deploy.
+# One run per branch at a time (so one deploy at a time on main); a newer push supersedes a queued one, never a running deploy.
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
