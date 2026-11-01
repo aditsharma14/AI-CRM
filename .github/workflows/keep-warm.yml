@@ -1,0 +1,31 @@
+# Keeps the free-tier API awake from 08:00 to 23:00 IST (~465 of Render's 750 free hours a month), and starts the
+# smoke test once a new commit is live. Always green or skipped, so it can never block a Render deploy that waits for
+# CI checks. Skipped until the PROD_URL repository variable exists. See docs/deploy.md, section 10.
+name: Keep warm
+
+on:
+  schedule:
+    - cron: '30-50/10 2 * * *' # 02:30–02:50 UTC = 08:00–08:20 IST
+    - cron: '*/10 3-16 * * *' # 03:00–16:50 UTC
+    - cron: '0-30/10 17 * * *' # 17:00–17:30 UTC = 22:30–23:00 IST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write # to dispatch deploy-smoke.yml
+
+concurrency:
+  group: keep-warm
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    if: vars.PROD_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/ci/keep-warm.sh
+        env:
+          PROD_URL: ${{ vars.PROD_URL }}
+          GH_TOKEN: ${{ github.token }}
