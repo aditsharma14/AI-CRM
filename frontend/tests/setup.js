@@ -5,14 +5,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll } from 'vitest'
 
-import {
-  resetWaking,
-  setAccessToken,
-  setOnUnauthorized,
-  setSlowRequestMs,
-  setWakeRetryDelays,
-  WAKE_RETRY_DELAYS_MS,
-} from '../src/api/client.js'
+import { setAccessToken, setOnUnauthorized } from '../src/api/client.js'
 import { queryClient } from '../src/lib/queryClient.js'
 import { server } from './server.js'
 
@@ -46,9 +39,6 @@ afterEach(() => {
   queryClient.clear()
   setAccessToken(null)
   setOnUnauthorized(() => {})
-  setWakeRetryDelays(WAKE_RETRY_DELAYS_MS)
-  setSlowRequestMs(4_000)
-  resetWaking()
 })
 
 afterAll(() => server.close())

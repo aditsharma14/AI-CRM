@@ -4,7 +4,6 @@ import { Component } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import ProtectedRoute from './components/ProtectedRoute.jsx'
-import { WakingBanner } from './components/WakingBanner.jsx'
 import { SessionProvider } from './context/SessionContext.jsx'
 import {
   AcceptInvitePage,
@@ -59,7 +58,6 @@ export default function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <WakingBanner />
         <BrowserRouter>
           <SessionProvider>
             <Routes>
