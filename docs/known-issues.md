@@ -14,6 +14,8 @@ plus a record of what has been resolved. Newest resolutions first.
   closing a deal is keyed on them). An org that renames its closing stages' *keys* never closes a deal. Open for S2.7.
 - **[#19] Pipeline save is two calls (move-stage, then update), not atomic;** revisit with a single endpoint or transaction in
   S2.7. (S1.3b made the UI resync after a partial failure, and a retry doesn't repeat the move.)
+- **[#27] The Dashboard sums deals in mixed currencies without conversion.** Totals are formatted in the org's currency
+  (S1.8-GH), but a deal created in another currency is added at face value. No exchange rates yet.
 
 ### Lint disables (S1.7 audit)
 - No `react-hooks` rule is disabled anywhere in the frontend (the one in `GlobalSearch` was #12).
@@ -28,9 +30,9 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
-| 2026-11-01 | **Deployment config disagreed with the docs** (CLAUDE.md gap 9.5): the root `vercel.json` declared the backend as a Vercel service, and its `"/api/(/.*)?"` rewrite never matched `/api/v1/...` | root `vercel.json` deleted (`bb1d8a5`); there is no hosted backend, and the public demo is a static GitHub Pages build (S1.8-GH). [#26] (spoofed `X-Forwarded-For` on a direct Render origin) closed as not planned |
+| 2026-11-01 | **Deployment config disagreed with the docs** (CLAUDE.md gap 9.5): the root `vercel.json` declared the backend as a Vercel service, and its `"/api/(/.*)?"` rewrite never matched `/api/v1/...` | root `vercel.json` deleted (`bb1d8a5`), `frontend/vercel.json` too (`a479131`); there is no hosted backend, and the public demo is a static GitHub Pages build (S1.8-GH). [#26] (spoofed `X-Forwarded-For` on a direct Render origin) closed as not planned |
 | 2026-11-01 | **The dev-only token logs would have run in production** | they run only when `NODE_ENV` isn't production (tested); invite links go back to the inviter while `EMAIL_ENABLED=false` (`23dcde0`) |
-| 2026-11-01 | **Product name inconsistent:** "Nimbus CRM" in the readme, another name in the app shell, sign-in and the page title | Nimbus CRM everywhere (S1.8; the database name was already `nimbus-crm`) |
+| 2026-11-01 | **Product name inconsistent:** "Nimbus CRM" in the readme, another name in the app shell, sign-in and the page title | Nimbus CRM everywhere (`2b8ebac`; the database name was already `nimbus-crm`) |
 | 2026-11-01 | **No reset-password page** (CLAUDE.md gap 9.1): the backend issued `/reset-password?token=` links the app couldn't open, and there was no way to ask for one | `/forgot-password` and `/reset-password` (token removed from the URL with `replaceState`; missing, expired and success states) (`2f85355`); e2e with planted tokens, mutation-checked (`a41586c`) |
 | 2026-11-01 | **The password rule was only `min(8)`:** eight spaces were a valid password; bcrypt silently ignored everything after 72 bytes; four emoji counted as 8 characters | one shared rule: 8+ code points, not only whitespace (never trimmed), ≤ 72 UTF-8 bytes, on all four endpoints; client mirror with the same case table (`37a8f60`, `2f85355`). Existing passwords still log in |
 | 2026-11-01 | **[#13] Save errors were silent** on Contacts, Companies, Tasks, Calendar, Notes and Settings (unhandled `mutateAsync` rejections, fire-and-forget `mutate`) | `useMutationError` + `ErrorAlert` everywhere, input kept on failure, field-level 400s via `forFields` (`324b7d7`, `63bfab1`; hook `7a45269`) |

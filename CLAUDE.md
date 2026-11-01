@@ -24,8 +24,8 @@ Read this before changing anything. Overview: [readme.md](readme.md). History: [
   Express sends. If an AI result must be saved (e.g. a lead score), Express saves it.
 - Containers are wired in [docker-compose.yml](docker-compose.yml): `client`, `api`, `mongo` (Mongo 7), and
   `ai` behind the `ai` profile until S2.1 builds it (`docker compose --profile ai up`).
-- **There is no hosted backend.** The full stack runs in docker compose. The public demo is a frontend-only build on
-  GitHub Pages that answers the API in the browser (mocked, nothing leaves the tab).
+- **There is no hosted backend.** The full stack runs in docker compose. The public demo ([pages.yml](.github/workflows/pages.yml))
+  is a `VITE_DEMO=true` build on GitHub Pages that answers the API in the browser; its shapes are pinned by [contracts/](contracts/).
 
 ## 2. Folder map
 
@@ -47,6 +47,7 @@ Read this before changing anything. Overview: [readme.md](readme.md). History: [
 | [frontend/src/components/](frontend/src/components/) | Shared UI: `DataTable`, `Modal`, `FormField`, `GlobalSearch` (also Ctrl+K palette) |
 | [frontend/src/lib/](frontend/src/lib/) | `constants.js` (enums + permission mirror), `queryClient.js`, `utils.js` |
 | [frontend/src/layouts/](frontend/src/layouts/) | `AppLayout` (shell, nav, guest banner), `AuthLayout` |
+| [frontend/src/demo/](frontend/src/demo/) | Pages demo only (MSW handlers + seed); never in a normal build ([check-no-demo.mjs](frontend/scripts/check-no-demo.mjs)) |
 | [AI/app/](AI/app/) | FastAPI service: `core/` (config, LLM, memory/RAG), `routers/` (assistant, generate). **All stubs.** |
 
 ## 3. API contract

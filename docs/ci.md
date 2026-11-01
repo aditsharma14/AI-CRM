@@ -14,9 +14,16 @@ including the test suites and the Docker stack.
 | `repo` | `npx prettier --check .` over JS, JSON, YAML and CSS | `npx prettier --check .` (repo root) |
 | `ai` | `pip install -r requirements-dev.txt`, then `ruff check .`, `ruff format --check .`, `pytest` (one placeholder test until S2.1) | `node scripts/ruff.mjs check AI`, `node scripts/ruff.mjs format --check AI`, then in `AI/`: `.venv/Scripts/python -m pytest` |
 | `backend` | `npm ci`, `npm run lint`, `npm run typecheck`, `npm run test:coverage` (fails below the coverage gate) | in `backend/`: the same four commands |
-| `frontend` | `npm ci`, `npm run lint`, `npm run typecheck`, `npm test` | in `frontend/`: the same four commands |
+| `frontend` | `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, then [check-no-demo.mjs](../frontend/scripts/check-no-demo.mjs) (no MSW, worker, `404.html` or demo data in a normal build) | in `frontend/`: the same commands |
 | `e2e` | `npm ci` in both packages, `npx playwright install --with-deps chromium`, `npm run e2e` (starts its own API on in-memory Mongo and a Vite server). Traces are uploaded on failure | in `frontend/`: `npm run e2e` (first time: `npx playwright install chromium`; on Windows, `C:\Windows\System32` must be on `PATH`) |
 | `docker` | `docker compose build`, `docker compose up -d`, [docker-smoke.sh](../scripts/ci/docker-smoke.sh), logs on failure, `docker compose down -v` | `docker compose up -d --build`, then `bash scripts/ci/docker-smoke.sh` (needs curl and jq), then `docker compose down -v` |
+
+**The demo** ([pages.yml](../.github/workflows/pages.yml), a separate workflow): on every push to `main` and `ci/**`, build
+with `VITE_DEMO=true`, run [demo.spec.js](../frontend/e2e-demo/demo.spec.js) against that exact artifact served the way
+Pages serves it ([pages-server.mjs](../frontend/e2e-demo/pages-server.mjs)), and deploy to
+https://aditsharma14.github.io/AI-CRM/ only from `main` and only if the smoke passed. Locally:
+`VITE_DEMO=true npm run build && npm run e2e:demo` in `frontend/` (on Windows the run ends slowly: Playwright takes
+minutes to stop the static server after the tests pass; on Linux CI it's instant).
 
 **What the docker job proves** ([docker-smoke.sh](../scripts/ci/docker-smoke.sh)):
 - the API answers `/health`;

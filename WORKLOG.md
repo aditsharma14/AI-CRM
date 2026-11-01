@@ -844,3 +844,61 @@ field too, so `fill` could land on the old page as it unmounted. The spec now wa
 
 **Next:** S2.6 brings email (then the dev-only reset and invite logs go, #20) and email verification (gap 9.1). The
 notifications panel's silent mark-read and the bundle size are logged.
+
+## 2026-11-02 · S1.8-GH: Live demo on GitHub Pages, full-stack smoke in CI
+
+**Goal:** a public demo without hosting a backend, and the docker stack smoke-tested on every push. The S1.8 hosting
+plan (Render, Vercel, Atlas) was cancelled; its hosting-only work was reverted with new commits, and its useful parts
+(health endpoint, `EMAIL_ENABLED`, invite link to the inviter, `.dockerignore`, the product name) were kept.
+
+**Live demo:** https://aditsharma14.github.io/AI-CRM/ (deep links work: `/AI-CRM/pipeline` redirects to `/AI-CRM/deals`).
+
+**Commits** (on `main` through the pre-commit hook; CI and e2e changes through `ci/smoke`, `ci/no-deploy` and `ci/pages`,
+fast-forwarded only when green)
+
+| Commit | Change |
+|---|---|
+| `bd90b19`, `a479131`, `afedf20` | reverts: cold-start retries and banner, `frontend/vercel.json`, deploy-smoke and keep-warm workflows |
+| `ab49cfc` | `/api/v1/health` returns `{ status, commit }` (`GIT_COMMIT`, else `dev`), ahead of the rate limiter |
+| `ee6f03b` | compose sets `TRUST_PROXY=1` (nginx is one hop) and nginx forwards `X-Forwarded-For`; forged-XFF test |
+| `aa86660`, `45b75fe` | `scripts/smoke.mjs` runs the brief's steps; the docker job runs it through nginx and checks the commit |
+| `bd4f62e`, `cff2837` | `.env.example` files match what the code reads; docs say there is no hosted backend; #26 closed |
+| `57604a9`, `1688ab8` | `Organization.currency` (INR, USD, EUR, GBP; default USD); new deals default to it; Dashboard formats in it |
+| `1e580bf` | `/pipeline` redirects to `/deals` |
+| `4c78a70`, `156a775`, `8f4bf48` | `contracts/api-shapes.json`, generated from the real API's responses (48 endpoints + the error shape) |
+| `7f7fe74` | a guest's write goes to `${BASE_URL}login`, so it works under `/AI-CRM/` |
+| `fa3b6bc` | the demo: `src/demo/` (MSW worker, Kaveri Office Solutions seed in INR, two one-click accounts, banner, contract test) |
+| `7bc324b` | CI: a normal build must contain no demo code (`check-no-demo.mjs`) |
+| `8d93db3`, `b831202`, `68ad22f` | demo Playwright smoke; `pages.yml` builds, smokes and deploys (deploy main-only; `ci/**` smoke too) |
+| `794ff09` | README: live demo link and badges, what the demo is and isn't, docker compose |
+
+**Both gaps closed:** the product name is Nimbus CRM everywhere except database names (`2b8ebac`; no "Clarion" left in
+the repo outside this log), and both `vercel.json` files are gone (`bb1d8a5`, `a479131`). Issue #27 (mixed-currency
+sums) is logged and not fixed.
+
+**Why a mocked demo instead of hosting?**
+A hosted backend means a database, secrets, a free tier that sleeps, and strangers creating real accounts, all to
+show a portfolio project. A static Pages build costs nothing, never goes down or cold-starts, and holds no data.
+The real backend is still proven on every push: CI runs the whole docker stack and the smoke test against it.
+
+**How do you stop the demo drifting from the real API?**
+The backend test records every endpoint's response shape into `contracts/api-shapes.json` from the real API.
+The frontend test checks every demo response against that file and parses it with the app's own client code.
+Change either side without the other and a test fails; the Playwright smoke then runs the real UI on the demo build.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Backend `npm test` | **592 passed** in 33 files; `src/services` lines 99.65% (gate 98.65%) |
+| Frontend `npm test` | **301 passed** in 24 files (49 contract tests, mutation-checked) |
+| Demo Playwright (`npm run e2e:demo`) | 3 passed locally and in CI (5.3 s) |
+| CI on `ci/pages` | run **41362151319**: all six jobs green; docker smoke reported commit `68ad22f`; `check-no-demo` passed |
+| Pages on `ci/pages` | run **41362151374**: build, demo-e2e green; deploy skipped (not main) |
+| CI on `main` @ `68ad22f` | run **41363451891**: green |
+| Pages on `main` @ `68ad22f` | run **41363451889**: build, demo-e2e, deploy green |
+| Live site | `/AI-CRM/pipeline` and `/AI-CRM/deals`: Pages answers 404 with the app, a cache-bypassing reload still loads it with the banner; Try as Sales Manager → deal moved to Closed Won |
+| CLAUDE.md | 249 lines; path check: 65 referenced paths, 0 missing |
+
+**Next:** S2.1 (AI service skeleton). #27 when deals need conversion. On Windows, Playwright takes minutes to stop the
+demo's static server after the tests pass (Linux CI is unaffected); noted in docs/ci.md.
