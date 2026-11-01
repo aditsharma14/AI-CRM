@@ -34,12 +34,10 @@ app.use('/api', (req, res, next) => {
 app.use(express.json())
 app.use(cookieParser())
 
-// compose's healthcheck uses /health; Vercel only proxies /api/*, so deploy checks and keep-warm pings use
-// /api/v1/health, which reports the deployed commit (Render sets RENDER_GIT_COMMIT). Ahead of the rate limiter.
+// /health is the container check; /api/v1/health answers through the same-origin /api proxy (scripts/smoke.mjs) and
+// reports the commit the image was built from (GIT_COMMIT). Both sit ahead of the rate limiter.
 app.get('/health', (req, res) => res.json({ success: true, data: { status: 'ok' } }))
-app.get('/api/v1/health', (req, res) =>
-  apiResponse(res, { status: 'ok', commit: process.env.RENDER_GIT_COMMIT || null }),
-)
+app.get('/api/v1/health', (req, res) => apiResponse(res, { status: 'ok', commit: process.env.GIT_COMMIT || 'dev' }))
 
 app.use('/api', apiRateLimiter)
 

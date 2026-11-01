@@ -1,5 +1,5 @@
-// Production behind Vercel + Render: the refresh cookie's attributes, the TRUST_PROXY setting, the /api/v1/health route
-// the deploy checks use, and no API response is ever cacheable. (Trust proxy and the rate limiter: trust-proxy.test.js.)
+// Settings that matter outside a laptop: the refresh cookie's attributes, the TRUST_PROXY setting, the /api/v1/health
+// route the smoke script uses, and no API response is ever cacheable. (Trust proxy and the rate limiter: trust-proxy.test.js.)
 import request from 'supertest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -61,16 +61,16 @@ describe('TRUST_PROXY', () => {
 })
 
 describe('GET /api/v1/health', () => {
-  it('answers through the /api prefix (what Vercel proxies) with the deployed commit', async () => {
-    vi.stubEnv('RENDER_GIT_COMMIT', 'abc1234')
+  it('reports the commit the image was built from (GIT_COMMIT)', async () => {
+    vi.stubEnv('GIT_COMMIT', 'abc1234')
     const res = await request(app).get('/api/v1/health')
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ success: true, data: { status: 'ok', commit: 'abc1234' }, error: null, meta: null })
   })
 
-  it('commit is null when the host does not say', async () => {
-    vi.stubEnv('RENDER_GIT_COMMIT', '')
-    expect((await request(app).get('/api/v1/health')).body.data.commit).toBeNull()
+  it('commit is "dev" when GIT_COMMIT is unset or empty', async () => {
+    vi.stubEnv('GIT_COMMIT', '')
+    expect((await request(app).get('/api/v1/health')).body.data).toEqual({ status: 'ok', commit: 'dev' })
   })
 })
 
