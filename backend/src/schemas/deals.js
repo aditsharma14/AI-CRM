@@ -2,12 +2,13 @@
 // Deal request schemas — the validators and, via z.infer, the service input types.
 import { z } from 'zod'
 
-import { listQuery, objectId, optionalObjectId, stageKeyParam } from '../utils/validators.js'
+import { currency, listQuery, objectId, optionalObjectId, stageKeyParam } from '../utils/validators.js'
 
 export const dealCreate = z.object({
   title: z.string().trim().min(1),
   value: z.number().min(0),
-  currency: z.string().trim().optional(),
+  // Optional: dealsService.create defaults to the org's currency.
+  currency: currency.optional(),
   // Optional: dealsService.create defaults to the org's first stage and checks it is one of the org's.
   stageKey: z.string().trim().min(1).optional(),
   probability: z.number().min(0).max(100).optional(),

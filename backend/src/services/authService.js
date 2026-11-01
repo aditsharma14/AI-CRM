@@ -11,7 +11,7 @@ import { badRequest, unauthorized } from '../utils/http.js'
 import { hashToken } from '../utils/tokens.js'
 
 /** @typedef {InstanceType<typeof User>} UserDoc A hydrated User, including comparePassword(). */
-/** @typedef {{ _id: unknown, name: string, plan: string }} PopulatedOrg */
+/** @typedef {{ _id: unknown, name: string, plan: string, currency: string }} PopulatedOrg */
 /** @typedef {InstanceType<typeof Organization>} OrgDoc */
 
 /**
@@ -21,7 +21,7 @@ import { hashToken } from '../utils/tokens.js'
  * @property {string} email
  * @property {string} role
  * @property {string | null} avatarUrl
- * @property {{ id: unknown, name?: string, plan?: string }} org
+ * @property {{ id: unknown, name?: string, plan?: string, currency?: string }} org
  */
 
 /**
@@ -61,7 +61,7 @@ function serializeUser(user) {
     email: user.email,
     role: user.role,
     avatarUrl: user.avatarUrl ?? null,
-    org: org ? { id: org._id, name: org.name, plan: org.plan } : { id: user.orgId },
+    org: org ? { id: org._id, name: org.name, plan: org.plan, currency: org.currency } : { id: user.orgId },
   }
 }
 
@@ -85,7 +85,7 @@ async function issueSession(user, { session } = {}) {
   // Sign while orgId is still a raw ObjectId — populating first would make
   // `.toString()` below serialize the whole populated document instead.
   const accessToken = signAccessToken(user)
-  await user.populate('orgId', 'name plan')
+  await user.populate('orgId', 'name plan currency')
   return { accessToken, rawRefresh, user: serializeUser(user) }
 }
 

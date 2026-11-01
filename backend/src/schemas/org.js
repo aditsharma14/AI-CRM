@@ -2,9 +2,11 @@
 // Org admin and "me" request schemas — validators plus z.infer input types for orgAdminService.
 import { z } from 'zod'
 
-import { email, objectId, password } from '../utils/validators.js'
+import { currency, email, objectId, password } from '../utils/validators.js'
 
-export const orgProfileUpdate = z.object({ name: z.string().trim().min(2) })
+export const orgProfileUpdate = z
+  .object({ name: z.string().trim().min(2).optional(), currency: currency.optional() })
+  .refine((v) => v.name !== undefined || v.currency !== undefined, 'send name, currency or both')
 
 // 'owner' is deliberately absent: ownership is transferred, never assigned.
 const assignableRole = z.enum(['admin', 'manager', 'member'])

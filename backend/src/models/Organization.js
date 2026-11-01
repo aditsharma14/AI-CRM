@@ -2,6 +2,8 @@
 // Tenant root: profile, embedded teams[], pipelineStages[], emailTemplates[].
 import mongoose from 'mongoose'
 
+import { CURRENCIES } from '../utils/currencies.js'
+
 const { Schema } = mongoose
 
 // Small, low-cardinality, always read with the org — embedded rather than
@@ -55,6 +57,8 @@ const organizationSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
     plan: { type: String, enum: ['trial', 'pro', 'enterprise'], default: 'trial' },
+    // What the dashboard totals are shown in, and a new deal's currency when it names none. USD for orgs from before.
+    currency: { type: String, enum: CURRENCIES, default: 'USD' },
     ownerId: { type: Schema.Types.ObjectId, ref: 'User' },
 
     teams: { type: [teamSchema], default: [] },

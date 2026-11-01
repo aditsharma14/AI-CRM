@@ -35,8 +35,10 @@ export async function getOrg(orgId) {
  * @returns {Promise<OrgDoc>}
  * @throws {AppError} 404
  */
-export async function updateOrgProfile(orgId, { name }) {
-  const org = await Organization.findByIdAndUpdate(orgId, { name }, { new: true, runValidators: true })
+export async function updateOrgProfile(orgId, { name, currency }) {
+  // Only what was sent: a currency-only update must not blank the name.
+  const set = Object.fromEntries(Object.entries({ name, currency }).filter(([, v]) => v !== undefined))
+  const org = await Organization.findByIdAndUpdate(orgId, set, { new: true, runValidators: true })
   if (!org) throw notFound('Organization not found.')
   return org
 }

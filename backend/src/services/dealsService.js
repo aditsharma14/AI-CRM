@@ -31,15 +31,15 @@ export const { list, getById, remove } = crud
 /** @typedef {{ key: string, label: string, order: number }} Stage */
 
 /**
- * The org's pipeline stages: stage keys are only meaningful per org.
+ * The org's pipeline stages (stage keys are only meaningful per org) and its currency.
  * @param {unknown} orgId
- * @returns {Promise<Stage[]>}
+ * @returns {Promise<{ stages: Stage[], currency: string }>}
  * @throws {import('../utils/http.js').AppError} 404 when the org document is gone
  */
-async function stagesOf(orgId) {
-  const org = await Organization.findById(orgId).select('pipelineStages')
+async function pipelineOf(orgId) {
+  const org = await Organization.findById(orgId).select('pipelineStages currency')
   if (!org) throw notFound('Organization not found.')
-  return org.pipelineStages
+  return { stages: org.pipelineStages, currency: org.currency }
 }
 
 /**
@@ -59,7 +59,8 @@ function stageIn(stages, stageKey) {
 
 /**
  * A new deal goes in the requested stage, which must be one of the org's,
- * or else the org's first stage (lowest `order`), never a hardcoded key.
+ * or else the org's first stage (lowest `order`), never a hardcoded key; in
+ * the requested currency, or else the org's.
  * Also the only way any code creates a deal (lead conversion included), so
  * these rules and close-on-create can't be skipped.
  * @param {AuthUser} actor
@@ -69,12 +70,12 @@ function stageIn(stages, stageKey) {
  * @throws {import('../utils/http.js').AppError} 400 VALIDATION_ERROR, 400 INVALID_OWNER, 404
  */
 export async function create(actor, body, { session } = {}) {
-  const stages = await stagesOf(actor.orgId)
+  const { stages, currency } = await pipelineOf(actor.orgId)
   const first = [...stages].sort((a, b) => a.order - b.order)[0]
   const stageKey = body.stageKey ?? first?.key
   if (!stageKey) throw badRequest('stageKey: this organization has no pipeline stages.', 'VALIDATION_ERROR')
   const toStage = stageIn(stages, stageKey)
-  const deal = await crud.create(actor, { ...body, stageKey }, { session })
+  const deal = await crud.create(actor, { ...body, currency: body.currency ?? currency, stageKey }, { session })
   await applyStageTransition(deal, null, toStage, actor, { session })
   return deal
 }
@@ -112,7 +113,7 @@ export async function moveStage(actor, dealId, stageKey, wonLostReason) {
   const deal = await Deal.findOne({ _id: dealId, orgId, ...scopeFor(actor, 'deal', 'write') })
   if (!deal) throw await missOrForbidden(Deal, actor, dealId)
 
-  const toStage = stageIn(await stagesOf(orgId), stageKey)
+  const toStage = stageIn((await pipelineOf(orgId)).stages, stageKey)
   await applyStageTransition(deal, deal.stageKey, toStage, actor, { wonLostReason })
   return deal
 }

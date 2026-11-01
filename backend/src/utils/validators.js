@@ -3,6 +3,8 @@
 import mongoose from 'mongoose'
 import { z } from 'zod'
 
+import { CURRENCIES } from './currencies.js'
+
 // RHF always sends '' for an untouched optional text input, never undefined —
 // so a plain `.optional()` (which only accepts undefined) rejects it. These
 // preprocess '' to undefined first, so "left blank" behaves as "omitted".
@@ -33,6 +35,8 @@ export const paginationQuery = z.object({ page, limit }).strict()
 export const isoDate = z.string().refine((v) => !Number.isNaN(Date.parse(v)), 'must be a date')
 export const booleanParam = z.enum(['true', 'false']).transform((v) => v === 'true')
 /** Pipeline stage keys are org-defined, so a pattern, not an enum. */
+export const currency = z.enum(CURRENCIES, `must be one of ${CURRENCIES.join(', ')}`)
+
 export const stageKeyParam = z.string().regex(/^[a-z0-9_-]{1,40}$/, 'must be a stage key (a-z, 0-9, _ or -)')
 
 /**
