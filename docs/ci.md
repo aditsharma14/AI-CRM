@@ -24,9 +24,9 @@ including the test suites and the Docker stack.
 - nginx proxies `/api` to the API (the API's own 404 envelope comes back through `:8080`);
 - registering an org, creating a lead and converting it returns 201, the deal carries `convertedFromLeadId`, and
   the lead is `converted`;
-- the deploy smoke test ([scripts/smoke.mjs](../scripts/smoke.mjs)) passes through nginx on `:8080`, the same
-  same-origin path Vercel gives production. Production runs it from [deploy-smoke.yml](../.github/workflows/deploy-smoke.yml)
-  ([deploy.md](deploy.md), section 10).
+- [scripts/smoke.mjs](../scripts/smoke.mjs) passes through nginx on `:8080`, the browser's same-origin path:
+  `/api/v1/health` reports this commit (`GIT_COMMIT`), a `smoke-<ts>` org registers, a lead is created and converted,
+  the session refreshes, and after logout the old refresh token gets 401. Locally: `node scripts/smoke.mjs http://localhost:8080`.
 
 The AI container sits behind the `ai` compose profile until S2.1, so the stack is `client`, `api` and `mongo`.
 

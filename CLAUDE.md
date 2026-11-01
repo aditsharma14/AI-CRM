@@ -22,10 +22,10 @@ Read this before changing anything. Overview: [readme.md](readme.md). History: [
   (both empty today).
 - **The AI service reads MongoDB and never writes.** It reads only for RAG context, filtered by the `orgId`
   Express sends. If an AI result must be saved (e.g. a lead score), Express saves it.
-- Containers are wired in [docker-compose.yml](docker-compose.yml): `client`, `api`, `mongo` (Mongo 7, dev only; Atlas in prod), and
+- Containers are wired in [docker-compose.yml](docker-compose.yml): `client`, `api`, `mongo` (Mongo 7), and
   `ai` behind the `ai` profile until S2.1 builds it (`docker compose --profile ai up`).
-- **Production** ([docs/deploy.md](docs/deploy.md)): Vercel serves `frontend/` and rewrites `/api/*` to Render (free, Singapore,
-  sleeps when idle) per [vercel.json](frontend/vercel.json); Atlas M0 in Mumbai. Render deploys only after CI checks pass.
+- **There is no hosted backend.** The full stack runs in docker compose. The public demo is a frontend-only build on
+  GitHub Pages that answers the API in the browser (mocked, nothing leaves the tab).
 
 ## 2. Folder map
 
@@ -157,7 +157,7 @@ Copy `backend/.env.example` → `backend/.env` and `AI/.env.example` → `AI/.en
 
 ```bash
 # MongoDB must be a replica set (lead convert uses a transaction): a 1-node local set on :27017 (see
-# "Replica set" below), `docker compose up mongo` (already one), or MONGO_URI → Atlas (already one)
+# "Replica set" below), `docker compose up mongo` (already one)
 cd backend  && npm install && npm run dev     # :5000, GET /health → {"success":true,...}
 cd frontend && npm install && npm run dev     # :5173, proxies /api → :5000
 cd frontend && npm run build                  # production bundle → frontend/dist
@@ -176,10 +176,11 @@ docker compose up --build                     # client, api, mongo; :8080. See D
 | `REFRESH_TOKEN_TTL` | backend | no (`7d`; `30s`/`15m`/`2h`/`7d` form, checked at boot) | yes (refresh cookie lifetime) |
 | `NODE_ENV`, `PORT`, `LOG_LEVEL` | backend | no (`LOG_LEVEL`: `info`; `silent` under test) | yes |
 | `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX` | backend | no | yes |
-| `TRUST_PROXY`, `EMAIL_ENABLED` | backend | no (`0`, `false`; checked at boot) | yes (proxy hops: `2` in prod; reset/invite UI) |
+| `TRUST_PROXY`, `EMAIL_ENABLED` | backend | no (`0`, `false`; checked at boot) | yes (proxy hops: compose sets `1`; reset/invite UI) |
+| `GIT_COMMIT` | backend | no (`dev`) | yes (`/api/v1/health`; CI sets it to the commit under test) |
 | `PORT`, `API_INTERNAL_ORIGIN`, `LLM_PROVIDER`, `GOOGLE_API_KEY`, `OPENAI_API_KEY` | AI | n/a | not yet (stubs) |
 
-Read in [backend/src/config/index.js](backend/src/config/index.js); listed in [backend/.env.example](backend/.env.example) and [AI/.env.example](AI/.env.example). The frontend reads none.
+Read in [backend/src/config/index.js](backend/src/config/index.js) (`GIT_COMMIT`: [app.js](backend/src/app.js)); listed in [backend/.env.example](backend/.env.example) and [AI/.env.example](AI/.env.example). The frontend reads none.
 
 - **Seed data:** none. Register an org at `/register`, and you become its owner.
 - **Invite and reset links** are printed to the backend console (no email provider).
@@ -191,9 +192,9 @@ Read in [backend/src/config/index.js](backend/src/config/index.js); listed in [b
 - **Checks (repo root):** `npm run lint` (ESLint, zero warnings, plus ruff), `npm run typecheck`, `npm run format:check`. The husky
   pre-commit hook runs them on staged files and blocks the commit; see [CONTRIBUTING.md](CONTRIBUTING.md). Logs are pino JSON.
 - **CI** ([docs/ci.md](docs/ci.md)): `repo`, `ai`, `backend` (fails below 98.65% `src/services` line coverage), `frontend`, `e2e`,
-  `docker` (compose stack, PRIMARY replica set). It doesn't block merges (no branch protection); the pre-commit hook does.
+  `docker` (compose stack, PRIMARY replica set, [smoke.mjs](scripts/smoke.mjs) through nginx). It doesn't block merges (no branch protection); the pre-commit hook does.
 - **Docker:** compose sets the api's container values itself (`MONGO_URI` with `replicaSet=rs0`, `CLIENT_ORIGIN`, a dev-only JWT
-  secret, `NODE_ENV=development`); `backend/.env` is optional. No `.dockerignore`: local `.env` and `node_modules` get copied in.
+  secret, `NODE_ENV=development`); `backend/.env` is optional. `.dockerignore` keeps local `.env` and `node_modules` out of both images.
 - **Replica set:** a standalone mongod makes lead convert fail ("Transaction numbers are only allowed on a replica set").
   To convert a local service: add `replication:` / `  replSetName: rs0` to `mongod.cfg`, restart the service, then run
   `mongosh --eval "rs.initiate()"` once. Tests and e2e start their own in-memory replica sets.
@@ -214,7 +215,7 @@ Read in [backend/src/config/index.js](backend/src/config/index.js); listed in [b
 4. **Never bypass `orgId` or the ownership policy** (§4, §5). New tenant models get a required, indexed `orgId`; new
    owned resources get an `OWNER_FIELD` entry and matrix tests.
 5. **Never log secrets or tokens** (raw tokens, passwords, JWTs, API keys, cookies).
-   *Known dev-only violations, never run in production (tested), removed once email exists:* [authService.js:222](backend/src/services/authService.js#L222)
+   *Known dev-only violations, never run in production (tested), removed once email exists:* [authService.js:219](backend/src/services/authService.js#L219)
    (reset token) and [orgAdminService.js:83](backend/src/services/orgAdminService.js#L83) (invite token). Do not add more.
 6. CRM mutations go through `activityLogService.logActivity` (the CRUD factory does this when given `activityLabel`).
 7. Keep the envelope: throw `AppError` helpers; never hand-build error JSON or call `res.json` in routes. Log with `req.log`.

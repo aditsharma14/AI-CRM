@@ -62,13 +62,12 @@ cp .env.example .env       # fill in LLM_PROVIDER + API key
 uvicorn app.main:app --reload --port 8000
 ```
 
-**MongoDB** — either the `mongo` container from docker-compose, or point `MONGO_URI` at an
-Atlas cluster.
+**MongoDB** — the `mongo` container from docker-compose, or any replica set via `MONGO_URI`.
 
 ## Environment variables
 
 - `backend/.env.example` — every variable the API reads: Mongo URI, JWT secret and TTLs, CORS
-  origin, `TRUST_PROXY`, `EMAIL_ENABLED`, rate limits, log level. Production values: [docs/deploy.md](docs/deploy.md).
+  origin, `TRUST_PROXY`, `EMAIL_ENABLED`, rate limits, log level, `GIT_COMMIT`.
 - `AI/.env.example` — Mongo URI (read-only), `LLM_PROVIDER` (`gemini` or `openai`, with
   automatic fallback to the other on timeout/5xx), and the corresponding API key.
 - The frontend needs none: it always calls same-origin `/api/v1`.
@@ -83,13 +82,8 @@ admin actions (invites, renaming the org, etc.) — see
 
 ## Deployment
 
-Step by step, with the env table, rollback and secret rotation: [docs/deploy.md](docs/deploy.md).
-
-- **Frontend:** Vercel builds `frontend/`; [frontend/vercel.json](frontend/vercel.json) rewrites `/api/*` to the API, so
-  the browser stays same-origin.
-- **API:** Render, free web service in Singapore, from `backend/Dockerfile`; deploys after CI passes.
-- **Database:** MongoDB Atlas M0 (a replica set, so transactions work).
-- **AI service:** not deployed yet.
+There is no hosted backend. The full stack runs with `docker compose up --build` (above); CI builds and
+smoke-tests that same stack on every push ([docs/ci.md](docs/ci.md)).
 
 ## Project layout
 
