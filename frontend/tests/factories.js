@@ -10,7 +10,7 @@
  * @property {string} name
  * @property {string} email
  * @property {Role} role
- * @property {{ id: string, name: string, plan: string }} org
+ * @property {{ id: string, name: string, plan: string, currency?: string }} org
  */
 
 /**

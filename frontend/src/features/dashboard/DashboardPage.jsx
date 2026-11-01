@@ -1,11 +1,12 @@
 // Overview (KPIs, funnel) and Reports (won/lost by month) tabs.
 import { useQuery } from '@tanstack/react-query'
-import { DollarSign, Flame, History, Kanban, Percent } from 'lucide-react'
+import { Banknote, Flame, History, Kanban, Percent } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api/client.js'
 import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { EmptyState, Loader, StatCard, Tabs } from '../../components/ui.jsx'
+import { useSession } from '../../context/SessionContext.jsx'
 import { usePipelineStages } from '../../hooks.js'
 import { cn, formatCurrency, formatDateTime } from '../../lib/utils.js'
 
@@ -29,6 +30,12 @@ function useDashboardReports() {
     queryFn: async () => (await api.get('/dashboard/reports')).data.data,
     staleTime: 0,
   })
+}
+
+/** Formats an amount in the org's currency (USD for a session from before orgs had one). */
+function useMoney() {
+  const currency = useSession().org?.currency
+  return (value) => formatCurrency(value, currency)
 }
 
 /**
@@ -61,6 +68,7 @@ function BreakdownBars({ rows, emptyLabel }) {
 function OverviewTab() {
   const { data, isLoading, isError, error, refetch } = useDashboardOverview()
   const { labelFor, positionOf } = usePipelineStages()
+  const money = useMoney()
 
   if (isLoading) {
     return (
@@ -83,9 +91,9 @@ function OverviewTab() {
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
-          icon={DollarSign}
+          icon={Banknote}
           label="Open pipeline value"
-          value={formatCurrency(data?.openPipelineValue ?? 0)}
+          value={money(data?.openPipelineValue ?? 0)}
           tone="primary"
         />
         <StatCard icon={Flame} label="Total leads" value={totalLeads} tone="accent" />
@@ -107,7 +115,7 @@ function OverviewTab() {
             rows={dealsByStage.map((s) => ({
               label: labelFor(s.stageKey),
               value: s.count,
-              formattedValue: `${s.count} · ${formatCurrency(s.value)}`,
+              formattedValue: `${s.count} · ${money(s.value)}`,
             }))}
             emptyLabel="No deals yet — convert a lead to start the pipeline."
           />
@@ -140,6 +148,7 @@ function OverviewTab() {
 
 function ReportsTab() {
   const { data, isLoading, isError, error, refetch } = useDashboardReports()
+  const money = useMoney()
 
   if (isLoading) {
     return (
@@ -192,12 +201,12 @@ function ReportsTab() {
                   <div
                     className={cn('w-3 rounded-t', m.won === 0 ? 'bg-black/[0.06] dark:bg-white/[0.08]' : 'bg-success')}
                     style={{ height: `${Math.max(4, (m.won / maxValue) * 100)}%` }}
-                    title={`Won: ${formatCurrency(m.won)}`}
+                    title={`Won: ${money(m.won)}`}
                   />
                   <div
                     className={cn('w-3 rounded-t', m.lost === 0 ? 'bg-black/[0.06] dark:bg-white/[0.08]' : 'bg-danger')}
                     style={{ height: `${Math.max(4, (m.lost / maxValue) * 100)}%` }}
-                    title={`Lost: ${formatCurrency(m.lost)}`}
+                    title={`Lost: ${money(m.lost)}`}
                   />
                 </div>
                 <span className="text-xs text-muted dark:text-muted-dark">{m.label}</span>

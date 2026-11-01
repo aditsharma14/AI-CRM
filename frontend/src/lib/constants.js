@@ -102,4 +102,7 @@ export function canManageMember(user, member) {
 // Pipeline stages are per org: read them with usePipelineStages() (hooks.js).
 // The defaults a new org starts with live only in backend/src/models/Organization.js.
 
+// An org's currency (Settings → Organization). Mirrors backend/src/utils/currencies.js, which refuses anything else.
+export const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP']
+
 export const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'unqualified', 'converted']
