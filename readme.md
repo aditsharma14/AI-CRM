@@ -32,8 +32,8 @@ retrieval-augmented context.
 docker compose up --build
 ```
 
-Then visit `http://localhost:8080`. Requires an `.env` in `backend/` and `AI/` (copy from
-each directory's `.env.example`).
+Then visit `http://localhost:8080`. No `.env` is needed: compose sets the API's development values itself
+(the AI container is behind the `ai` profile until it's built).
 
 ### Running services individually
 
@@ -67,12 +67,11 @@ Atlas cluster.
 
 ## Environment variables
 
-- `backend/.env.example` — Mongo URI, JWT access/refresh secrets and TTLs, CORS origin,
-  Cloudinary credentials, the internal `AI_SERVICE_URL`, and rate-limit settings.
+- `backend/.env.example` — every variable the API reads: Mongo URI, JWT secret and TTLs, CORS
+  origin, `TRUST_PROXY`, `EMAIL_ENABLED`, rate limits, log level. Production values: [docs/deploy.md](docs/deploy.md).
 - `AI/.env.example` — Mongo URI (read-only), `LLM_PROVIDER` (`gemini` or `openai`, with
   automatic fallback to the other on timeout/5xx), and the corresponding API key.
-- `frontend/.env.example` — only needed if the API is ever served from a different origin
-  than the client (`VITE_API_BASE_URL`); same-origin `/api/v1` requires no config.
+- The frontend needs none: it always calls same-origin `/api/v1`.
 
 ## Auth model
 
@@ -84,11 +83,13 @@ admin actions (invites, renaming the org, etc.) — see
 
 ## Deployment
 
-[vercel.json](vercel.json) at the repo root builds and deploys the `frontend/` Vite app as a
-static site on Vercel, rewriting `/api/*` to wherever the backend ends up hosted (edit the
-placeholder URL there). The `backend` and `AI` services are long-running servers, not
-serverless functions, so they need a separate host (Render, Railway, Fly, etc.) — the
-included `Dockerfile`s in each of `backend/`, `AI/`, and `frontend/` cover that.
+Step by step, with the env table, rollback and secret rotation: [docs/deploy.md](docs/deploy.md).
+
+- **Frontend:** Vercel builds `frontend/`; [frontend/vercel.json](frontend/vercel.json) rewrites `/api/*` to the API, so
+  the browser stays same-origin.
+- **API:** Render, free web service in Singapore, from `backend/Dockerfile`; deploys after CI passes.
+- **Database:** MongoDB Atlas M0 (a replica set, so transactions work).
+- **AI service:** not deployed yet.
 
 ## Project layout
 

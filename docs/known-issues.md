@@ -10,6 +10,9 @@ plus a record of what has been resolved. Newest resolutions first.
 - **Marking a notification read from the bell panel fails silently.** The panel closes on click, so there's nowhere to
   show the error; the dot just stays. The only mutation without error UI (S1.7 audit).
 - **The production bundle is one chunk over 500 kB** (Vite warns on `npm run build`). No code splitting yet.
+- **[#26] Direct requests to the Render origin bypass Vercel:** with `TRUST_PROXY=2`, a client calling
+  `*.onrender.com` directly can spoof `X-Forwarded-For` and get a fresh rate-limit bucket per request. Fix: a secret
+  origin header set by Vercel and checked by the API ([deploy.md](deploy.md), Known limitations). Not built.
 - **[#18] The `won`/`lost` stage keys are hardcoded** (`CLOSING_KEYS` in [dealsService.js](../backend/src/services/dealsService.js);
   closing a deal is keyed on them). An org that renames its closing stages' *keys* never closes a deal. Open for S2.7.
 - **[#19] Pipeline save is two calls (move-stage, then update), not atomic;** revisit with a single endpoint or transaction in
@@ -29,6 +32,8 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-11-01 | **Deployment config disagreed with the docs** (CLAUDE.md gap 9.5): the root `vercel.json` declared the backend as a Vercel service, and its `"/api/(/.*)?"` rewrite never matched `/api/v1/...` | `frontend/vercel.json` rewrites `/api/:path*` to Render, SPA fallback, API never cached; tested with Vercel's own converter (`bb1d8a5`) |
+| 2026-11-01 | **The dev-only token logs would have run in production** | they run only when `NODE_ENV` isn't production (tested); invite links go back to the inviter while `EMAIL_ENABLED=false` (`23dcde0`) |
 | 2026-11-01 | **Product name inconsistent:** "Nimbus CRM" in the readme, another name in the app shell, sign-in and the page title | Nimbus CRM everywhere (S1.8; the database name was already `nimbus-crm`) |
 | 2026-11-01 | **No reset-password page** (CLAUDE.md gap 9.1): the backend issued `/reset-password?token=` links the app couldn't open, and there was no way to ask for one | `/forgot-password` and `/reset-password` (token removed from the URL with `replaceState`; missing, expired and success states) (`2f85355`); e2e with planted tokens, mutation-checked (`a41586c`) |
 | 2026-11-01 | **The password rule was only `min(8)`:** eight spaces were a valid password; bcrypt silently ignored everything after 72 bytes; four emoji counted as 8 characters | one shared rule: 8+ code points, not only whitespace (never trimmed), ≤ 72 UTF-8 bytes, on all four endpoints; client mirror with the same case table (`37a8f60`, `2f85355`). Existing passwords still log in |

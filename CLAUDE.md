@@ -24,6 +24,8 @@ Read this before changing anything. Overview: [readme.md](readme.md). History: [
   Express sends. If an AI result must be saved (e.g. a lead score), Express saves it.
 - Containers are wired in [docker-compose.yml](docker-compose.yml): `client`, `api`, `mongo` (Mongo 7, dev only; Atlas in prod), and
   `ai` behind the `ai` profile until S2.1 builds it (`docker compose --profile ai up`).
+- **Production** ([docs/deploy.md](docs/deploy.md)): Vercel serves `frontend/` and rewrites `/api/*` to Render (free, Singapore,
+  sleeps when idle) per [vercel.json](frontend/vercel.json); Atlas M0 in Mumbai. Render deploys only after CI checks pass.
 
 ## 2. Folder map
 
@@ -174,10 +176,10 @@ docker compose up --build                     # client, api, mongo; :8080. See D
 | `REFRESH_TOKEN_TTL` | backend | no (`7d`; `30s`/`15m`/`2h`/`7d` form, checked at boot) | yes (refresh cookie lifetime) |
 | `NODE_ENV`, `PORT`, `LOG_LEVEL` | backend | no (`LOG_LEVEL`: `info`; `silent` under test) | yes |
 | `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX` | backend | no | yes |
+| `TRUST_PROXY`, `EMAIL_ENABLED` | backend | no (`0`, `false`; checked at boot) | yes (proxy hops: `2` in prod; reset/invite UI) |
 | `PORT`, `API_INTERNAL_ORIGIN`, `LLM_PROVIDER`, `GOOGLE_API_KEY`, `OPENAI_API_KEY` | AI | n/a | not yet (stubs) |
-| `VITE_API_BASE_URL` | frontend | no | **no** (`client.js` ignores it) |
 
-All of these are read in [backend/src/config/index.js](backend/src/config/index.js), [AI/.env.example](AI/.env.example) and [frontend/.env.example](frontend/.env.example).
+Read in [backend/src/config/index.js](backend/src/config/index.js); listed in [backend/.env.example](backend/.env.example) and [AI/.env.example](AI/.env.example). The frontend reads none.
 
 - **Seed data:** none. Register an org at `/register`, and you become its owner.
 - **Invite and reset links** are printed to the backend console (no email provider).
@@ -212,8 +214,8 @@ All of these are read in [backend/src/config/index.js](backend/src/config/index.
 4. **Never bypass `orgId` or the ownership policy** (§4, §5). New tenant models get a required, indexed `orgId`; new
    owned resources get an `OWNER_FIELD` entry and matrix tests.
 5. **Never log secrets or tokens** (raw tokens, passwords, JWTs, API keys, cookies).
-   *Known dev-only violations, to be removed once email exists:* [authService.js:199](backend/src/services/authService.js#L199)
-   (reset token) and [orgAdminService.js:79](backend/src/services/orgAdminService.js#L79) (invite token). Do not add more.
+   *Known dev-only violations, never run in production (tested), removed once email exists:* [authService.js:222](backend/src/services/authService.js#L222)
+   (reset token) and [orgAdminService.js:83](backend/src/services/orgAdminService.js#L83) (invite token). Do not add more.
 6. CRM mutations go through `activityLogService.logActivity` (the CRUD factory does this when given `activityLabel`).
 7. Keep the envelope: throw `AppError` helpers; never hand-build error JSON or call `res.json` in routes. Log with `req.log`.
 8. Style: Prettier and sorted imports (both enforced), ESM, a one-line purpose comment per file, comments that explain *why*.
@@ -236,12 +238,10 @@ Open gaps only. Smaller findings, open questions and everything resolved (with d
 [docs/known-issues.md](docs/known-issues.md). There are no open `// suspect:` tests.
 
 1. **No email verification.** All users are created with `isEmailVerified: true`. (Reset works end to end since S1.7.)
-2. **No email sending.** Links are only logged ([authService.js](backend/src/services/authService.js), [orgAdminService.js](backend/src/services/orgAdminService.js)).
+2. **No email sending** (`EMAIL_ENABLED=false`): no reset offered; the inviting admin copies the invite link. Dev logs the links.
 3. **AI layer is unbuilt.** The rescore promised in [leadsService.js](backend/src/services/leadsService.js) doesn't exist.
    Stub files: everything in [AI/app/](AI/app/), [aiProxyService.js](backend/src/services/aiProxyService.js),
    [ai.routes.js](backend/src/routes/ai.routes.js), [upload.js](backend/src/middleware/upload.js),
    [cloudinaryUpload.js](backend/src/utils/cloudinaryUpload.js), [FileUploader.jsx](frontend/src/components/FileUploader.jsx),
    [AIChatWidget.jsx](frontend/src/features/ai/AIChatWidget.jsx) and [AIActionsMenu.jsx](frontend/src/features/ai/AIActionsMenu.jsx).
 4. **No Kanban board.** [PipelinePage.jsx](frontend/src/features/deals/PipelinePage.jsx) renders a table.
-5. **Deployment config disagrees with docs.** [vercel.json](vercel.json) declares the backend as a Vercel service, while the readme
-   says it's hosted elsewhere. Its rewrite `"/api/(/.*)?"` likely doesn't match `/api/v1/...` (`"/api(/.*)?"` intended?).
