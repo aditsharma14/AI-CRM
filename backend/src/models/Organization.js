@@ -56,6 +56,8 @@ const organizationSchema = new Schema(
     name: { type: String, required: true, trim: true },
     plan: { type: String, enum: ['trial', 'pro', 'enterprise'], default: 'trial' },
     ownerId: { type: Schema.Types.ObjectId, ref: 'User' },
+    // Set by registerOrg from the owner's email (utils/smoke.js), never from a request: the deploy smoke test's orgs.
+    isSmoke: { type: Boolean, default: false, index: true },
 
     teams: { type: [teamSchema], default: [] },
     pipelineStages: { type: [pipelineStageSchema], default: () => DEFAULT_PIPELINE_STAGES },

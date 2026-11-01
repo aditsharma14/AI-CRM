@@ -8,6 +8,7 @@ import { env } from '../config/index.js'
 import Organization from '../models/Organization.js'
 import User from '../models/User.js'
 import { badRequest, unauthorized } from '../utils/http.js'
+import { isSmokeEmail } from '../utils/smoke.js'
 import { hashToken } from '../utils/tokens.js'
 
 /** @typedef {InstanceType<typeof User>} UserDoc A hydrated User, including comparePassword(). */
@@ -104,7 +105,9 @@ export async function registerOrg({ orgName, name, email, password }) {
     // Array form: it's the only way Model.create takes a session.
     // Boundary casts: create([one doc]) resolves to exactly that one document, but tsc only sees the
     // array overload's loosely typed, possibly-undefined element (as in crudService.create).
-    const org = /** @type {OrgDoc} */ ((await Organization.create([{ name: orgName }], { session }))[0])
+    const org = /** @type {OrgDoc} */ (
+      (await Organization.create([{ name: orgName, isSmoke: isSmokeEmail(email) }], { session }))[0]
+    )
     const user = /** @type {UserDoc} */ (
       (
         await User.create([{ orgId: org._id, name, email, password, role: 'owner', isEmailVerified: true }], {

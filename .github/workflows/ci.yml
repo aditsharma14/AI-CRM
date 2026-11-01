@@ -116,6 +116,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # docker-smoke.sh ends with scripts/smoke.mjs (Node, no dependencies), as deploy-smoke.yml runs it on prod.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - run: docker compose version
       - run: docker compose build
       # Returns once mongo is healthy (PRIMARY) and the api and client have started.
