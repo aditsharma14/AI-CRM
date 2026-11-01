@@ -1,0 +1,7 @@
+# Keep local secrets and installs out of the image (the image runs npm ci itself).
+node_modules
+.env
+.env.*
+!.env.example
+coverage
+npm-debug.log*
