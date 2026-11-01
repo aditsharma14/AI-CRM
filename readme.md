@@ -1,11 +1,29 @@
 # Nimbus CRM
 
+**[Live demo](https://aditsharma14.github.io/AI-CRM/login)**: sign in as a Sales Manager or a Member with one click.
+
+[![Live demo](https://img.shields.io/badge/live%20demo-GitHub%20Pages-2ea44f)](https://aditsharma14.github.io/AI-CRM/login)
+[![Pages](https://github.com/aditsharma14/AI-CRM/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/aditsharma14/AI-CRM/actions/workflows/pages.yml)
 [![CI](https://github.com/aditsharma14/AI-CRM/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aditsharma14/AI-CRM/actions/workflows/ci.yml)
 [![Coverage: backend services](https://img.shields.io/badge/coverage%20(services)-99.65%25-brightgreen)](docs/ci.md#coverage)
 
 A multi-tenant CRM with an AI assistant layered on top: leads, contacts, companies, deals
 pipeline, tasks, calendar, and org/role management, backed by an Express API and a FastAPI
 service that handles LLM-powered chat, content generation, and insights.
+
+## The live demo
+
+The demo is this repo's real React frontend, built with `VITE_DEMO=true` and served by GitHub Pages. A mock service
+worker in your tab answers every `/api/v1` call from an in-memory copy of a seeded Pune sales team (INR deals in every
+stage, 60 days of activity), following the API's rules: ownership, roles, the won/lost close, the dashboard numbers.
+It is not the backend: nothing is stored or sent anywhere, a reload starts over, and signup, invites, password
+reset and settings changes say they're not available in the demo. Its responses are checked against the same
+committed contract as the real API's ([contracts/api-shapes.json](contracts/api-shapes.json)), so the two can't drift
+apart. The full stack, Express, MongoDB and all, runs locally with Docker:
+
+```bash
+docker compose up --build      # then open http://localhost:8080 and create an organization
+```
 
 ## Architecture
 
@@ -83,7 +101,9 @@ admin actions (invites, renaming the org, etc.) — see
 ## Deployment
 
 There is no hosted backend. The full stack runs with `docker compose up --build` (above); CI builds and
-smoke-tests that same stack on every push ([docs/ci.md](docs/ci.md)).
+smoke-tests that same stack on every push ([docs/ci.md](docs/ci.md)). The public demo is the frontend alone on
+GitHub Pages, deployed by [pages.yml](.github/workflows/pages.yml) after a Playwright run against the exact build
+it deploys.
 
 ## Project layout
 
