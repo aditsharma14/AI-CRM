@@ -131,7 +131,7 @@ beforeAll(async () => {
   })
   const toConvert = await dataOf('POST /leads', 201, { body: { name: 'Convert me', companyId: company._id } })
   const bareLead = await dataOf('POST /leads', 201, { body: { name: 'Bare lead' } })
-  await hit('POST /leads/:id/convert', 201, {
+  const converted = await dataOf('POST /leads/:id/convert', 201, {
     path: `/leads/${toConvert._id}/convert`,
     body: { title: 'Convert me deal', value: 150000 },
   })
@@ -161,6 +161,13 @@ beforeAll(async () => {
     path: `/deals/${bareDeal._id}/move-stage`,
     body: { stageKey: 'new' },
   })
+  // A deal that came from a lead keeps convertedFromLeadId through every write.
+  await hit('PATCH /deals/:id/move-stage', 200, {
+    path: `/deals/${converted._id}/move-stage`,
+    body: { stageKey: 'qualified' },
+  })
+  await hit('PATCH /deals/:id', 200, { path: `/deals/${converted._id}`, body: { probability: 30 } })
+  await hit('GET /deals/:id', 200, { path: `/deals/${converted._id}` })
   await hit('GET /deals', 200)
   await hit('GET /deals/:id', 200, { path: `/deals/${deal._id}` })
   await hit('PATCH /deals/:id', 200, { path: `/deals/${deal._id}`, body: { probability: 100 } })

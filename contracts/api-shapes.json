@@ -315,6 +315,7 @@
         }
       ],
       "ownerId": "id",
+      "convertedFromLeadId?": "id",
       "status": "string",
       "createdAt": "date",
       "updatedAt": "date",
@@ -692,12 +693,13 @@
       "companyId": "id",
       "contactIds": ["id"],
       "ownerId": "id",
+      "convertedFromLeadId?": "id",
       "status": "string",
       "createdAt": "date",
       "updatedAt": "date",
       "__v": "number",
-      "closedAt": "date",
-      "wonLostReason": "string"
+      "closedAt?": "date",
+      "wonLostReason?": "string"
     },
     "error": "null",
     "meta": "null"
@@ -720,7 +722,8 @@
       "updatedAt": "date",
       "__v": "number",
       "closedAt?": "date",
-      "wonLostReason?": "string"
+      "wonLostReason?": "string",
+      "convertedFromLeadId?": "id"
     },
     "error": "null",
     "meta": "null"
