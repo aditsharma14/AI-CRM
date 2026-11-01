@@ -22,6 +22,7 @@ import SettingsPage from './features/settings/SettingsPage.jsx'
 import TasksPage from './features/tasks/TasksPage.jsx'
 import AppLayout from './layouts/AppLayout.jsx'
 import AuthLayout from './layouts/AuthLayout.jsx'
+import { demoUi } from './lib/demo.js'
 import { queryClient } from './lib/queryClient.js'
 
 class ErrorBoundary extends Component {
@@ -87,11 +88,14 @@ export function AppRoutes() {
 }
 
 export default function App() {
+  const { Banner } = demoUi()
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+        {/* The Pages demo is served under /AI-CRM/; elsewhere BASE_URL is '/'. */}
+        <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
           <SessionProvider>
+            {Banner && <Banner />}
             <AppRoutes />
           </SessionProvider>
         </BrowserRouter>

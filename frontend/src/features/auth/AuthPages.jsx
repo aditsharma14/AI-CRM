@@ -13,6 +13,7 @@ import { Toast } from '../../components/Toast.jsx'
 import { Button } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
 import { useAppConfig, useMutationError } from '../../hooks.js'
+import { demoUi } from '../../lib/demo.js'
 import { PASSWORD_HINT, passwordRule } from '../../lib/password.js'
 import { apiErrorMessage } from '../../lib/utils.js'
 
@@ -28,6 +29,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { emailEnabled } = useAppConfig()
+  const { SignIn: DemoSignIn } = demoUi()
   const [serverError, setServerError] = useState(null)
   // A page that sends the user here (e.g. after a password reset) can pass a one-time notice in router state.
   const [notice, setNotice] = useState(() => location.state?.notice ?? null)
@@ -55,6 +57,7 @@ export function LoginPage() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
+      {DemoSignIn && <DemoSignIn />}
       <ErrorAlert message={serverError} />
       <FormField label="Email" htmlFor="email" error={errors.email}>
         <input id="email" type="email" className={inputClasses(errors.email)} {...register('email')} />

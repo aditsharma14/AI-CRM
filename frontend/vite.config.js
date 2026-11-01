@@ -1,9 +1,31 @@
+import { copyFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import react from '@vitejs/plugin-react'
+import { msw } from 'msw/vite'
 import { defineConfig } from 'vite'
+
+// VITE_DEMO=true builds the GitHub Pages demo: served under /AI-CRM/, the API answered in the browser by MSW
+// (src/demo/), and a 404.html copy of index.html so a reload of /AI-CRM/deals still loads the app.
+const demo = process.env.VITE_DEMO === 'true'
+
+/** GitHub Pages serves 404.html for any unknown path; the app's router then reads the URL. */
+const spaFallback = {
+  name: 'pages-spa-fallback',
+  apply: 'build',
+  writeBundle({ dir }) {
+    copyFileSync(join(dir, 'index.html'), join(dir, '404.html'))
+  },
+}
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  base: demo ? '/AI-CRM/' : '/',
+  // Always a literal, so `import.meta.env.VITE_DEMO === 'true'` folds to false in a normal build and the demo is
+  // tree-shaken out.
+  define: { 'import.meta.env.VITE_DEMO': JSON.stringify(demo ? 'true' : 'false') },
+  // worker-only: emits mockServiceWorker.js, and only in the demo build, where this plugin is present at all.
+  plugins: [react(), ...(demo ? [msw({ mode: 'worker-only' }), spaFallback] : [])],
   server: {
     port: 5173,
     proxy: {
