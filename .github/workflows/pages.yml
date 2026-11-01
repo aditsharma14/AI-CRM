@@ -1,0 +1,80 @@
+# The public demo on GitHub Pages: the frontend built with VITE_DEMO=true (the API answered in the browser by
+# src/demo/), smoke-tested with Playwright exactly as Pages serves it, and deployed only if that passes.
+# Needs Settings -> Pages -> Source: GitHub Actions. https://aditsharma14.github.io/AI-CRM/
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time; a newer push supersedes a queued one, never a running deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_DEMO: 'true'
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  demo-e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # The very files that will be deployed: the build job's artifact, unpacked into dist/.
+      - uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: frontend
+      - run: mkdir -p dist && tar -xf artifact.tar -C dist && rm artifact.tar
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e:demo
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: demo-playwright-traces
+          path: frontend/test-results
+
+  deploy:
+    needs: [build, demo-e2e]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
