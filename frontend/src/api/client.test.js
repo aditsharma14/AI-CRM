@@ -131,6 +131,17 @@ describe('api client: guests (no access token)', () => {
     expect(refresh.count).toBe(0)
     expect(assign).toHaveBeenCalledWith('/login')
   })
+
+  it('…under the app’s base path, as on GitHub Pages (/AI-CRM/)', async () => {
+    vi.stubEnv('BASE_URL', '/AI-CRM/')
+    server.use(http.post(`${API}/leads`, () => fail(401, 'UNAUTHORIZED', 'Log in.')))
+    const assign = vi.fn()
+    vi.stubGlobal('location', { ...window.location, assign })
+
+    await expect(api.post('/leads', { name: 'x' })).rejects.toMatchObject({ response: { status: 401 } })
+    expect(assign).toHaveBeenCalledWith('/AI-CRM/login')
+    vi.unstubAllEnvs()
+  })
 })
 
 describe('api client: request interceptor', () => {

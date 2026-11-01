@@ -49,7 +49,8 @@ api.interceptors.response.use(
       // just viewing a list). Browsing is free; "doing stuff" needs a login,
       // so send them there instead of leaving a form silently failing.
       if (config.method !== 'get') {
-        window.location.assign('/login')
+        // BASE_URL, not '/': the GitHub Pages demo lives under /AI-CRM/.
+        window.location.assign(`${import.meta.env.BASE_URL}login`)
       }
       return Promise.reject(error)
     }
