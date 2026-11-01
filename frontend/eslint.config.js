@@ -25,7 +25,7 @@ export default defineConfig([
   },
   {
     // Test helpers, specs and tool configs run in Node (vitest, Playwright).
-    files: ['tests/**', 'e2e/**', '*.config.js'],
+    files: ['tests/**', 'e2e/**', 'e2e-demo/**', '*.config.js'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
     // Helpers export plain functions next to components; Fast Refresh doesn't apply.
     rules: { 'react-refresh/only-export-components': 'off' },

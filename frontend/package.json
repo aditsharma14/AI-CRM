@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "e2e:demo": "playwright test -c playwright.demo.config.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
