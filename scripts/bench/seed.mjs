@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Deterministic benchmark data for S1.9: one big org (100,000 leads, 10,000 deals, 50,000 activities, 20 users) and 50
 // small ones, in a local database that is only ever used for benchmarks. Same input, same documents, same ids.
-//   node scripts/bench/seed.mjs [mongodb://localhost:27017/nimbus-bench]
+//   node scripts/bench/seed.mjs [uri]      (default mongodb://localhost:27017/nimbus-bench, or BENCH_MONGO_URI)
 // Then: node scripts/bench/run.mjs. Sign in as bench-owner@bench.example / bench-password (local bench data only).
 import { createRequire } from 'node:module'
 
@@ -10,7 +10,7 @@ const mongoose = require('mongoose')
 const bcrypt = require('bcryptjs')
 
 export const BENCH_DB = 'nimbus-bench'
-export const BENCH_URI = process.argv[2] ?? process.env.BENCH_MONGO_URI ?? `mongodb://localhost:27017/${BENCH_DB}`
+export const BENCH_URI = process.env.BENCH_MONGO_URI ?? `mongodb://localhost:27017/${BENCH_DB}`
 export const BENCH_EMAIL = 'bench-owner@bench.example'
 export const BENCH_PASSWORD = 'bench-password'
 
@@ -263,10 +263,10 @@ async function insert(model, docs) {
   }
 }
 
-async function main() {
-  assertBenchUri(BENCH_URI)
+async function main(uri = BENCH_URI) {
+  assertBenchUri(uri)
   const started = performance.now()
-  await mongoose.connect(BENCH_URI, { autoIndex: false })
+  await mongoose.connect(uri, { autoIndex: false })
   const m = await models()
   await mongoose.connection.dropDatabase()
 
@@ -312,11 +312,11 @@ async function main() {
 
   for (const [label, n, ms] of timings)
     console.log(`${label.padEnd(28)} ${n === null ? '' : String(n).padStart(7)}  ${ms} ms`)
-  console.log(`seeded ${BENCH_URI} in ${((performance.now() - started) / 1000).toFixed(1)} s`)
+  console.log(`seeded ${uri} in ${((performance.now() - started) / 1000).toFixed(1)} s`)
   await mongoose.disconnect()
 }
 
 // Run directly (not when run.mjs imports the helpers above).
 if (process.argv[1]?.endsWith('seed.mjs')) {
-  await main()
+  await main(process.argv[2])
 }
