@@ -54,7 +54,11 @@ const leadSchema = new Schema(
   },
   { timestamps: true },
 )
-leadSchema.index({ orgId: 1, status: 1 })
+// ESR (equality, sort, range): the org, then any equality filter, then the list's sort key and its _id tie-breaker, so a
+// page is read in order from the index and nothing is sorted in memory. Default sort (-createdAt) and the status filter
+// are what the Leads page sends; the second also answers the Dashboard's per-status counts from the index alone.
+leadSchema.index({ orgId: 1, createdAt: -1, _id: -1 })
+leadSchema.index({ orgId: 1, status: 1, createdAt: -1, _id: -1 })
 leadSchema.index({ orgId: 1, ownerId: 1 })
 leadSchema.index({ name: 'text', email: 'text' })
 

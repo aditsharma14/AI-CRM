@@ -28,7 +28,11 @@ const dealSchema = new Schema(
   { timestamps: true },
 )
 
-dealSchema.index({ orgId: 1, stageKey: 1 })
+// The Pipeline page's order (-createdAt, _id breaking ties; see CRM.js on ESR), and the Dashboard's sums per stage and
+// of open deals, answered from the index alone (value is in the key, so no document is read).
+dealSchema.index({ orgId: 1, createdAt: -1, _id: -1 })
+dealSchema.index({ orgId: 1, stageKey: 1, value: 1 })
+dealSchema.index({ orgId: 1, status: 1, value: 1 })
 dealSchema.index({ orgId: 1, ownerId: 1 })
 dealSchema.index({ orgId: 1, closedAt: 1 })
 
