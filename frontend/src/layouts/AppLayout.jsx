@@ -1,5 +1,4 @@
 // Authenticated shell: sidebar, top nav, command palette, notifications, outlet.
-import { AnimatePresence, motion } from 'framer-motion'
 import {
   Building2,
   Calendar,
@@ -214,9 +213,7 @@ export default function AppLayout() {
               <>
                 <div className="relative" ref={notificationsRef}>
                   <NotificationsBell onClick={toggleNotifications} />
-                  <AnimatePresence>
-                    {isNotificationsOpen && <NotificationsPanel onClose={() => setOpenMenu(null)} />}
-                  </AnimatePresence>
+                  {isNotificationsOpen && <NotificationsPanel onClose={() => setOpenMenu(null)} />}
                 </div>
 
                 <div className="relative" ref={profileMenuRef}>
@@ -227,31 +224,23 @@ export default function AppLayout() {
                   >
                     {initials(user?.name)}
                   </button>
-                  <AnimatePresence>
-                    {isProfileMenuOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                        transition={{ duration: 0.12 }}
-                        className="absolute right-0 top-full z-40 mt-2 w-56 rounded-lg border border-border bg-surface p-1 shadow-soft dark:border-border-dark dark:bg-surface-dark"
+                  {isProfileMenuOpen && (
+                    <div className="motion-safe:animate-drop-in absolute right-0 top-full z-40 mt-2 w-56 rounded-lg border border-border bg-surface p-1 shadow-soft dark:border-border-dark dark:bg-surface-dark">
+                      <div className="px-3 py-2">
+                        <p className="truncate text-sm font-medium">{user?.name}</p>
+                        <p className="truncate text-xs text-muted dark:text-muted-dark">{user?.email}</p>
+                      </div>
+                      <div className="my-1 border-t border-border dark:border-border-dark" />
+                      <button
+                        type="button"
+                        onClick={logout}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-danger hover:bg-danger/10"
                       >
-                        <div className="px-3 py-2">
-                          <p className="truncate text-sm font-medium">{user?.name}</p>
-                          <p className="truncate text-xs text-muted dark:text-muted-dark">{user?.email}</p>
-                        </div>
-                        <div className="my-1 border-t border-border dark:border-border-dark" />
-                        <button
-                          type="button"
-                          onClick={logout}
-                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-danger hover:bg-danger/10"
-                        >
-                          <LogOut size={16} strokeWidth={1.75} />
-                          Log out
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                        <LogOut size={16} strokeWidth={1.75} />
+                        Log out
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (

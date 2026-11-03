@@ -54,6 +54,18 @@ export default {
         lg: '0.75rem',
         xl: '1rem',
       },
+      // Enter animations for overlays, menus and dialogs (CSS, not a JS animation library: framer-motion was ~70 kB
+      // gzip of the first load for these). Used with motion-safe:, so reduced-motion users get none.
+      keyframes: {
+        'fade-in': { from: { opacity: '0' } },
+        'drop-in': { from: { opacity: '0', transform: 'translateY(-4px) scale(0.98)' } },
+        'rise-in': { from: { opacity: '0', transform: 'translateY(8px) scale(0.98)' } },
+      },
+      animation: {
+        'fade-in': 'fade-in 150ms ease-out',
+        'drop-in': 'drop-in 120ms ease-out',
+        'rise-in': 'rise-in 150ms ease-out',
+      },
     },
   },
   plugins: [],

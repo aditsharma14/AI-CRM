@@ -3,7 +3,6 @@
 // instance and opens it either from the header's search button or the
 // keyboard shortcut, so there's exactly one search experience, not two.
 import { useQuery } from '@tanstack/react-query'
-import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowRight,
   Building2,
@@ -89,22 +88,15 @@ export default function GlobalSearch({ isOpen, onClose }) {
   const hasResults = RESULT_GROUPS.some((group) => (data?.[group.key]?.length ?? 0) > 0)
 
   return createPortal(
-    <AnimatePresence>
+    <>
       {isOpen && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-24"
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-24 motion-safe:animate-fade-in"
           onClick={handleClose}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
         >
-          <motion.div
+          <div
             onClick={(e) => e.stopPropagation()}
-            initial={{ opacity: 0, y: -8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.98 }}
-            transition={{ duration: 0.15 }}
-            className="w-full max-w-lg overflow-hidden rounded-lg border border-border bg-surface shadow-soft dark:border-border-dark dark:bg-surface-dark"
+            className="motion-safe:animate-drop-in w-full max-w-lg overflow-hidden rounded-lg border border-border bg-surface shadow-soft dark:border-border-dark dark:bg-surface-dark"
           >
             <div className="flex items-center gap-2 border-b border-border px-4 py-3 dark:border-border-dark">
               <Search size={18} strokeWidth={1.75} className="text-muted dark:text-muted-dark" />
@@ -168,10 +160,10 @@ export default function GlobalSearch({ isOpen, onClose }) {
                   )
                 })}
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       )}
-    </AnimatePresence>,
+    </>,
     document.body,
   )
 }

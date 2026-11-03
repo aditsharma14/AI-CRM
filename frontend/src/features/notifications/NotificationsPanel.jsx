@@ -1,6 +1,5 @@
 // Bell dropdown with the latest notifications, mark-read and mark-all-read.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
 import { Bell, CheckCheck, Inbox } from 'lucide-react'
 
 import { api } from '../../api/client.js'
@@ -41,7 +40,7 @@ export function NotificationsBell({ buttonRef, onClick }) {
   )
 }
 
-/** The dropdown panel itself. AppLayout wraps this in <AnimatePresence> for the enter/exit animation. */
+/** The dropdown panel itself (a CSS enter animation; it closes at once). */
 export default function NotificationsPanel({ onClose }) {
   const { data, isLoading } = useNotifications()
   const queryClient = useQueryClient()
@@ -59,13 +58,7 @@ export default function NotificationsPanel({ onClose }) {
   const notifications = data?.data ?? []
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -4, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -4, scale: 0.98 }}
-      transition={{ duration: 0.12 }}
-      className="absolute right-0 top-full z-40 mt-2 w-80 rounded-lg border border-border bg-surface shadow-soft dark:border-border-dark dark:bg-surface-dark"
-    >
+    <div className="absolute right-0 top-full z-40 mt-2 w-80 motion-safe:animate-drop-in rounded-lg border border-border bg-surface shadow-soft dark:border-border-dark dark:bg-surface-dark">
       <div className="flex items-center justify-between border-b border-border px-4 py-3 dark:border-border-dark">
         <p className="text-sm font-medium">Notifications</p>
         <button
@@ -117,6 +110,6 @@ export default function NotificationsPanel({ onClose }) {
           ))
         )}
       </div>
-    </motion.div>
+    </div>
   )
 }
