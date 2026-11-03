@@ -18,10 +18,11 @@ import {
   Sun,
   Users,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 
 import GlobalSearch from '../components/GlobalSearch.jsx'
+import { PageSkeleton } from '../components/ui.jsx'
 import { useSession } from '../context/SessionContext.jsx'
 import NotificationsPanel, { NotificationsBell } from '../features/notifications/NotificationsPanel.jsx'
 import { useClickOutside } from '../hooks.js'
@@ -287,7 +288,10 @@ export default function AppLayout() {
         )}
 
         <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
+          {/* Pages are lazy chunks (App.jsx): the shell stays put while one loads. */}
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 

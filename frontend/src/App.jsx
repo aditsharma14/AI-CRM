@@ -1,6 +1,6 @@
 // Providers, route table, and the top-level error boundary.
 import { QueryClientProvider } from '@tanstack/react-query'
-import { Component } from 'react'
+import { Component, lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import ProtectedRoute from './components/ProtectedRoute.jsx'
@@ -12,18 +12,22 @@ import {
   RegisterOrgPage,
   ResetPasswordPage,
 } from './features/auth/AuthPages.jsx'
-import CalendarPage from './features/calendar/CalendarPage.jsx'
-import CompaniesPage from './features/companies/CompaniesPage.jsx'
-import ContactsPage from './features/contacts/ContactsPage.jsx'
-import DashboardPage from './features/dashboard/DashboardPage.jsx'
-import PipelinePage from './features/deals/PipelinePage.jsx'
-import LeadsPage from './features/leads/LeadsPage.jsx'
-import SettingsPage from './features/settings/SettingsPage.jsx'
-import TasksPage from './features/tasks/TasksPage.jsx'
 import AppLayout from './layouts/AppLayout.jsx'
 import AuthLayout from './layouts/AuthLayout.jsx'
 import { demoUi } from './lib/demo.js'
 import { queryClient } from './lib/queryClient.js'
+
+// Each page is its own chunk, fetched the first time its route renders (AppLayout shows a skeleton meanwhile), so the
+// first load carries only the shell and the page in view. The auth pages stay in the entry: sign-in is where most
+// visits start, and they are small.
+const CalendarPage = lazy(() => import('./features/calendar/CalendarPage.jsx'))
+const CompaniesPage = lazy(() => import('./features/companies/CompaniesPage.jsx'))
+const ContactsPage = lazy(() => import('./features/contacts/ContactsPage.jsx'))
+const DashboardPage = lazy(() => import('./features/dashboard/DashboardPage.jsx'))
+const PipelinePage = lazy(() => import('./features/deals/PipelinePage.jsx'))
+const LeadsPage = lazy(() => import('./features/leads/LeadsPage.jsx'))
+const SettingsPage = lazy(() => import('./features/settings/SettingsPage.jsx'))
+const TasksPage = lazy(() => import('./features/tasks/TasksPage.jsx'))
 
 class ErrorBoundary extends Component {
   state = { hasError: false }

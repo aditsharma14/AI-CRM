@@ -123,3 +123,19 @@ export function Tabs({ tabs, active, onChange }) {
     </div>
   )
 }
+
+/** A page-shaped placeholder (title, toolbar, table rows) while a lazy page's chunk loads. */
+export function PageSkeleton() {
+  const bar = 'rounded-md bg-border/60 dark:bg-border-dark/60 motion-safe:animate-pulse'
+  return (
+    <div role="status" aria-label="Loading page" className="space-y-4">
+      <div className={cn(bar, 'h-7 w-48')} />
+      <div className={cn(bar, 'h-9 w-full max-w-md')} />
+      <div className="space-y-2 pt-2">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className={cn(bar, 'h-10 w-full')} />
+        ))}
+      </div>
+    </div>
+  )
+}
