@@ -2,12 +2,16 @@
 // Global test setup: jest-dom matchers, MSW lifecycle, and resetting the app's module-level singletons.
 import '@testing-library/jest-dom/vitest'
 
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll } from 'vitest'
 
 import { setAccessToken, setOnUnauthorized } from '../src/api/client.js'
 import { queryClient } from '../src/lib/queryClient.js'
 import { server } from './server.js'
+
+// Pages are lazy chunks (App.jsx): the first render of one in a test file includes Vite transforming its module, which
+// can pass findBy*'s default 1 s on a busy machine. A wait for something that never appears still fails, just later.
+configure({ asyncUtilTimeout: 5000 })
 
 // A request no handler matches is rejected (MSW's 'error') *and* fails the
 // test. 'error' alone isn't enough: it only logs, the app often swallows the
