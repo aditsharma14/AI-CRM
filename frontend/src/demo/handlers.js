@@ -46,6 +46,7 @@ const RESOURCES = {
     filters: { status: oneOf(LEAD_STATUSES), ownerId: id, companyId: id },
     sort: ['name', 'score', 'createdAt'],
     search: ['name', 'email'],
+    cursor: true, // cursor pagination, no page numbers (utils/cursor.js)
     fields: ['name', 'email', 'phone', 'source', 'status', 'companyId', 'ownerId'],
     required: ['name'],
     defaults: () => ({ status: 'new', score: 0 }),
@@ -88,6 +89,7 @@ const RESOURCES = {
       companyId: id,
     },
     sort: ['value', 'createdAt', 'closedAt'],
+    cursor: true,
     fields: ['title', 'value', 'currency', 'stageKey', 'probability', 'companyId', 'contactIds', 'ownerId'],
     required: ['title', 'value'],
     defaults: () => ({ probability: 50, status: 'open', contactIds: [] }),
@@ -290,7 +292,7 @@ export function createDemoApi({ now = () => new Date() } = {}) {
   const listQuery = (resource, url) => {
     const spec = RESOURCES[resource]
     const params = url.searchParams
-    const allowed = new Set(['page', 'limit', ...Object.keys(spec.filters)])
+    const allowed = new Set([spec.cursor ? 'cursor' : 'page', 'limit', ...Object.keys(spec.filters)])
     if (spec.sort) allowed.add('sort')
     if (spec.search) allowed.add('q')
     if (spec.dateRange) ['dateFrom', 'dateTo'].forEach((k) => allowed.add(k))
@@ -314,7 +316,7 @@ export function createDemoApi({ now = () => new Date() } = {}) {
       throw badRequest(`sort: must be one of ${spec.sort.flatMap((f) => [f, `-${f}`]).join(', ')}`)
     for (const key of ['dateFrom', 'dateTo'])
       if (query[key] !== undefined && Number.isNaN(Date.parse(query[key]))) throw badRequest(`${key}: must be a date`)
-    return { ...query, page: pageNo, limit }
+    return spec.cursor ? { ...query, limit } : { ...query, page: pageNo, limit }
   }
   const matchesText = (fields, q) => {
     const terms = q.toLowerCase().split(/\W+/).filter(Boolean)
@@ -335,6 +337,55 @@ export function createDemoApi({ now = () => new Date() } = {}) {
     if (y == null) return direction
     return (x < y ? -1 : x > y ? 1 : 0) * direction
   }
+  // Cursors as utils/cursor.js makes them: the last row's sort value and _id, plus a hash of the query (resource,
+  // filters, search, sort; not the limit), so a cursor reused with another query is the same 400 as the real API's.
+  const fingerprint = (resource, query) => {
+    const parts = Object.entries(query)
+      .filter(([key, value]) => key !== 'cursor' && key !== 'limit' && value !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+    let hash = 0x811c9dc5 // FNV-1a: short and stable; the real API uses sha256, either is opaque to the client
+    for (const char of JSON.stringify([resource, parts])) hash = Math.imul(hash ^ char.charCodeAt(0), 0x01000193)
+    return (hash >>> 0).toString(36)
+  }
+  const toBase64Url = (text) => btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  const fromBase64Url = (text) => atob(text.replace(/-/g, '+').replace(/_/g, '/'))
+  // The order { [sortKey]: dir, _id: dir }: _id breaks ties, as the real list's index does.
+  const cursorOrder = (query) => {
+    const sort = query.sort ?? '-createdAt'
+    const field = sort.replace(/^-/, '')
+    const direction = sort.startsWith('-') ? -1 : 1
+    const order = (a, b) => compare(field, direction)(a, b) || (a._id < b._id ? -1 : a._id > b._id ? 1 : 0) * direction
+    return { field, order }
+  }
+  /** One page of `rows` (already in cursorOrder) after `query.cursor`. */
+  const cursorPage = (resource, rows, query) => {
+    const { field, order } = cursorOrder(query)
+    const fp = fingerprint(resource, query)
+    let start = 0
+    if (query.cursor) {
+      let parsed
+      try {
+        parsed = JSON.parse(fromBase64Url(query.cursor))
+      } catch {
+        parsed = null
+      }
+      if (!Array.isArray(parsed) || parsed.length !== 3 || typeof parsed[2] !== 'string')
+        throw badRequest('cursor: not a cursor from this list. Start again from the first page.', 'INVALID_CURSOR')
+      if (parsed[0] !== fp)
+        throw badRequest(
+          'cursor: belongs to a different filter, search or sort. Start again from the first page.',
+          'INVALID_CURSOR',
+        )
+      const after = { [field]: parsed[1], _id: parsed[2] }
+      start = rows.findIndex((row) => order(row, after) > 0)
+      if (start === -1) start = rows.length
+    }
+    const items = rows.slice(start, start + query.limit)
+    const hasMore = start + items.length < rows.length
+    const last = items.at(-1)
+    const nextCursor = hasMore ? toBase64Url(JSON.stringify([fp, last[field] ?? null, last._id])) : null
+    return { items, meta: { limit: query.limit, hasMore, nextCursor } }
+  }
   const paginate = (rows, { page: pageNo, limit }) => {
     const skip = (pageNo - 1) * limit
     const items = rows.slice(skip, skip + limit)
@@ -354,6 +405,9 @@ export function createDemoApi({ now = () => new Date() } = {}) {
       if (query.dateTo)
         rows = rows.filter((r) => r[dateField] != null && r[dateField] <= new Date(query.dateTo).toISOString())
       rows = [...rows].sort((a, b) => compare(dateField, 1)(a, b) || compare('createdAt', -1)(a, b))
+    } else if (spec.cursor) {
+      const { items, meta } = cursorPage(resource, [...rows].sort(cursorOrder(query).order), query)
+      return { items: items.map((r) => populated(spec, r)), meta }
     } else {
       const sort = query.sort ?? '-createdAt'
       rows = [...rows].sort(compare(sort.replace(/^-/, ''), sort.startsWith('-') ? -1 : 1))

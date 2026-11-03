@@ -78,6 +78,26 @@ export function usePaginationState(filters = {}, { limit = 20 } = {}) {
 }
 
 /**
+ * Cursor pagination for the lists that use it (leads, deals): `cursor` is the one to request, and Prev goes back
+ * through the cursors already seen. Like usePaginationState, the stack belongs to the `filters` it was built under
+ * (search, status, sort…), so a change starts again at page 1; the API would refuse an old cursor anyway (400).
+ *   const pager = useCursorPagination({ q, status })
+ *   useList({ cursor: pager.cursor, limit: pager.limit, q, status })
+ *   <DataTable cursorPager={{ ...pager, hasMore: meta.hasMore, onNext: () => pager.next(meta.nextCursor) }} />
+ */
+export function useCursorPagination(filters = {}, { limit = 20 } = {}) {
+  const key = JSON.stringify(filters)
+  const [chosen, setChosen] = useState({ key, stack: [] })
+  const stack = chosen.key === key ? chosen.stack : []
+  const next = useCallback(
+    (nextCursor) => nextCursor && setChosen((c) => ({ key, stack: [...(c.key === key ? c.stack : []), nextCursor] })),
+    [key],
+  )
+  const prev = useCallback(() => setChosen((c) => ({ key, stack: (c.key === key ? c.stack : []).slice(0, -1) })), [key])
+  return { cursor: stack.at(-1), limit, page: stack.length + 1, hasPrev: stack.length > 0, next, prev }
+}
+
+/**
  * Closes a dropdown/menu when the user clicks anywhere outside it.
  * Attach `ref` to the dropdown's wrapping element:
  *   const ref = useRef(null)

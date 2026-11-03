@@ -49,6 +49,8 @@ export const stageKeyParam = z.string().regex(/^[a-z0-9_-]{1,40}$/, 'must be a s
  * @property {string[]} [sort] Sortable fields; `?sort=field` or `-field`. Omit to accept no `sort`.
  * @property {boolean} [search] Accept `?q=` (the model needs a text index).
  * @property {boolean} [dateRange] Accept `?dateFrom=&dateTo=` (inclusive).
+ * @property {boolean} [cursor] Cursor pagination (`?cursor=`, utils/cursor.js) instead of `?page=`: for lists too
+ *   long to count or skip through (leads, deals). `?page=` is then a 400.
  */
 
 // The type-level shape of every list query. Which of sort/q/dateFrom/dateTo
@@ -57,6 +59,7 @@ export const stageKeyParam = z.string().regex(/^[a-z0-9_-]{1,40}$/, 'must be a s
 const listBase = {
   page,
   limit,
+  cursor: z.string().max(200).optional(),
   sort: z.string().optional(),
   q: z.string().optional(),
   dateFrom: isoDate.optional(),
@@ -72,9 +75,9 @@ const listBase = {
  * @param {ListSpec<F>} spec
  * @returns {z.ZodObject<typeof listBase & F>}
  */
-export function listQuery({ filters, sort, search = false, dateRange = false }) {
+export function listQuery({ filters, sort, search = false, dateRange = false, cursor = false }) {
   /** @type {Record<string, z.core.$ZodType>} */
-  const shape = { page, limit, ...filters }
+  const shape = cursor ? { cursor: listBase.cursor, limit, ...filters } : { page, limit, ...filters }
   if (sort?.length) {
     // Boundary cast: z.enum wants a non-empty tuple; the length check proves it.
     const values = /** @type {[string, ...string[]]} */ (sort.flatMap((f) => [f, `-${f}`]))

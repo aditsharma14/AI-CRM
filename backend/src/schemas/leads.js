@@ -36,6 +36,7 @@ export const leadList = {
   },
   sort: ['name', 'score', 'createdAt'],
   search: true,
+  cursor: true,
 }
 export const leadListQuery = listQuery(leadList)
 /** @typedef {z.infer<typeof leadListQuery>} LeadListQuery */

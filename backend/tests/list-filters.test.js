@@ -113,7 +113,9 @@ describe('supported filters narrow the list', () => {
     const res = await list(path, resolved)
     expect(res.status).toBe(200)
     expect(res.body.data.map(labelOf).sort()).toEqual(expected)
-    expect(res.body.meta.total).toBe(expected.length)
+    // Page-numbered lists report a total; cursor lists (leads, deals) only say there is no more.
+    if ('total' in res.body.meta) expect(res.body.meta.total).toBe(expected.length)
+    else expect(res.body.meta).toMatchObject({ hasMore: false, nextCursor: null })
   })
 })
 
@@ -177,9 +179,10 @@ describe('bad filters are rejected, never ignored', () => {
     expectValidationError(await list(path, { q: 'x' }), 'q')
   })
 
-  it('still accepts the plain pagination params everywhere', async () => {
+  it('still accepts the plain pagination params everywhere (no page on the cursor lists)', async () => {
     for (const path of PATHS) {
-      const res = await list(path, { page: '1', limit: '5', sort: '-createdAt' })
+      const paging = path === 'leads' || path === 'deals' ? {} : { page: '1' }
+      const res = await list(path, { ...paging, limit: '5', sort: '-createdAt' })
       expect(res.status).toBe(200)
     }
   })

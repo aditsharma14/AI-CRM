@@ -4,7 +4,8 @@ import { Button, EmptyState, Loader } from './ui.jsx'
 
 /**
  * columns: [{ key, header, render?(row) }]
- * meta: { page, limit, total, hasMore } from the API envelope
+ * meta: { page, limit, total, hasMore } from the API envelope, for page-numbered lists
+ * cursorPager: { page, hasPrev, hasMore, onPrev, onNext } for cursor lists (leads, deals): no total, Prev/Next only
  */
 export function DataTable({
   columns,
@@ -16,6 +17,7 @@ export function DataTable({
   onRowClick,
   meta,
   onPageChange,
+  cursorPager,
   sort,
   onSortChange,
 }) {
@@ -78,7 +80,20 @@ export function DataTable({
         </tbody>
       </table>
 
-      {meta && (
+      {cursorPager && (
+        <div className="flex items-center justify-between border-t border-border px-4 py-2 text-xs text-muted dark:border-border-dark dark:text-muted-dark">
+          <span>page {cursorPager.page}</span>
+          <div className="flex gap-2">
+            <Button variant="secondary" disabled={!cursorPager.hasPrev} onClick={cursorPager.onPrev}>
+              Prev
+            </Button>
+            <Button variant="secondary" disabled={!cursorPager.hasMore} onClick={cursorPager.onNext}>
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+      {meta && !cursorPager && (
         <div className="flex items-center justify-between border-t border-border px-4 py-2 text-xs text-muted dark:border-border-dark dark:text-muted-dark">
           <span>
             {meta.total} total · page {meta.page} of {Math.max(1, Math.ceil(meta.total / meta.limit))}

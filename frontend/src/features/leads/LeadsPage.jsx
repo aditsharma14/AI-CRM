@@ -12,7 +12,7 @@ import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { ConfirmDialog, Modal } from '../../components/Modal.jsx'
 import { Badge, Button } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
-import { useCrudQuery, useDebounce, useDisclosure, useMutationError, usePaginationState } from '../../hooks.js'
+import { useCrudQuery, useCursorPagination, useDebounce, useDisclosure, useMutationError } from '../../hooks.js'
 import { canModifyRecord, LEAD_STATUSES } from '../../lib/constants.js'
 import { formatDate } from '../../lib/utils.js'
 import NotesPanel from '../notes/NotesPanel.jsx'
@@ -48,7 +48,8 @@ export default function LeadsPage() {
   const [search, setSearch] = useState('')
   const q = useDebounce(search)
   const [statusFilter, setStatusFilter] = useState('')
-  const { page, limit, setPage } = usePaginationState({ q, statusFilter })
+  // A new search or status starts again at page 1 (and drops the old cursors: the API refuses them).
+  const pager = useCursorPagination({ q, statusFilter })
   const [editing, setEditing] = useState(null) // null = closed, {} = new, {...} = editing
   const confirmDelete = useDisclosure()
   const { user, can } = useSession()
@@ -57,8 +58,8 @@ export default function LeadsPage() {
 
   const leads = useCrudQuery('leads')
   const { data, isLoading, isError } = leads.useList({
-    page,
-    limit,
+    cursor: pager.cursor,
+    limit: pager.limit,
     q: q || undefined,
     status: statusFilter || undefined,
   })
@@ -154,8 +155,14 @@ export default function LeadsPage() {
         emptyTitle="No leads yet"
         emptyDescription="Create your first lead to start filling the pipeline."
         onRowClick={openEdit}
-        meta={data?.meta}
-        onPageChange={setPage}
+        cursorPager={
+          data?.meta && {
+            ...pager,
+            hasMore: data.meta.hasMore,
+            onNext: () => pager.next(data.meta.nextCursor),
+            onPrev: pager.prev,
+          }
+        }
       />
 
       <Modal

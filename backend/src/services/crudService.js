@@ -4,12 +4,13 @@ import User from '../models/User.js'
 import { canReassign, missOrForbidden, ownerField, sanitizeWrite, scopeFor } from '../policies/ownership.js'
 import { assertReferencesInOrg, scopedPopulate } from '../policies/references.js'
 import { badRequest, notFound } from '../utils/http.js'
-import { buildListQuery, paginate } from '../utils/queryBuilder.js'
+import { buildListQuery, cursorPaginate, paginate } from '../utils/queryBuilder.js'
 import { labelFor, logActivity } from './activityLogService.js'
 
 /** @typedef {import('../types/index.js').AuthUser} AuthUser */
 /** @typedef {import('../types/index.js').ListQuery} ListQuery */
 /** @typedef {import('../types/index.js').PageMeta} PageMeta */
+/** @typedef {import('../types/index.js').CursorMeta} CursorMeta */
 /** @typedef {import('../policies/ownership.js').OwnedResource} OwnedResource */
 
 /**
@@ -84,12 +85,14 @@ export function createCrudService(Model, options) {
     /**
      * @param {AuthUser} actor
      * @param {ListQuery & Record<string, unknown>} query
-     * @returns {Promise<{ items: import('mongoose').HydratedDocument<T>[], meta: PageMeta }>}
+     * @returns {Promise<{ items: import('mongoose').HydratedDocument<T>[], meta: PageMeta | CursorMeta }>}
      */
     async list(actor, query) {
       const plan = buildListQuery(query, { filterableFields, searchFields, sortableFields, dateField })
       Object.assign(plan.filter, { orgId: actor.orgId }, scopeFor(actor, resource, 'read'))
-      return paginate(Model, plan, populate && scopedPopulate(populate, actor.orgId))
+      const scoped = populate && scopedPopulate(populate, actor.orgId)
+      if (list.cursor) return cursorPaginate(Model, plan, { resource, query }, scoped)
+      return paginate(Model, plan, scoped)
     },
 
     /**

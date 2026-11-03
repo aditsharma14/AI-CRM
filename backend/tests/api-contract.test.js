@@ -136,6 +136,7 @@ beforeAll(async () => {
     body: { title: 'Convert me deal', value: 150000 },
   })
   await hit('GET /leads', 200)
+  await hit('GET /leads', 200, { query: { limit: 1 } }) // a page with a nextCursor; the one above ends with null
   await hit('GET /leads/:id', 200, { path: `/leads/${lead._id}` })
   await hit('PATCH /leads/:id', 200, { path: `/leads/${lead._id}`, body: { status: 'contacted' } })
   await hit('GET /leads/:id', 200, { path: `/leads/${bareLead._id}` })
@@ -169,6 +170,7 @@ beforeAll(async () => {
   await hit('PATCH /deals/:id', 200, { path: `/deals/${converted._id}`, body: { probability: 30 } })
   await hit('GET /deals/:id', 200, { path: `/deals/${converted._id}` })
   await hit('GET /deals', 200)
+  await hit('GET /deals', 200, { query: { limit: 1 } })
   await hit('GET /deals/:id', 200, { path: `/deals/${deal._id}` })
   await hit('PATCH /deals/:id', 200, { path: `/deals/${deal._id}`, body: { probability: 100 } })
   await hit('GET /deals/:id', 200, { path: `/deals/${bareDeal._id}` })

@@ -288,10 +288,9 @@
     ],
     "error": "null",
     "meta": {
-      "page": "number",
       "limit": "number",
-      "total": "number",
-      "hasMore": "boolean"
+      "hasMore": "boolean",
+      "nextCursor": "null|string"
     }
   },
   "GET /deals/:id": {
@@ -352,10 +351,9 @@
     ],
     "error": "null",
     "meta": {
-      "page": "number",
       "limit": "number",
-      "total": "number",
-      "hasMore": "boolean"
+      "hasMore": "boolean",
+      "nextCursor": "null|string"
     }
   },
   "GET /leads/:id": {

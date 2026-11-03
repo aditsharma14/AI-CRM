@@ -12,7 +12,7 @@ import { FormField, inputClasses } from '../../components/FormField.jsx'
 import { ConfirmDialog, Modal } from '../../components/Modal.jsx'
 import { Badge, Button } from '../../components/ui.jsx'
 import { useSession } from '../../context/SessionContext.jsx'
-import { useCrudQuery, useDisclosure, useMutationError, usePaginationState, usePipelineStages } from '../../hooks.js'
+import { useCrudQuery, useCursorPagination, useDisclosure, useMutationError, usePipelineStages } from '../../hooks.js'
 import { canModifyRecord } from '../../lib/constants.js'
 import { formatCurrency } from '../../lib/utils.js'
 import NotesPanel from '../notes/NotesPanel.jsx'
@@ -41,7 +41,7 @@ function useMoveStage() {
 }
 
 export default function PipelinePage() {
-  const { page, limit, setPage } = usePaginationState()
+  const pager = useCursorPagination({ sort: '-createdAt' })
   const [editing, setEditing] = useState(null)
   const confirmDelete = useDisclosure()
   const { user, can } = useSession()
@@ -49,7 +49,7 @@ export default function PipelinePage() {
   const readOnly = Boolean(editing?._id) && !canModifyRecord(user, editing)
 
   const deals = useCrudQuery('deals')
-  const { data, isLoading, isError } = deals.useList({ page, limit, sort: '-createdAt' })
+  const { data, isLoading, isError } = deals.useList({ cursor: pager.cursor, limit: pager.limit, sort: '-createdAt' })
   const createDeal = deals.useCreate()
   const updateDeal = deals.useUpdate()
   const removeDeal = deals.useRemove()
@@ -134,8 +134,14 @@ export default function PipelinePage() {
         emptyTitle="No deals yet"
         emptyDescription="Convert a lead or create a deal directly to start the pipeline."
         onRowClick={openEdit}
-        meta={data?.meta}
-        onPageChange={setPage}
+        cursorPager={
+          data?.meta && {
+            ...pager,
+            hasMore: data.meta.hasMore,
+            onNext: () => pager.next(data.meta.nextCursor),
+            onPrev: pager.prev,
+          }
+        }
       />
 
       <Modal

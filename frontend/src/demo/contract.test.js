@@ -98,6 +98,7 @@ beforeAll(async () => {
     expect: 201,
   })
   await call('GET /leads')
+  await call('GET /leads', { params: { limit: 1 } }) // a page with a nextCursor, as the backend samples it
   await call('GET /leads/:id', { path: `/leads/${id('lead', 6)}` })
   await call('GET /leads/:id', { path: `/leads/${bareLead._id}` })
   await call('PATCH /leads/:id', { path: `/leads/${id('lead', 6)}`, body: { status: 'qualified' } })
@@ -122,6 +123,7 @@ beforeAll(async () => {
   })
   await call('PATCH /deals/:id/move-stage', { path: `/deals/${bareDeal._id}/move-stage`, body: { stageKey: 'new' } })
   await call('GET /deals')
+  await call('GET /deals', { params: { limit: 1 } })
   await call('GET /deals/:id', { path: `/deals/${id('deal', 11)}` })
   await call('GET /deals/:id', { path: `/deals/${bareDeal._id}` })
   await call('PATCH /deals/:id', { path: `/deals/${id('deal', 11)}`, body: { probability: 100 } })

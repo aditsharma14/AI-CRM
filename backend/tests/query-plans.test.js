@@ -139,10 +139,33 @@ describe('query plans of the five most-used reads', () => {
     async (_, path, coll) => {
       const plans = await plansFor(path)
       for (const { plan } of plans) expect(plan).not.toContain('COLLSCAN')
-      const [list] = onlyOn(plans, coll).filter((p) => p.kind === 'find')
+      const [list, ...others] = onlyOn(plans, coll)
+      expect(others, 'one query on the list collection: no count of every match').toEqual([])
       expect(list.plan).toContain('IXSCAN')
       expect(sortsInMemory(list.plan), list.plan).toBe(false)
       expect(list.docsExamined, list.plan).toBeLessThanOrEqual(21) // the page, plus one to know there is more
+    },
+  )
+
+  it.each(LISTS)(
+    '%s, page 2 (after a cursor): starts at the cursor, reads the page plus its ties',
+    async (_, path, coll) => {
+      const first = await request(app).get(`${api}${path}`).set(bearer(ctx.tokens.owner))
+      const plans = await plansFor(`${path}&cursor=${first.body.meta.nextCursor}`)
+      const [list, ...others] = onlyOn(plans, coll)
+      expect(others).toEqual([])
+      expect(list.plan).not.toContain('COLLSCAN')
+      expect(sortsInMemory(list.plan), list.plan).toBe(false)
+      // The scan starts at the cursor's sort value, so page 1's rows tied with it are read again and dropped by the _id
+      // tie-break; nothing before them is. (Skip/limit would read all of page 1, and page n would read n pages.)
+      const model = coll === 'leads' ? Lead : Deal
+      const last = first.body.data.at(-1)
+      const ties = await model.countDocuments({
+        orgId: ctx.org._id,
+        createdAt: last.createdAt,
+        _id: { $gte: last._id },
+      })
+      expect(list.docsExamined, list.plan).toBeLessThanOrEqual(21 + ties)
     },
   )
 

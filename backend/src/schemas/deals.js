@@ -38,6 +38,7 @@ export const dealList = {
     companyId: objectId.optional(),
   },
   sort: ['value', 'createdAt', 'closedAt'],
+  cursor: true,
 }
 export const dealListQuery = listQuery(dealList)
 /** @typedef {z.infer<typeof dealListQuery>} DealListQuery */

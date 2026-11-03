@@ -18,10 +18,10 @@ describe('Leads status filter', () => {
     renderWithProviders(<LeadsPage />, { session: makeUser('member') })
 
     await waitFor(() => expect(requests).toHaveLength(1))
-    expect(requests[0]).toEqual({ page: '1', limit: '20' })
+    expect(requests[0]).toEqual({ limit: '20' })
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Filter by status' }), 'qualified')
-    await waitFor(() => expect(requests.at(-1)).toEqual({ page: '1', limit: '20', status: 'qualified' }))
+    await waitFor(() => expect(requests.at(-1)).toEqual({ limit: '20', status: 'qualified' }))
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Filter by status' }), '')
     // Back to the first query: served from cache or refetched, either way no stray empty status.
@@ -37,7 +37,7 @@ describe('Leads status filter', () => {
     await user.selectOptions(screen.getByRole('combobox', { name: 'Filter by status' }), 'new')
     await user.type(screen.getByPlaceholderText('Search leads…'), 'acme')
 
-    await waitFor(() => expect(requests.at(-1)).toEqual({ page: '1', limit: '20', status: 'new', q: 'acme' }))
+    await waitFor(() => expect(requests.at(-1)).toEqual({ limit: '20', status: 'new', q: 'acme' }))
   })
 })
 
