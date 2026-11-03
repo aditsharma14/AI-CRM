@@ -85,6 +85,8 @@ jobs:
       # The GitHub Pages demo (src/demo/, MSW) must never reach a normal build.
       - run: npm run build
       - run: node scripts/check-no-demo.mjs
+      # The first load must not grow unnoticed: entry chunk and initial JS against frontend/bundle-budget.json.
+      - run: node scripts/check-bundle-budget.mjs
 
   e2e:
     runs-on: ubuntu-latest

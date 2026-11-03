@@ -1,0 +1,5 @@
+{
+  "$comment": "Max sizes in kB (1024 bytes) of a normal production build; scripts/check-bundle-budget.mjs fails the CI frontend job above them. Set in S1.9 at the measured size + 10% (bench/frontend.md). Raise one only with the reason in the commit.",
+  "entryChunk": { "raw": 31.8, "gzip": 9.2 },
+  "initialJs": { "raw": 376.2, "gzip": 121.2 }
+}
