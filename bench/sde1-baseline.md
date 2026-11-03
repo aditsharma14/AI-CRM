@@ -161,4 +161,5 @@ guards the plans; this benchmark is the number.
 - **Search grows with the matches:** a common surname would match about 40,000 leads, all sorted in memory. Options:
   cap and sort the text matches by relevance instead of date, or move search to Atlas Search (a Lucene index that
   pages sorted results), which would also give prefix and fuzzy matching.
-- **Writes:** each lead write updates 5 indexes now (was 4). Fine at this rate; worth measuring under a bulk import.
+- **Writes:** each lead write now updates 7 indexes (was 6). The single-field `orgId_1` (from `index: true`) is now a
+  prefix of every list index and could go; worth measuring under a bulk import before adding more.
