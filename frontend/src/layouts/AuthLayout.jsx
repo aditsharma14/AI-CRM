@@ -1,5 +1,8 @@
 // Centered shell for login/register/invite screens.
+import { Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
+
+import { Loader } from '../components/ui.jsx'
 
 export default function AuthLayout() {
   return (
@@ -8,7 +11,16 @@ export default function AuthLayout() {
         <div className="mb-6 text-center font-serif text-xl font-semibold text-primary dark:text-primary-dark">
           Nimbus CRM
         </div>
-        <Outlet />
+        {/* The auth pages are a lazy chunk (App.jsx). */}
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-8">
+              <Loader className="h-5 w-5" />
+            </div>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </div>
     </div>
   )

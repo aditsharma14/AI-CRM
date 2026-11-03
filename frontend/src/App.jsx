@@ -5,21 +5,20 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import { SessionProvider } from './context/SessionContext.jsx'
-import {
-  AcceptInvitePage,
-  ForgotPasswordPage,
-  LoginPage,
-  RegisterOrgPage,
-  ResetPasswordPage,
-} from './features/auth/AuthPages.jsx'
 import AppLayout from './layouts/AppLayout.jsx'
 import AuthLayout from './layouts/AuthLayout.jsx'
 import { demoUi } from './lib/demo.js'
 import { queryClient } from './lib/queryClient.js'
 
-// Each page is its own chunk, fetched the first time its route renders (AppLayout shows a skeleton meanwhile), so the
-// first load carries only the shell and the page in view. The auth pages stay in the entry: sign-in is where most
-// visits start, and they are small.
+// Each page is its own chunk, fetched the first time its route renders (the layouts show a skeleton meanwhile), so the
+// first load carries only the shell and the page in view. The five auth pages share one chunk (one module); with them,
+// the form libraries (zod, react-hook-form) load only where there is a form.
+const authPage = (name) => lazy(() => import('./features/auth/AuthPages.jsx').then((m) => ({ default: m[name] })))
+const AcceptInvitePage = authPage('AcceptInvitePage')
+const ForgotPasswordPage = authPage('ForgotPasswordPage')
+const LoginPage = authPage('LoginPage')
+const RegisterOrgPage = authPage('RegisterOrgPage')
+const ResetPasswordPage = authPage('ResetPasswordPage')
 const CalendarPage = lazy(() => import('./features/calendar/CalendarPage.jsx'))
 const CompaniesPage = lazy(() => import('./features/companies/CompaniesPage.jsx'))
 const ContactsPage = lazy(() => import('./features/contacts/ContactsPage.jsx'))

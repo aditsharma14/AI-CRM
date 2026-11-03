@@ -98,7 +98,7 @@ describe('the demo, through the real app', () => {
 
   it('an unsupported action says it is not available in the demo', async () => {
     const user = renderDemo('/register')
-    await user.type(screen.getByLabelText('Organization name'), 'My Shop')
+    await user.type(await screen.findByLabelText('Organization name'), 'My Shop') // the auth pages are a lazy chunk
     await user.type(screen.getByLabelText('Your name'), 'Me')
     await user.type(screen.getByLabelText('Email'), 'me@shop.example')
     await user.type(screen.getByLabelText('Password'), 'long enough password')
