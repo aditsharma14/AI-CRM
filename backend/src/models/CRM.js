@@ -16,7 +16,8 @@ const companySchema = new Schema(
   { timestamps: true },
 )
 companySchema.index({ orgId: 1, domain: 1 })
-companySchema.index({ name: 'text' })
+// Text search is per org: the orgId equality prefix means a search reads only this org's entries (bench/sde1-baseline.md).
+companySchema.index({ orgId: 1, name: 'text' })
 
 const contactSchema = new Schema(
   {
@@ -32,7 +33,7 @@ const contactSchema = new Schema(
   { timestamps: true },
 )
 contactSchema.index({ orgId: 1, companyId: 1 })
-contactSchema.index({ name: 'text', email: 'text' })
+contactSchema.index({ orgId: 1, name: 'text', email: 'text' })
 
 const leadSchema = new Schema(
   {
@@ -60,7 +61,7 @@ const leadSchema = new Schema(
 leadSchema.index({ orgId: 1, createdAt: -1, _id: -1 })
 leadSchema.index({ orgId: 1, status: 1, createdAt: -1, _id: -1 })
 leadSchema.index({ orgId: 1, ownerId: 1 })
-leadSchema.index({ name: 'text', email: 'text' })
+leadSchema.index({ orgId: 1, name: 'text', email: 'text' })
 
 /** Plain field shapes inferred from the schemas — what services read and write. */
 /** @typedef {import('mongoose').InferSchemaType<typeof companySchema>} CompanyRecord */

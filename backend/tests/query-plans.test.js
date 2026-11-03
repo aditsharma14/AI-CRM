@@ -169,10 +169,20 @@ describe('query plans of the five most-used reads', () => {
     },
   )
 
-  it('lead search: a text index, no collection scan', async () => {
+  it('lead search: the org-prefixed text index (only this org’s leads are examined), no collection scan', async () => {
     const plans = await plansFor('/leads?limit=20&q=sharma')
     for (const { plan } of plans) expect(plan).not.toContain('COLLSCAN')
-    expect(onlyOn(plans, 'leads').every((p) => p.plan.includes('TEXT_MATCH'))).toBe(true)
+    const [search, ...others] = onlyOn(plans, 'leads')
+    expect(others).toEqual([])
+    expect(search.plan).toContain('TEXT_MATCH {orgId_1_name_text_email_text}')
+  })
+
+  it('the search palette: contacts and companies use their org-prefixed text indexes too', async () => {
+    const plans = await plansFor('/search?q=sharma')
+    for (const { plan } of plans) expect(plan).not.toContain('COLLSCAN')
+    expect(onlyOn(plans, 'leads')[0].plan).toContain('{orgId_1_name_text_email_text}')
+    expect(onlyOn(plans, 'contacts')[0].plan).toContain('{orgId_1_name_text_email_text}')
+    expect(onlyOn(plans, 'companies')[0].plan).toContain('{orgId_1_name_text}')
   })
 
   it('dashboard overview: no collection scans; the deal sums and lead counts read only the index', async () => {
