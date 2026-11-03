@@ -3,13 +3,17 @@
 Everything known to be wrong, missing or unverified that isn't a top-level gap in [CLAUDE.md](../CLAUDE.md) §9,
 plus a record of what has been resolved. Newest resolutions first.
 
-## Open findings (verified 2026-10-29, updated 2026-11-01; GitHub issue numbers in brackets)
+## Open findings (verified 2026-10-29, updated 2026-11-03; GitHub issue numbers in brackets)
 - **After a password reset, a tab that is already open keeps working for up to 15 minutes.** The reset revokes every
   refresh token, but an access token already in a tab's memory stays valid until it expires (same as role changes, §5).
   The next refresh or reload signs the tab out (the e2e checks this).
 - **Marking a notification read from the bell panel fails silently.** The panel closes on click, so there's nowhere to
   show the error; the dot just stays. The only mutation without error UI (S1.7 audit).
-- **The production bundle is one chunk over 500 kB** (Vite warns on `npm run build`). No code splitting yet.
+- **Search sorts every text match in memory** (S1.9): the org-prefixed text index finds the matches, then they are
+  sorted by date (4,258 for "sharma" at 100k leads, 15 ms). Fine now; at 10x data see "At 10x" in
+  [bench/sde1-baseline.md](../bench/sde1-baseline.md) (relevance order or Atlas Search).
+- **The Dashboard's counts and sums walk every index key of the org** (S1.9: covered, no documents read, 46 ms p95 at
+  100k leads). They grow linearly; running totals per org would make them constant.
 - **[#18] The `won`/`lost` stage keys are hardcoded** (`CLOSING_KEYS` in [dealsService.js](../backend/src/services/dealsService.js);
   closing a deal is keyed on them). An org that renames its closing stages' *keys* never closes a deal. Open for S2.7.
 - **[#19] Pipeline save is two calls (move-stage, then update), not atomic;** revisit with a single endpoint or transaction in
@@ -30,6 +34,9 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-11-03 | **The production bundle was one 613 kB chunk** (Vite warned on every build) | pages are lazy chunks, libraries in their own chunks, framer-motion replaced by CSS, form libraries only with a form: initial JS 342 kB (110 kB gzip), and CI fails above [bundle-budget.json](../frontend/bundle-budget.json) (`2bec34b`, `0dcaefb`, `5c0d4ed`, `e717ad4`; [bench/frontend.md](../bench/frontend.md)) |
+| 2026-11-03 | **Lead and deal lists sorted the whole org in memory and counted it on every page** (332 ms p95 at 100k leads) | ESR compound indexes, cursor pagination, lean reads: 28 ms (`00eeef7`, `eff3d03`, `b108810`; [bench/sde1-baseline.md](../bench/sde1-baseline.md)) |
+| 2026-11-03 | **Text search was not scoped to the org's index entries** (the text indexes had no `orgId` prefix) | `{orgId, …text}` indexes (`4435355`); `node scripts/sync-indexes.js --apply` for an existing database (`1473c28`) |
 | 2026-11-01 | **Deployment config disagreed with the docs** (CLAUDE.md gap 9.5): the root `vercel.json` declared the backend as a Vercel service, and its `"/api/(/.*)?"` rewrite never matched `/api/v1/...` | root `vercel.json` deleted (`bb1d8a5`), `frontend/vercel.json` too (`a479131`); there is no hosted backend, and the public demo is a static GitHub Pages build (S1.8-GH). [#26] (spoofed `X-Forwarded-For` on a direct Render origin) closed as not planned |
 | 2026-11-01 | **The dev-only token logs would have run in production** | they run only when `NODE_ENV` isn't production (tested); invite links go back to the inviter while `EMAIL_ENABLED=false` (`23dcde0`) |
 | 2026-11-01 | **Product name inconsistent:** "Nimbus CRM" in the readme, another name in the app shell, sign-in and the page title | Nimbus CRM everywhere (`2b8ebac`; the database name was already `nimbus-crm`) |

@@ -55,13 +55,13 @@ Read this before changing anything. Overview: [readme.md](readme.md). History: [
 Every response uses one envelope, built only by `apiResponse()` and the `AppError` helpers in
 [http.js](backend/src/utils/http.js). [errorHandler.js](backend/src/middleware/errorHandler.js) is the only code that writes an error.
 
-Success: `GET /api/v1/leads?page=1&limit=20` (`meta` comes from `paginate()` in [queryBuilder.js](backend/src/utils/queryBuilder.js)):
+Success: `GET /api/v1/leads?limit=20`, a cursor list (`cursorPaginate()` in [queryBuilder.js](backend/src/utils/queryBuilder.js); page-numbered lists like `/contacts` return `{ page, limit, total, hasMore }`):
 ```json
 { "success": true,
   "data": [{ "_id": "…", "orgId": "…", "name": "Acme lead", "status": "new", "score": 0,
              "companyId": { "_id": "…", "name": "Acme" }, "ownerId": "…", "createdAt": "…" }],
   "error": null,
-  "meta": { "page": 1, "limit": 20, "total": 37, "hasMore": true } }
+  "meta": { "limit": 20, "hasMore": true, "nextCursor": "WyJ…" } }
 ```
 
 Error: `GET /api/v1/leads/<unknown id>` → 404 (thrown by `getById` in [crudService.js](backend/src/services/crudService.js)):
@@ -71,7 +71,7 @@ Error: `GET /api/v1/leads/<unknown id>` → 404 (thrown by `getById` in [crudSer
 
 | Status | Codes | Source |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` (`field: message`, joined by `; `), `BAD_REQUEST`, domain codes like `ALREADY_CONVERTED` | `validate()` in [guards.js](backend/src/middleware/guards.js), services, bad JSON, Mongoose validation/cast errors |
+| 400 | `VALIDATION_ERROR` (`field: message`, joined by `; `), `BAD_REQUEST`, domain codes like `ALREADY_CONVERTED`, `INVALID_CURSOR` | `validate()` in [guards.js](backend/src/middleware/guards.js), services, bad JSON, Mongoose validation/cast errors |
 | 401 | `UNAUTHORIZED`, `INVALID_CREDENTIALS` | [auth.js](backend/src/middleware/auth.js), `authService` |
 | 403 | `FORBIDDEN` | `requirePermission()` |
 | 404 | `NOT_FOUND` | services; unknown routes (but an unknown path under a resource, e.g. `/leads/x/y`, is 401 for a guest: that router authenticates first) |
@@ -188,14 +188,14 @@ Read in [backend/src/config/index.js](backend/src/config/index.js) (`GIT_COMMIT`
 - **Tests:** `npm test` in `backend/` (Vitest + supertest + mongodb-memory-server; first run downloads a ~70 MB mongod) and in
   `frontend/` (Vitest + Testing Library + MSW). No `.env` needed. **e2e:** `npm run e2e` in `frontend/` (Playwright; starts its
   own API on in-memory Mongo + Vite on :5055/:5175; first time: `npx playwright install chromium`). No AI tests yet.
-- **Coverage:** `npm run test:coverage` in both. As of 2026-10-30: backend `src/services` 97.5% lines / 79.5% branches / 100% funcs;
-  frontend `src/api` + `src/context` 100% lines / 95.7% branches. Helpers and conventions: [docs/conventions.md](docs/conventions.md).
+- **Coverage and budgets:** `npm run test:coverage` in both (backend `src/services` 99.66% lines, 2026-11-03). Budgets ([bench/](bench/)): lead
+  list p95 under 200 ms at 100k leads on the bench machine (28 ms); first-load JS under [bundle-budget.json](frontend/bundle-budget.json) (CI).
 - **Checks (repo root):** `npm run lint` (ESLint, zero warnings, plus ruff), `npm run typecheck`, `npm run format:check`. The husky
   pre-commit hook runs them on staged files and blocks the commit; see [CONTRIBUTING.md](CONTRIBUTING.md). Logs are pino JSON.
 - **CI** ([docs/ci.md](docs/ci.md)): `repo`, `ai`, `backend` (fails below 98.65% `src/services` line coverage), `frontend`, `e2e`,
   `docker` (compose stack, PRIMARY replica set, [smoke.mjs](scripts/smoke.mjs) through nginx). It doesn't block merges (no branch protection); the pre-commit hook does.
-- **Docker:** compose sets the api's container values itself (`MONGO_URI` with `replicaSet=rs0`, `CLIENT_ORIGIN`, a dev-only JWT
-  secret, `NODE_ENV=development`); `backend/.env` is optional. `.dockerignore` keeps local `.env` and `node_modules` out of both images.
+- **Docker:** compose sets the api's own env (replica-set `MONGO_URI`, `CLIENT_ORIGIN`, a dev-only JWT secret); `backend/.env` is optional;
+  `.dockerignore` keeps `.env` and `node_modules` out. An existing DB after an index change: `node scripts/sync-indexes.js --apply` (backend/).
 - **Replica set:** a standalone mongod makes lead convert fail ("Transaction numbers are only allowed on a replica set").
   To convert a local service: add `replication:` / `  replSetName: rs0` to `mongod.cfg`, restart the service, then run
   `mongosh --eval "rs.initiate()"` once. Tests and e2e start their own in-memory replica sets.
