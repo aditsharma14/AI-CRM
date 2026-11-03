@@ -29,6 +29,8 @@ test('sign in as the Sales Manager, close a deal as Won from the Pipeline, the D
   await test.step('Pipeline: move a deal to Closed Won', async () => {
     await page.getByRole('link', { name: 'Pipeline' }).click()
     await expect(page).toHaveURL(/\/AI-CRM\/deals$/)
+    // The URL changes before the lazy Pipeline chunk renders; wait for the page itself.
+    await expect(page.getByRole('heading', { name: 'Pipeline' })).toBeVisible()
     await page.getByText(DEAL).click()
     const dialog = page.getByRole('dialog')
     await dialog.getByLabel('Stage').selectOption('won')

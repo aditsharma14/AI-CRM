@@ -45,6 +45,9 @@ test('register → create lead → convert → move deal to Won → dashboard wi
 
   await test.step('move the deal to Closed Won', async () => {
     await nav.getByRole('link', { name: 'Pipeline' }).click()
+    // Pages are lazy chunks and the router navigates in a transition, so the Leads page (with a cell of the same name)
+    // stays up until the Pipeline chunk arrives: wait for the new page before clicking.
+    await expect(page.getByRole('heading', { name: 'Pipeline' })).toBeVisible()
     await page.getByRole('cell', { name: leadName }).click()
     const dialog = page.getByRole('dialog', { name: 'Edit deal' })
     await dialog.getByLabel('Stage').selectOption({ label: 'Closed Won' })
