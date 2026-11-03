@@ -1,0 +1,64 @@
+{
+  "url": "https://aditsharma14.github.io/AI-CRM/",
+  "label": "before",
+  "date": "2026-11-03T02:00:10.260Z",
+  "runs": 3,
+  "median": {
+    "performance": 91,
+    "lcpMs": 2907,
+    "tbtMs": 55,
+    "fcpMs": 2472,
+    "jsTransferKb": 351.2,
+    "jsRequests": 3,
+    "topOpportunities": [
+      "Reduce unused JavaScript (Est savings of 154 KiB)",
+      "Initial server response time was short (Root document took 420 ms)"
+    ],
+    "lighthouse": "12.6.1",
+    "formFactor": "mobile"
+  },
+  "all": [
+    {
+      "performance": 90,
+      "lcpMs": 2916,
+      "tbtMs": 87,
+      "fcpMs": 2307,
+      "jsTransferKb": 351.2,
+      "jsRequests": 3,
+      "topOpportunities": [
+        "Reduce unused JavaScript (Est savings of 154 KiB)",
+        "Initial server response time was short (Root document took 370 ms)"
+      ],
+      "lighthouse": "12.6.1",
+      "formFactor": "mobile"
+    },
+    {
+      "performance": 91,
+      "lcpMs": 2907,
+      "tbtMs": 55,
+      "fcpMs": 2472,
+      "jsTransferKb": 351.2,
+      "jsRequests": 3,
+      "topOpportunities": [
+        "Reduce unused JavaScript (Est savings of 154 KiB)",
+        "Initial server response time was short (Root document took 420 ms)"
+      ],
+      "lighthouse": "12.6.1",
+      "formFactor": "mobile"
+    },
+    {
+      "performance": 91,
+      "lcpMs": 2883,
+      "tbtMs": 65,
+      "fcpMs": 2434,
+      "jsTransferKb": 351.2,
+      "jsRequests": 3,
+      "topOpportunities": [
+        "Reduce unused JavaScript (Est savings of 154 KiB)",
+        "Initial server response time was short (Root document took 410 ms)"
+      ],
+      "lighthouse": "12.6.1",
+      "formFactor": "mobile"
+    }
+  ]
+}
