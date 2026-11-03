@@ -184,4 +184,10 @@ describe('query plans of the five most-used reads', () => {
       expect(docsExamined, plan).toBe(0) // covered: answered from the index alone
     }
   })
+
+  it('dashboard overview: lead counts are one bounded COUNT_SCAN per status, not a walk over every lead', async () => {
+    const plans = onlyOn(await plansFor('/dashboard/overview'), 'leads')
+    expect(plans.length).toBeGreaterThan(0)
+    for (const { plan } of plans) expect(plan).toMatch(/COUNT_SCAN \{orgId_1_status_1/)
+  })
 })

@@ -42,6 +42,25 @@ export async function search(orgId, q, limit = 5) {
   return { leads, contacts, companies, deals }
 }
 
+// A lead's status is one of the schema's enum values, so counting each is complete.
+// Boundary cast: Mongoose types a path's enumValues loosely; this one is LeadRecord's status enum.
+const statusPath = /** @type {{ enumValues: unknown }} */ (/** @type {unknown} */ (Lead.schema.path('status')))
+const LEAD_STATUSES = /** @type {NonNullable<import('../models/CRM.js').LeadRecord['status']>[]} */ (
+  statusPath.enumValues
+)
+
+/**
+ * One count per status, in parallel: each is a COUNT_SCAN of just that status's range in {orgId, status, ...}, where a
+ * $group by status walks every lead's index key (100k leads: 65 ms vs about 40 ms for all five, bench/sde1-baseline.md).
+ * Statuses with no leads are left out, as the $group did.
+ * @param {mongoose.Types.ObjectId} orgId
+ * @returns {Promise<CountRow[]>}
+ */
+async function leadCountsByStatus(orgId) {
+  const counts = await Promise.all(LEAD_STATUSES.map((status) => Lead.countDocuments({ orgId, status })))
+  return LEAD_STATUSES.map((status, i) => ({ _id: status, count: counts[i] ?? 0 })).filter((row) => row.count > 0)
+}
+
 /**
  * @param {string} orgId
  * @returns Lead/deal counts, open pipeline value and the latest audit entries.
@@ -50,9 +69,7 @@ export async function dashboardOverview(orgId) {
   const oid = new mongoose.Types.ObjectId(orgId)
 
   const [leadsByStatus, dealsByStage, openPipeline, recentActivity] = await Promise.all([
-    /** @type {Promise<CountRow[]>} */ (
-      Lead.aggregate([{ $match: { orgId: oid } }, { $group: { _id: '$status', count: { $sum: 1 } } }]).exec()
-    ),
+    leadCountsByStatus(oid),
     /** @type {Promise<StageRow[]>} */ (
       Deal.aggregate([
         { $match: { orgId: oid } },
