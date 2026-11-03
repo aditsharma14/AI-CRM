@@ -85,7 +85,7 @@ export function createCrudService(Model, options) {
     /**
      * @param {AuthUser} actor
      * @param {ListQuery & Record<string, unknown>} query
-     * @returns {Promise<{ items: import('mongoose').HydratedDocument<T>[], meta: PageMeta | CursorMeta }>}
+     * @returns {Promise<{ items: import('../utils/queryBuilder.js').LeanRows<T>, meta: PageMeta | CursorMeta }>}
      */
     async list(actor, query) {
       const plan = buildListQuery(query, { filterableFields, searchFields, sortableFields, dateField })

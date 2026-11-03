@@ -70,15 +70,22 @@ export function buildListQuery(
 }
 
 /**
+ * A list page's rows: plain objects (`.lean()`), serialized as they are. Lists only read, so Mongoose documents
+ * (change tracking, getters, methods) would be built for nothing.
+ * @template T
+ * @typedef {import('mongoose').FlattenMaps<import('mongoose').Require_id<T>>[]} LeanRows
+ */
+
+/**
  * Runs a plan against any model: one page of documents plus the total count.
  * @template T
  * @param {import('mongoose').Model<T>} model
  * @param {ListPlan} plan
  * @param {import('mongoose').PopulateOptions | import('mongoose').PopulateOptions[]} [populate]
- * @returns {Promise<{ items: import('mongoose').HydratedDocument<T>[], meta: PageMeta }>}
+ * @returns {Promise<{ items: LeanRows<T>, meta: PageMeta }>}
  */
 export async function paginate(model, plan, populate) {
-  const query = model.find(plan.filter).sort(plan.sortSpec).skip(plan.skip).limit(plan.limit)
+  const query = model.find(plan.filter).sort(plan.sortSpec).skip(plan.skip).limit(plan.limit).lean()
   const cursor = populate ? query.populate(populate) : query
   const [items, total] = await Promise.all([cursor, model.countDocuments(plan.filter)])
   return { items, meta: { page: plan.page, limit: plan.limit, total, hasMore: plan.skip + items.length < total } }
@@ -94,7 +101,7 @@ export async function paginate(model, plan, populate) {
  * @param {{ resource: string, query: Record<string, unknown> & { cursor?: string } }} context The fingerprint ties a
  *   cursor to this resource and query (utils/cursor.js).
  * @param {import('mongoose').PopulateOptions | import('mongoose').PopulateOptions[]} [populate]
- * @returns {Promise<{ items: import('mongoose').HydratedDocument<T>[], meta: CursorMeta }>}
+ * @returns {Promise<{ items: LeanRows<T>, meta: CursorMeta }>}
  * @throws {import('./http.js').AppError} 400 INVALID_CURSOR
  */
 export async function cursorPaginate(model, plan, { resource, query }, populate) {
@@ -112,12 +119,15 @@ export async function cursorPaginate(model, plan, { resource, query }, populate)
     .find(filter)
     .sort({ [field]: dir, _id: dir })
     .limit(plan.limit + 1)
+    .lean()
   const rows = await (populate ? find.populate(populate) : find)
   const items = rows.slice(0, plan.limit)
   const last = items.at(-1)
   const hasMore = rows.length > plan.limit && last !== undefined
-  // The stored value, as MongoDB sorted it: a missing field sorts as null, even where Mongoose filled in a default.
-  const stored = last && !last.$isDefault(field) ? last.get(field) : null
-  const nextCursor = hasMore ? encodeCursor(fingerprint, stored, last._id) : null
+  // The stored value, as MongoDB sorted it (a lean row has no schema defaults filled in: missing sorts as null).
+  const stored = /** @type {import('./cursor.js').SortValue | undefined} */ (
+    last && /** @type {Record<string, unknown>} */ (last)[field]
+  )
+  const nextCursor = hasMore && last ? encodeCursor(fingerprint, stored, last._id) : null
   return { items, meta: { limit: plan.limit, hasMore, nextCursor } }
 }

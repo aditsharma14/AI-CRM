@@ -526,68 +526,25 @@
       "leads": [
         {
           "_id": "id",
-          "orgId": "id",
-          "name": "string",
-          "status": "string",
-          "score": "number",
-          "ownerId": "id",
-          "createdAt": "date",
-          "updatedAt": "date",
-          "__v": "number",
-          "email?": "string",
-          "phone?": "string",
-          "source?": "string",
-          "companyId?": "id"
+          "name": "string"
         }
       ],
       "contacts": [
         {
           "_id": "id",
-          "orgId": "id",
-          "name": "string",
-          "ownerId": "id",
-          "tags": ["string"],
-          "createdAt": "date",
-          "updatedAt": "date",
-          "__v": "number",
-          "email?": "string",
-          "phone?": "string",
-          "title?": "string",
-          "companyId?": "id"
+          "name": "string"
         }
       ],
       "companies": [
         {
           "_id": "id",
-          "orgId": "id",
-          "name": "string",
-          "ownerId": "id",
-          "createdAt": "date",
-          "updatedAt": "date",
-          "__v": "number",
-          "domain?": "string",
-          "industry?": "string",
-          "size?": "string"
+          "name": "string"
         }
       ],
       "deals": [
         {
           "_id": "id",
-          "orgId": "id",
-          "title": "string",
-          "value": "number",
-          "currency": "string",
-          "stageKey": "string",
-          "probability": "number",
-          "companyId?": "id",
-          "contactIds": ["id"],
-          "ownerId": "id",
-          "status": "string",
-          "createdAt": "date",
-          "updatedAt": "date",
-          "__v": "number",
-          "closedAt?": "date",
-          "wonLostReason?": "string"
+          "title": "string"
         }
       ]
     },

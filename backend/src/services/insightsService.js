@@ -32,11 +32,12 @@ export async function search(orgId, q, limit = 5) {
   const textFilter = { orgId, $text: { $search: q } }
   const dealFilter = { orgId, title: new RegExp(escapeRegex(q), 'i') } // Deal has no text index
 
+  // The search palette shows a name (or a deal's title) and links by _id; that's all it gets. Lean: read-only rows.
   const [leads, contacts, companies, deals] = await Promise.all([
-    Lead.find(textFilter).limit(limit),
-    Contact.find(textFilter).limit(limit),
-    Company.find(textFilter).limit(limit),
-    Deal.find(dealFilter).limit(limit),
+    Lead.find(textFilter).select('name').limit(limit).lean(),
+    Contact.find(textFilter).select('name').limit(limit).lean(),
+    Company.find(textFilter).select('name').limit(limit).lean(),
+    Deal.find(dealFilter).select('title').limit(limit).lean(),
   ])
   return { leads, contacts, companies, deals }
 }
@@ -67,7 +68,8 @@ export async function dashboardOverview(orgId) {
     ActivityLog.find({ orgId })
       .sort({ createdAt: -1 })
       .limit(10)
-      .populate(scopedPopulate({ path: 'userId', select: 'name' }, orgId)),
+      .populate(scopedPopulate({ path: 'userId', select: 'name' }, orgId))
+      .lean(),
   ])
 
   return {

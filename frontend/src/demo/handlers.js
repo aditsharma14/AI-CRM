@@ -638,8 +638,16 @@ export function createDemoApi({ now = () => new Date() } = {}) {
     route('get', '/search', ({ url }) => {
       const q = url.searchParams.get('q')?.trim()
       if (!q) throw badRequest('q: Too small: expected string to have >=1 characters')
-      const text = (resource) => db[resource].filter(matchesText(RESOURCES[resource].search, q)).slice(0, 5)
-      const deals = db.deals.filter((d) => d.title.toLowerCase().includes(q.toLowerCase())).slice(0, 5)
+      // insightsService.search: only _id and the name (a deal's title), what the palette shows.
+      const text = (resource) =>
+        db[resource]
+          .filter(matchesText(RESOURCES[resource].search, q))
+          .slice(0, 5)
+          .map(({ _id, name }) => ({ _id, name }))
+      const deals = db.deals
+        .filter((d) => d.title.toLowerCase().includes(q.toLowerCase()))
+        .slice(0, 5)
+        .map(({ _id, title }) => ({ _id, title }))
       return [{ leads: text('leads'), contacts: text('contacts'), companies: text('companies'), deals }]
     }),
     route('get', '/dashboard/overview', () => {
