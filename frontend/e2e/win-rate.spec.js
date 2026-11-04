@@ -36,7 +36,12 @@ test('register → create lead → convert → move deal to Won → dashboard wi
   })
 
   await test.step('convert it to a deal', async () => {
-    await page.getByRole('cell', { name: leadName }).click()
+    // A lead's name links to its page; another cell of the row opens the edit dialog.
+    await page
+      .getByRole('row', { name: new RegExp(leadName) })
+      .getByRole('cell')
+      .nth(2)
+      .click()
     const dialog = page.getByRole('dialog', { name: 'Edit lead' })
     await dialog.getByRole('button', { name: 'Convert to deal' }).click()
     await expect(dialog).toBeHidden()
