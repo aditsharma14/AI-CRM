@@ -15,7 +15,7 @@ including the test suites and the Docker stack.
 | `ai` | `pip install -r requirements-dev.txt`, then `ruff check .`, `ruff format --check .`, `pytest` (one placeholder test until S2.1) | `node scripts/ruff.mjs check AI`, `node scripts/ruff.mjs format --check AI`, then in `AI/`: `.venv/Scripts/python -m pytest` |
 | `backend` | `npm ci`, `npm run lint`, `npm run typecheck`, `npm run test:coverage` (fails below the coverage gate) | in `backend/`: the same four commands |
 | `frontend` | `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, then [check-no-demo.mjs](../frontend/scripts/check-no-demo.mjs) (no MSW, worker, `404.html` or demo data in a normal build) and [check-bundle-budget.mjs](../frontend/scripts/check-bundle-budget.mjs) (entry chunk and initial JS within [bundle-budget.json](../frontend/bundle-budget.json); see [bench/frontend.md](../bench/frontend.md)) | in `frontend/`: the same commands |
-| `e2e` | `npm ci` in both packages, `npx playwright install --with-deps chromium`, `npm run e2e` (starts its own API on in-memory Mongo and a Vite server). Traces are uploaded on failure | in `frontend/`: `npm run e2e` (first time: `npx playwright install chromium`; on Windows, `C:\Windows\System32` must be on `PATH`) |
+| `e2e` | `npm ci` in both packages, Python 3.13 with `AI/requirements.txt`, `npx playwright install --with-deps chromium`, `npm run e2e` (starts its own API on in-memory Mongo, the AI service on the fake provider and a Vite server). Traces are uploaded on failure | in `frontend/`: `npm run e2e` (first time: `npx playwright install chromium`; on Windows, `C:\Windows\System32` must be on `PATH`) |
 | `docker` | `docker compose build`, `docker compose up -d`, [docker-smoke.sh](../scripts/ci/docker-smoke.sh), logs on failure, `docker compose down -v` | `docker compose up -d --build`, then `bash scripts/ci/docker-smoke.sh` (needs curl and jq), then `docker compose down -v` |
 
 **The demo** ([pages.yml](../.github/workflows/pages.yml), a separate workflow): on every push to `main` and `ci/**`, build
@@ -33,6 +33,7 @@ minutes to stop the static server after the tests pass; on Linux CI it's instant
   the lead is `converted`;
 - [scripts/smoke.mjs](../scripts/smoke.mjs) passes through nginx on `:8080`, the browser's same-origin path:
   `/api/v1/health` reports this commit (`GIT_COMMIT`), a `smoke-<ts>` org registers, a lead is created and converted,
+  an AI lead brief is generated (the api calling the ai service with its token) and the second one comes from the cache,
   the session refreshes, and after logout the old refresh token gets 401. Locally: `node scripts/smoke.mjs http://localhost:8080`.
 
 The AI container sits behind the `ai` compose profile until S2.1, so the stack is `client`, `api` and `mongo`.

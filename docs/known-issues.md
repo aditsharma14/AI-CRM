@@ -21,6 +21,13 @@ plus a record of what has been resolved. Newest resolutions first.
 - **[#27] The Dashboard sums deals in mixed currencies without conversion.** Totals are formatted in the org's currency
   (S1.8-GH), but a deal created in another currency is added at face value. No exchange rates yet.
 
+- **The AI brief's rate limits live in the API process** (20 calls per org per hour, 5 regenerations per lead):
+  right for the one API instance compose runs, not shared across replicas. Move them to Mongo or Redis before
+  running more than one ([aiBriefService.js](../backend/src/services/aiBriefService.js)).
+- **Output checks catch contact details, links and invented citations, not a subtly wrong summary.** A note that
+  misleads (a false "budget approved") yields a confident, cited, wrong brief. The draft is for a person to review,
+  never sent by the app; the evals measure the rest ([docs/ai.md](ai.md#threat-model)).
+- **`AI_TIMEOUT_MS` (60 s) is a placeholder** until the first local eval measures the Ollama model's p95 on a CPU.
 ### Lint disables (S1.7 audit)
 - No `react-hooks` rule is disabled anywhere in the frontend (the one in `GlobalSearch` was #12).
 - Three `react-refresh/only-export-components` disables remain, in `FormField.jsx` (`inputClasses`), `SessionContext.jsx`
@@ -34,6 +41,8 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-11-05 | **The AI layer was stubs** (RAG, chat, chains; LangChain, Gemini and OpenAI dependencies nobody used) | the lead brief end to end on free providers (fake, local Ollama): prompt v1, validation and one retry, cache, single-flight, limits, kill switch, evals, the card ([docs/ai.md](ai.md)); the stubs are gone (`c148568` to `b5235c7`) |
+| 2026-11-05 | **Deleting a lead left its rows behind** (there was no lead cleanup) | `leadsService.remove` deletes the lead and its cached AI briefs in one transaction (`6a28d31`) |
 | 2026-11-03 | **The production bundle was one 613 kB chunk** (Vite warned on every build) | pages are lazy chunks, libraries in their own chunks, framer-motion replaced by CSS, form libraries only with a form: initial JS 342 kB (110 kB gzip), and CI fails above [bundle-budget.json](../frontend/bundle-budget.json) (`2bec34b`, `0dcaefb`, `5c0d4ed`, `e717ad4`; [bench/frontend.md](../bench/frontend.md)) |
 | 2026-11-03 | **Lead and deal lists sorted the whole org in memory and counted it on every page** (332 ms p95 at 100k leads) | ESR compound indexes, cursor pagination, lean reads: 28 ms (`00eeef7`, `eff3d03`, `b108810`; [bench/sde1-baseline.md](../bench/sde1-baseline.md)) |
 | 2026-11-03 | **Text search was not scoped to the org's index entries** (the text indexes had no `orgId` prefix) | `{orgId, …text}` indexes (`4435355`); `node scripts/sync-indexes.js --apply` for an existing database (`1473c28`) |

@@ -7,9 +7,11 @@
 [![CI](https://github.com/aditsharma14/AI-CRM/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aditsharma14/AI-CRM/actions/workflows/ci.yml)
 [![Coverage: backend services](https://img.shields.io/badge/coverage%20(services)-99.65%25-brightgreen)](docs/ci.md#coverage)
 
-A multi-tenant CRM with an AI assistant layered on top: leads, contacts, companies, deals
-pipeline, tasks, calendar, and org/role management, backed by an Express API and a FastAPI
-service that handles LLM-powered chat, content generation, and insights.
+A multi-tenant sales CRM: leads, contacts, companies, a deals pipeline, tasks, calendar, and org and role management,
+backed by an Express API. One AI feature, the **lead brief**: on a lead's page, a summary, a next step and a draft
+follow-up email written from the lead's history, each claim citing the entries it rests on
+([docs/ai.md](docs/ai.md)). It runs at zero cost: a deterministic fake provider by default, or a free local model
+in Ollama.
 
 ## The live demo
 
@@ -17,7 +19,8 @@ The demo is this repo's real React frontend, built with `VITE_DEMO=true` and ser
 worker in your tab answers every `/api/v1` call from an in-memory copy of a seeded Pune sales team (INR deals in every
 stage, 60 days of activity), following the API's rules: ownership, roles, the won/lost close, the dashboard numbers.
 It is not the backend: nothing is stored or sent anywhere, a reload starts over, and signup, invites, password
-reset and settings changes say they're not available in the demo. Its responses are checked against the same
+reset and settings changes say they're not available in the demo. The AI brief works too, answered by the fake
+provider's rules in your browser. Its responses are checked against the same
 committed contract as the real API's ([contracts/api-shapes.json](contracts/api-shapes.json)), so the two can't drift
 apart. The full stack, Express, MongoDB and all, runs locally with Docker:
 
@@ -33,14 +36,13 @@ Four services, wired together in [docker-compose.yml](docker-compose.yml):
 |------------|-------------|---------------------------------|-------|
 | `client`   | `frontend/` | React 19 + Vite + Tailwind      | 8080  |
 | `api`      | `backend/`  | Node/Express + Mongoose         | 5000  |
-| `ai`       | `AI/`       | Python FastAPI + LangChain      | 8000  |
+| `ai`       | `AI/`       | Python FastAPI (lead brief)     | internal only |
 | `mongo`    | —           | MongoDB 7 (local dev only)      | 27017 |
 
 The client always calls same-origin `/api/v1` — in dev, Vite proxies it to the `api`
 container ([vite.config.js](frontend/vite.config.js)); in production, nginx reverse-proxies
 it the same way ([nginx.conf](frontend/nginx.conf)). The `api` service is the only caller of
-the `ai` service, which in turn reads (never writes) the same MongoDB data for
-retrieval-augmented context.
+the `ai` service, sending it only a minimal bundle for each brief; the `ai` service never touches MongoDB.
 
 ## Getting started
 
@@ -50,8 +52,20 @@ retrieval-augmented context.
 docker compose up --build
 ```
 
-Then visit `http://localhost:8080`. No `.env` is needed: compose sets the API's development values itself
-(the AI container is behind the `ai` profile until it's built).
+Then visit `http://localhost:8080`, register an organization, and open a lead. No `.env` is needed: compose sets
+the development values itself, and the AI brief answers with the fake provider (no model, no key, no cost).
+
+### Real AI (optional, free)
+
+Install [Ollama](https://ollama.com/download), then:
+
+```bash
+ollama pull llama3.2:3b                  # 2 GB, runs on a laptop CPU
+AI_PROVIDER=ollama docker compose up --build
+```
+
+The brief is then written by the local model; no lead data leaves your machine. On a CPU a brief takes a while
+(the card says so). Measure it with `npm run eval -- --provider ollama` ([docs/ai.md](docs/ai.md#evals)).
 
 ### Running services individually
 
@@ -75,9 +89,10 @@ npm run dev        # http://localhost:5000
 cd AI
 python -m venv .venv
 .venv/Scripts/activate     # Windows; use .venv/bin/activate on macOS/Linux
-pip install -r requirements.txt
-cp .env.example .env       # fill in LLM_PROVIDER + API key
+pip install -r requirements-dev.txt
+cp .env.example .env       # the shared token; AI_PROVIDER=fake (default) or ollama
 uvicorn app.main:app --reload --port 8000
+pytest                     # the tests and the eval cases on the fake provider
 ```
 
 **MongoDB** — the `mongo` container from docker-compose, or any replica set via `MONGO_URI`.
@@ -86,8 +101,8 @@ uvicorn app.main:app --reload --port 8000
 
 - `backend/.env.example` — every variable the API reads: Mongo URI, JWT secret and TTLs, CORS
   origin, `TRUST_PROXY`, `EMAIL_ENABLED`, rate limits, log level, `GIT_COMMIT`.
-- `AI/.env.example` — Mongo URI (read-only), `LLM_PROVIDER` (`gemini` or `openai`, with
-  automatic fallback to the other on timeout/5xx), and the corresponding API key.
+- `AI/.env.example` — the shared `AI_INTERNAL_TOKEN` (also in `backend/.env` with `AI_ENABLED=true`), the provider
+  (`fake` or `ollama`), the Ollama URL and model, the time limit. No API keys: nothing here is paid.
 - The frontend needs none: it always calls same-origin `/api/v1`.
 
 ## Auth model
@@ -110,5 +125,5 @@ it deploys.
 ```
 frontend/   React app (routes, features, API client) — see frontend/src/App.jsx
 backend/    Express API (routes, services, Mongoose models)
-AI/         FastAPI service (LangChain chains, LLM provider, RAG memory)
+AI/         FastAPI service: the lead brief (prompt, validation, providers) and its evals
 ```

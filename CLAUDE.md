@@ -8,22 +8,21 @@ Read this before changing anything. Overview: [readme.md](readme.md). History: [
 ```
                  same-origin /api/v1
  browser ───────────────────────────▶ Express API  (backend/, :5000) ──read/write──▶ MongoDB
- (frontend/, Vite :5173 / nginx :8080)        │                                         ▲
-                                              │ HTTP, internal only                     │ read-only
-                                              ▼                                         │
-                                     FastAPI AI service (AI/, :8000) ───────────────────┘
+ (frontend/, Vite :5173 / nginx :8080)        │
+                                              │ HTTP, internal only, X-Internal-Token
+                                              ▼
+                                     FastAPI AI service (AI/, :8000) ──▶ provider: fake | Ollama (local)
 ```
 
 - **The browser only calls same-origin `/api/v1`.** [client.js](frontend/src/api/client.js) hardcodes
   `baseURL: '/api/v1'`. [vite.config.js](frontend/vite.config.js) proxies it in dev and
   [nginx.conf](frontend/nginx.conf) proxies it in Docker. Never put an API host in the client.
-- **Express is the only caller of the AI service.** The frontend never talks to FastAPI. AI features go
-  [ai.routes.js](backend/src/routes/ai.routes.js) → [aiProxyService.js](backend/src/services/aiProxyService.js)
-  (both empty today).
-- **The AI service reads MongoDB and never writes.** It reads only for RAG context, filtered by the `orgId`
-  Express sends. If an AI result must be saved (e.g. a lead score), Express saves it.
+- **Express is the only caller of the AI service.** The frontend never talks to FastAPI. The one AI feature, the lead
+  brief ([docs/ai.md](docs/ai.md)), goes [aiBriefService.js](backend/src/services/aiBriefService.js) → [aiProxyService.js](backend/src/services/aiProxyService.js).
+- **The AI service never touches MongoDB.** Express loads the data (org-scoped), sends a minimal bundle (no emails,
+  phones, users or ids beyond history ids), re-validates the answer and saves what it keeps. Everything is free: no paid API.
 - Containers are wired in [docker-compose.yml](docker-compose.yml): `client`, `api`, `mongo` (Mongo 7), and
-  `ai` behind the `ai` profile until S2.1 builds it (`docker compose --profile ai up`).
+  `ai` (fake provider by default; no host port, only the api calls it).
 - **There is no hosted backend.** The full stack runs in docker compose. The public demo ([pages.yml](.github/workflows/pages.yml))
   is a `VITE_DEMO=true` build on GitHub Pages that answers the API in the browser; its shapes are pinned by [contracts/](contracts/).
 
@@ -48,7 +47,7 @@ Read this before changing anything. Overview: [readme.md](readme.md). History: [
 | [frontend/src/lib/](frontend/src/lib/) | `constants.js` (enums + permission mirror), `queryClient.js`, `utils.js` |
 | [frontend/src/layouts/](frontend/src/layouts/) | `AppLayout` (shell, nav, guest banner), `AuthLayout` |
 | [frontend/src/demo/](frontend/src/demo/) | Pages demo only (MSW handlers + seed); never in a normal build ([check-no-demo.mjs](frontend/scripts/check-no-demo.mjs)) |
-| [AI/app/](AI/app/) | FastAPI service: `core/` (config, LLM, memory/RAG), `routers/` (assistant, generate). **All stubs.** |
+| [AI/app/](AI/app/) | FastAPI service: `lead_brief/` (models, prompt, validation, retry), `providers/` (fake, ollama); evals in [AI/evals/](AI/evals/) |
 
 ## 3. API contract
 
@@ -76,7 +75,8 @@ Error: `GET /api/v1/leads/<unknown id>` → 404 (thrown by `getById` in [crudSer
 | 403 | `FORBIDDEN` | `requirePermission()` |
 | 404 | `NOT_FOUND` | services; unknown routes (but an unknown path under a resource, e.g. `/leads/x/y`, is 401 for a guest: that router authenticates first) |
 | 409 | `DUPLICATE_KEY` | Mongo error 11000 |
-| 413, 429 | `PAYLOAD_TOO_LARGE` (body over 100 kB), `RATE_LIMITED` | `express.json()`, the `/api` rate limiter |
+| 413, 429 | `PAYLOAD_TOO_LARGE` (body over 100 kB), `RATE_LIMITED`, `AI_RATE_LIMITED` | `express.json()`, the `/api` rate limiter, the AI limits |
+| 502, 503 | `AI_BAD_OUTPUT`, `AI_UNAVAILABLE` (AI off, down or too slow) | [aiProxyService.js](backend/src/services/aiProxyService.js) |
 | 500 | `INTERNAL_ERROR` | anything else, logged with the request id |
 
 The client reads `response.data.data`. `useList` in [hooks.js](frontend/src/hooks.js) returns the whole body (`{ data, meta }`).
@@ -163,23 +163,23 @@ cd backend  && npm install && npm run dev     # :5000, GET /health → {"success
 cd frontend && npm install && npm run dev     # :5173, proxies /api → :5000
 cd frontend && npm run build                  # production bundle → frontend/dist
 cd AI && python -m venv .venv && .venv/Scripts/activate && pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000     # currently FAILS: app/main.py is a stub
+uvicorn app.main:app --reload --port 8000     # fake provider; AI_PROVIDER=ollama for a local model (docs/ai.md)
 docker compose up --build                     # client, api, mongo; :8080. See Docker below.
 ```
 
 | Var | Service | Required at boot | Actually read? |
 |---|---|---|---|
-| `MONGO_URI` | backend, AI | backend: yes | backend yes; AI not yet |
+| `MONGO_URI` | backend | yes | yes |
 | `JWT_ACCESS_SECRET` | backend | yes | yes |
 | `CLIENT_ORIGIN` | backend | yes | yes (CORS) |
-| `AI_SERVICE_URL` | backend | not yet | removed until the AI proxy (S2.2) |
+| `AI_ENABLED`, `AI_SERVICE_URL`, `AI_INTERNAL_TOKEN`, `AI_TIMEOUT_MS` | backend | token: when AI is on | yes (kill switch, default off; compose on) |
 | `ACCESS_TOKEN_TTL` | backend | no (`15m`) | yes |
 | `REFRESH_TOKEN_TTL` | backend | no (`7d`; `30s`/`15m`/`2h`/`7d` form, checked at boot) | yes (refresh cookie lifetime) |
 | `NODE_ENV`, `PORT`, `LOG_LEVEL` | backend | no (`LOG_LEVEL`: `info`; `silent` under test) | yes |
 | `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX` | backend | no | yes |
 | `TRUST_PROXY`, `EMAIL_ENABLED` | backend | no (`0`, `false`; checked at boot) | yes (proxy hops: compose sets `1`; reset/invite UI) |
 | `GIT_COMMIT` | backend | no (`dev`) | yes (`/api/v1/health`; CI sets it to the commit under test) |
-| `PORT`, `API_INTERNAL_ORIGIN`, `LLM_PROVIDER`, `GOOGLE_API_KEY`, `OPENAI_API_KEY` | AI | n/a | not yet (stubs) |
+| `AI_INTERNAL_TOKEN`, `AI_PROVIDER`, `OLLAMA_URL`, `OLLAMA_MODEL`, `AI_TIMEOUT_MS`, `AI_PRICE_*` | AI | token: yes | yes ([docs/ai.md](docs/ai.md)) |
 
 Read in [backend/src/config/index.js](backend/src/config/index.js) (`GIT_COMMIT`: [app.js](backend/src/app.js)); listed in [backend/.env.example](backend/.env.example) and [AI/.env.example](AI/.env.example). The frontend reads none.
 
@@ -187,7 +187,7 @@ Read in [backend/src/config/index.js](backend/src/config/index.js) (`GIT_COMMIT`
 - **Invite and reset links** are printed to the backend console (no email provider).
 - **Tests:** `npm test` in `backend/` (Vitest + supertest + mongodb-memory-server; first run downloads a ~70 MB mongod) and in
   `frontend/` (Vitest + Testing Library + MSW). No `.env` needed. **e2e:** `npm run e2e` in `frontend/` (Playwright; starts its
-  own API on in-memory Mongo + Vite on :5055/:5175; first time: `npx playwright install chromium`). No AI tests yet.
+  own API on in-memory Mongo, the AI service + Vite on :5055/:5057/:5175; first time: `npx playwright install chromium`). AI: `pytest` in `AI/`.
 - **Coverage and budgets:** `npm run test:coverage` in both (backend `src/services` 99.66% lines, 2026-11-03). Budgets ([bench/](bench/)): lead
   list p95 under 200 ms at 100k leads on the bench machine (28 ms); first-load JS under [bundle-budget.json](frontend/bundle-budget.json) (CI).
 - **Checks (repo root):** `npm run lint` (ESLint, zero warnings, plus ruff), `npm run typecheck`, `npm run format:check`. The husky
@@ -205,7 +205,7 @@ Read in [backend/src/config/index.js](backend/src/config/index.js) (`GIT_COMMIT`
 1. **Zod at every boundary.** Every route validates `body`/`query`/`params` with `validate({...})` using schemas from
    [backend/src/schemas/](backend/src/schemas/) (never defined inline in routes) built from fragments in
    [validators.js](backend/src/utils/validators.js). Forms use React Hook Form + `zodResolver` (exceptions: `NotesPanel`,
-   the Settings team and stage editors). AI I/O uses Pydantic in `AI/app/schemas.py`, and Express re-validates AI responses.
+   the Settings team and stage editors). AI I/O uses Pydantic in `AI/app/lead_brief/models.py`, and Express re-validates AI responses.
    **List queries are strict:** build them with `listQuery(spec)` from one per-resource spec (e.g. `leadList` in
    [schemas/leads.js](backend/src/schemas/leads.js)) that the service also uses. Unknown or invalid params are 400, never
    ignored. Optional text fields must treat `''` as omitted (use the `optional*` helpers).
@@ -241,9 +241,6 @@ Open gaps only. Smaller findings, open questions and everything resolved (with d
 
 1. **No email verification.** All users are created with `isEmailVerified: true`. (Reset works end to end since S1.7.)
 2. **No email sending** (`EMAIL_ENABLED=false`): no reset offered; the inviting admin copies the invite link. Dev logs the links.
-3. **AI layer is unbuilt.** The rescore promised in [leadsService.js](backend/src/services/leadsService.js) doesn't exist.
-   Stub files: everything in [AI/app/](AI/app/), [aiProxyService.js](backend/src/services/aiProxyService.js),
-   [ai.routes.js](backend/src/routes/ai.routes.js), [upload.js](backend/src/middleware/upload.js),
-   [cloudinaryUpload.js](backend/src/utils/cloudinaryUpload.js), [FileUploader.jsx](frontend/src/components/FileUploader.jsx),
-   [AIChatWidget.jsx](frontend/src/features/ai/AIChatWidget.jsx) and [AIActionsMenu.jsx](frontend/src/features/ai/AIActionsMenu.jsx).
+3. **One AI feature** (the lead brief). The rescore promised in [leadsService.js](backend/src/services/leadsService.js) doesn't exist.
+   Upload stubs: [upload.js](backend/src/middleware/upload.js), [cloudinaryUpload.js](backend/src/utils/cloudinaryUpload.js), [FileUploader.jsx](frontend/src/components/FileUploader.jsx).
 4. **No Kanban board.** [PipelinePage.jsx](frontend/src/features/deals/PipelinePage.jsx) renders a table.
