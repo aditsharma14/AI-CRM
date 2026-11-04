@@ -25,6 +25,7 @@ const ContactsPage = lazy(() => import('./features/contacts/ContactsPage.jsx'))
 const DashboardPage = lazy(() => import('./features/dashboard/DashboardPage.jsx'))
 const PipelinePage = lazy(() => import('./features/deals/PipelinePage.jsx'))
 const LeadsPage = lazy(() => import('./features/leads/LeadsPage.jsx'))
+const LeadDetailPage = lazy(() => import('./features/leads/LeadDetailPage.jsx'))
 const SettingsPage = lazy(() => import('./features/settings/SettingsPage.jsx'))
 const TasksPage = lazy(() => import('./features/tasks/TasksPage.jsx'))
 
@@ -73,6 +74,7 @@ export function AppRoutes() {
         <Route element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="/leads" element={<LeadsPage />} />
+          <Route path="/leads/:id" element={<LeadDetailPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/companies" element={<CompaniesPage />} />
           <Route path="/deals" element={<PipelinePage />} />

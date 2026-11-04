@@ -48,7 +48,8 @@ async function openRecord(kind, role, name) {
   )
   const user = userEvent.setup()
   renderWithProviders(<Page />, { session: makeUser(role) })
-  await user.click(await screen.findByText(name))
+  // The row, not the name: a lead's name is a link to its page (LeadDetailPage).
+  await user.click(await screen.findByRole('row', { name: new RegExp(name) }))
   return within(await screen.findByRole('dialog'))
 }
 

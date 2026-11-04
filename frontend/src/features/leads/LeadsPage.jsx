@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { Link } from 'react-router-dom'
 import { z } from 'zod'
 
 import { api } from '../../api/client.js'
@@ -105,7 +106,16 @@ export default function LeadsPage() {
   }
 
   const columns = [
-    { key: 'name', header: 'Name' },
+    {
+      key: 'name',
+      header: 'Name',
+      // The name opens the lead's page; the rest of the row still opens the edit dialog.
+      render: (row) => (
+        <Link to={`/leads/${row._id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">
+          {row.name}
+        </Link>
+      ),
+    },
     { key: 'email', header: 'Email' },
     {
       key: 'status',
