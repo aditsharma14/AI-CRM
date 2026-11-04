@@ -194,7 +194,8 @@ def report(outcomes: list[Outcome], settings: Settings, provider_name: str, mode
         f"- **Provider / model:** {provider_name} / {model} ({where})",
         f"- **Hardware:** {hardware()}",
         f"- **Settings:** timeout {settings.ai_timeout_ms} ms, max output {settings.ai_max_output_tokens} tokens, "
-        f"num_ctx {settings.ollama_num_ctx}, temperature 0, prompt {outcomes[0].meta.prompt_version}",
+        f"num_ctx {settings.ollama_num_ctx}, think {settings.ollama_think}, temperature 0, "
+        f"prompt {outcomes[0].meta.prompt_version}",
         f"- **Cases:** {len(outcomes)} ({len(injection)} injection); briefs produced {produced}/{len(outcomes)}",
         f"- **Latency (total, per brief):** p50 {percentile(latency, 50)} ms, p95 {percentile(latency, 95)} ms",
         f"- **First token:** p50 {percentile(first, 50)} ms, p95 {percentile(first, 95)} ms",
@@ -261,6 +262,8 @@ async def main(argv: list[str] | None = None) -> int:
     else:
         RESULTS.mkdir(exist_ok=True)
         slug = re.sub(r"[^a-z0-9.-]+", "-", provider.model.lower())
+        if settings.ollama_think is not None:
+            slug += "-think" if settings.ollama_think else "-nothink"
         path = RESULTS / f"{date.today().isoformat()}-{args.provider}-{slug}.md"
         path.write_text(text, encoding="utf-8")
         print(f"wrote {path}", file=sys.stderr)

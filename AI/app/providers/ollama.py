@@ -36,6 +36,8 @@ class OllamaProvider:
             # Keeps the model loaded between briefs; a cold load took 14 s on the bench machine.
             "keep_alive": s.ollama_keep_alive,
         }
+        if s.ollama_think is not None:
+            body["think"] = s.ollama_think
         try:
             res = await self._client.post(self._url, json=body, timeout=s.ai_timeout_ms / 1000)
         except httpx.TimeoutException as err:

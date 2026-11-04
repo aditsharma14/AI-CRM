@@ -94,6 +94,18 @@ def test_ollama_sends_the_schema_with_temperature_0_and_no_streaming(settings) -
     assert completion.model == "llama3.2:3b"
 
 
+@pytest.mark.parametrize(("think", "sent"), [(None, "absent"), (False, False), (True, True)])
+def test_ollama_sends_think_only_when_configured(settings, think, sent) -> None:
+    bodies = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(req.content))
+        return httpx.Response(200, json=OK_BODY)
+
+    run(ollama(settings.model_copy(update={"ollama_think": think}), handler))
+    assert bodies[0].get("think", "absent") == sent
+
+
 def test_ollama_uses_the_configured_url_and_model(settings) -> None:
     custom = settings.model_copy(
         update={"ollama_url": "http://host.docker.internal:11434/", "ollama_model": "qwen3:4b"}

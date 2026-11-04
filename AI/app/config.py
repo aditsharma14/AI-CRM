@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # Context window to request; must hold the whole prompt (Express caps the history at about 12,000 characters).
     ollama_num_ctx: int = Field(default=8192, ge=2048, le=131072)
     ollama_keep_alive: str = "30m"
+    # Thinking models (qwen3): false turns thinking off, which saves many seconds on a CPU. Unset: the field is not
+    # sent and the model's default applies (llama3.2 has no thinking mode).
+    ollama_think: bool | None = None
 
     ai_max_output_tokens: int = Field(default=800, ge=128, le=8000)
     # One attempt gets this whole budget; Express aborts a little later (its AI_TIMEOUT_MS plus a margin).
