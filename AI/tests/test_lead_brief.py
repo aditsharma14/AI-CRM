@@ -208,6 +208,24 @@ def test_a_phone_number_beside_the_lead_s_name_is_still_rejected(scripted) -> No
     assert post(client, named).json()["error"]["code"] == "BAD_OUTPUT"
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Hi Meera Kulkarni 1793821287197 +91 98200 11111, the quote follows.",  # touching the name
+        "Hi Meera Kulkarni 1793821287197,\n\nCall 9820011111 or Unit 9820011111 x.",  # bare 10 digits
+        "Dear Meera Kulkarni 1793821287197 (Unit 9820011111) - 98200-11111 is our desk.",  # after the company
+    ],
+)
+def test_a_phone_number_next_to_the_lead_s_name_in_the_email_is_rejected(scripted, text) -> None:
+    # Removing the name and company must not hide a phone number placed right beside them.
+    named = body(lead={**body()["lead"], "name": "Meera Kulkarni 1793821287197", "company": "Unit 9820011111"})
+    leaky = answer(followUpEmail={"subject": "Your quote", "body": text})
+    client, provider = scripted(leaky, leaky)
+    res = post(client, named)
+    assert res.json()["error"]["code"] == "BAD_OUTPUT"
+    assert "followUpEmail contains a phone number" in provider.calls[1][2]["content"]
+
+
 @pytest.mark.parametrize("due", ["2026-11-04", "2027-01-05"])
 def test_due_date_must_be_within_60_days(scripted, due) -> None:
     late = answer(nextAction={"action": "Call", "dueDate": due})
