@@ -6,6 +6,7 @@ import { http } from 'msw'
 
 import { canModifyRecord, hasPermission } from '../lib/constants.js'
 import { fail, ok } from './envelope.js'
+import { briefKey, buildBundle, fakeBrief } from './leadBrief.js'
 import { createSeed, oid } from './seed.js'
 
 const API = '/api/v1'
@@ -138,6 +139,8 @@ const RESOURCES = {
  */
 export function createDemoApi({ now = () => new Date() } = {}) {
   const db = createSeed(now())
+  /** Briefs already generated in this tab: same input, same brief (cached: true), as the API's cache. */
+  const briefCache = new Map()
   let sequence = 0
   let sessionUserId = null
   const tokens = new Map()
@@ -577,7 +580,7 @@ export function createDemoApi({ now = () => new Date() } = {}) {
       },
       { auth: false },
     ),
-    route('get', '/config', () => [{ emailEnabled: false }], { auth: false }),
+    route('get', '/config', () => [{ emailEnabled: false, aiEnabled: true }], { auth: false }),
 
     // org reads; every write under /org is outside the demo
     route('get', '/org', () => [db.org]),
@@ -634,6 +637,36 @@ export function createDemoApi({ now = () => new Date() } = {}) {
       return [activity]
     }),
     ...Object.keys(RESOURCES).flatMap(crudRoutes),
+
+    // The AI lead brief, answered like the API with the AI service on the fake provider (leadBrief.js).
+    route('post', '/ai/leads/:id/brief', ({ actor, params, body }) => {
+      requirePermission(actor, 'ai', 'use')
+      const extra = Object.keys(body ?? {}).find((key) => key !== 'refresh')
+      if (extra) throw badRequest(`Unrecognized key: "${extra}"`)
+      if (body?.refresh !== undefined && typeof body.refresh !== 'boolean')
+        throw badRequest('refresh: Invalid input: expected boolean')
+      const lead = db.leads.find((l) => l._id === params.id)
+      if (!lead) throw notFound('Lead not found.')
+      const bundle = buildBundle(db, lead, now().toISOString().slice(0, 10))
+      const key = briefKey(lead, bundle)
+      let entry = briefCache.get(key)
+      const cached = Boolean(entry) && !body?.refresh
+      if (!cached) {
+        entry = { brief: fakeBrief(bundle), generatedAt: now().toISOString() }
+        briefCache.set(key, entry)
+      }
+      return [
+        {
+          ...entry.brief,
+          cached,
+          provider: 'fake',
+          model: 'fake',
+          promptVersion: 'lead-brief/1',
+          truncated: bundle.truncated,
+          generatedAt: entry.generatedAt,
+        },
+      ]
+    }),
 
     route('get', '/search', ({ url }) => {
       const q = url.searchParams.get('q')?.trim()

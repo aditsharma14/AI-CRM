@@ -1,0 +1,129 @@
+[
+  {
+    "bundle": {
+      "today": "2026-11-05",
+      "lead": {
+        "name": "Ravi Deshpande",
+        "company": "Sahyadri Packaging",
+        "status": "qualified",
+        "source": "IndiaMART",
+        "createdAt": "2026-10-01T09:00:00.000Z"
+      },
+      "history": [
+        {
+          "id": "00000000000000000000a101",
+          "kind": "activity",
+          "type": "call",
+          "title": "Discovery call",
+          "text": "Needs 40 printers.",
+          "date": "2026-10-30T11:00:00.000Z",
+          "status": "done"
+        },
+        {
+          "id": "00000000000000000000a102",
+          "kind": "activity",
+          "type": "task",
+          "title": "Send quote",
+          "text": "",
+          "date": "2026-11-07T10:00:00.000Z",
+          "status": "open"
+        },
+        {
+          "id": "00000000000000000000a103",
+          "kind": "note",
+          "text": "Budget approved by their finance head; decision next week, maybe sooner if the quote lands.",
+          "date": "2026-11-03T16:00:00.000Z"
+        }
+      ],
+      "truncated": 0
+    },
+    "brief": {
+      "summary": "Ravi Deshpande at Sahyadri Packaging is a qualified lead from IndiaMART. There are 3 recorded updates; the latest, on 2026-11-07, is: Send quote.",
+      "nextAction": {
+        "action": "Complete the open task: Send quote",
+        "dueDate": "2026-11-07"
+      },
+      "followUpEmail": {
+        "subject": "Following up, Ravi",
+        "body": "Hi Ravi,\n\nThank you for your time so far. I wanted to follow up on where things stand and see whether a short call this week would help.\n\nBest regards"
+      },
+      "citations": [
+        {
+          "claim": "Ravi Deshpande at Sahyadri Packaging is a qualified lead from IndiaMART. There are 3 recorded updates; the latest, on 2026-11-07, is: Send quote.",
+          "sourceIds": ["00000000000000000000a102"]
+        },
+        {
+          "claim": "Complete the open task: Send quote",
+          "sourceIds": ["00000000000000000000a102"]
+        }
+      ]
+    }
+  },
+  {
+    "bundle": {
+      "today": "2026-11-05",
+      "lead": {
+        "name": "Siddharth",
+        "status": "new",
+        "createdAt": "2026-11-05T07:00:00.000Z"
+      },
+      "history": [],
+      "truncated": 0
+    },
+    "brief": {
+      "summary": "Siddharth is a new lead from an unknown source. There is no recorded activity yet.",
+      "nextAction": {
+        "action": "Call Siddharth to agree on next steps",
+        "dueDate": "2026-11-07"
+      },
+      "followUpEmail": {
+        "subject": "Following up, Siddharth",
+        "body": "Hi Siddharth,\n\nThank you for your time so far. I wanted to follow up on where things stand and see whether a short call this week would help.\n\nBest regards"
+      },
+      "citations": []
+    }
+  },
+  {
+    "bundle": {
+      "today": "2026-11-05",
+      "lead": {
+        "name": "Sneha Pillai",
+        "status": "converted",
+        "createdAt": "2026-05-01T09:00:00.000Z"
+      },
+      "history": [
+        {
+          "id": "00000000000000000000f201",
+          "kind": "activity",
+          "type": "task",
+          "title": "Hand over",
+          "text": "",
+          "date": "2026-09-08T10:00:00.000Z",
+          "status": "open"
+        }
+      ],
+      "truncated": 0
+    },
+    "brief": {
+      "summary": "Sneha Pillai is a converted lead from an unknown source. There are 1 recorded updates; the latest, on 2026-09-08, is: Hand over.",
+      "nextAction": {
+        "action": "Complete the open task: Hand over",
+        "dueDate": "2026-11-05"
+      },
+      "followUpEmail": {
+        "subject": "Following up, Sneha",
+        "body": "Hi Sneha,\n\nThank you for your time so far. I wanted to follow up on where things stand and see whether a short call this week would help.\n\nBest regards"
+      },
+      "citations": [
+        {
+          "claim": "Sneha Pillai is a converted lead from an unknown source. There are 1 recorded updates; the latest, on 2026-09-08, is: Hand over.",
+          "sourceIds": ["00000000000000000000f201"]
+        },
+        {
+          "claim": "Complete the open task: Hand over",
+          "sourceIds": ["00000000000000000000f201"]
+        }
+      ]
+    }
+  }
+]

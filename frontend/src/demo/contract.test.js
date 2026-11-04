@@ -168,6 +168,11 @@ beforeAll(async () => {
   await call('PATCH /notes/:id', { path: `/notes/${id('note', 1)}`, body: { body: 'Volume confirmed.' } })
   await call('DELETE /notes/:id', { path: `/notes/${extra._id}` })
 
+  // the AI lead brief: fresh, then cached, then regenerated (a lead with history, so citations are sampled)
+  const briefPath = `/ai/leads/${id('lead', 1)}/brief`
+  await call('POST /ai/leads/:id/brief', { path: briefPath, body: {} })
+  await call('POST /ai/leads/:id/brief', { path: briefPath, body: {} })
+  await call('POST /ai/leads/:id/brief', { path: briefPath, body: { refresh: true } })
   await call('GET /dashboard/overview')
   await call('GET /dashboard/reports')
   await call('GET /search', { params: { q: 'Sahyadri' } })
