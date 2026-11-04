@@ -1,4 +1,4 @@
-"""Settings from the environment (and AI/.env): provider choice, model and price, limits, the internal token."""
+"""Settings from the environment (and AI/.env): provider choice, model, limits, price, the internal token."""
 
 from functools import lru_cache
 from typing import Literal
@@ -14,21 +14,23 @@ class Settings(BaseSettings):
     # never reachable unauthenticated by mistake.
     ai_internal_token: SecretStr = Field(min_length=16)
 
-    # fake: deterministic, offline, free (tests, CI, local dev). anthropic: the real model; needs ANTHROPIC_API_KEY.
-    ai_provider: Literal["fake", "anthropic"] = "fake"
-    anthropic_api_key: SecretStr | None = None
+    # fake: deterministic, offline (tests, CI, compose, the demo). ollama: a real model running locally.
+    ai_provider: Literal["fake", "ollama"] = "fake"
 
-    # Model and price come from config, never from code. Checked 2026-11-05 on Anthropic's models overview and
-    # pricing pages: Claude Haiku 5.5, USD per million tokens for prompts up to 100K tokens (ours are far smaller).
-    ai_model: str = "claude-haiku-5-5"
-    ai_price_input_per_mtok: float = 0.10
-    ai_price_output_per_mtok: float = 0.50
-    ai_effort: Literal["low", "medium", "high"] = "low"
-    ai_thinking: Literal["adaptive", "disabled"] = "adaptive"
-    # Covers thinking plus the brief itself.
-    ai_max_output_tokens: int = Field(default=2000, ge=256, le=16000)
-    # One attempt gets the whole budget; Express gives up at 15 s.
-    ai_request_timeout_s: float = Field(default=12.0, gt=0, le=60)
+    ollama_url: str = "http://localhost:11434"
+    # Picked for a CPU-only laptop (docs/ai.md): 2 GB, Hindi among its official languages.
+    ollama_model: str = "llama3.2:3b"
+    # Context window to request; must hold the whole prompt (Express caps the history at about 12,000 characters).
+    ollama_num_ctx: int = Field(default=8192, ge=2048, le=131072)
+    ollama_keep_alive: str = "30m"
+
+    ai_max_output_tokens: int = Field(default=800, ge=128, le=8000)
+    # One attempt gets this whole budget; Express aborts a little later (its AI_TIMEOUT_MS plus a margin).
+    ai_timeout_ms: int = Field(default=60_000, ge=1000, le=300_000)
+
+    # USD per million tokens. Zero: both providers are free. A paid hosted model needs only these and a provider.
+    ai_price_input_per_mtok: float = Field(default=0.0, ge=0)
+    ai_price_output_per_mtok: float = Field(default=0.0, ge=0)
 
 
 @lru_cache
