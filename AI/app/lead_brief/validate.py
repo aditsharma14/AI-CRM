@@ -30,6 +30,15 @@ def _has_phone(text: str) -> bool:
     return any(sum(ch.isdigit() for ch in run) >= 9 for run in DIGIT_RUN.findall(text))
 
 
+def _without_identity(text: str, request: LeadBriefRequest) -> str:
+    """The text minus the lead's own name and company: digits in those (a branch or order number) are identity,
+    not a contact detail. Anything else in the text is still scanned."""
+    for part in (request.lead.name, request.lead.company):
+        if part:
+            text = re.sub(re.escape(part), " ", text, flags=re.IGNORECASE)
+    return text
+
+
 def _bundle_text(request: LeadBriefRequest) -> str:
     lead = request.lead
     parts = [lead.name, lead.company or "", lead.source or ""]
@@ -67,9 +76,10 @@ def check(text: str, request: LeadBriefRequest) -> Checked:
     bundle = _bundle_text(request)
     email = f"{brief.follow_up_email.subject}\n{brief.follow_up_email.body}"
     for name, value in (("followUpEmail", email), ("nextAction", brief.next_action.action)):
-        if EMAIL.search(value):
+        identity_free = _without_identity(value, request)
+        if EMAIL.search(identity_free):
             problems.append(f"{name} contains an email address")
-        if _has_phone(value):
+        if _has_phone(identity_free):
             problems.append(f"{name} contains a phone number")
         if any(link.rstrip(".,;:!?") not in bundle for link in URL.findall(value)):
             problems.append(f"{name} contains a link that is not in the history")
