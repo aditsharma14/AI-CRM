@@ -5,9 +5,11 @@ import logging
 from typing import Any
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app.lead_brief.models import LeadBriefRequest
 from app.lead_brief.prompt import PROMPT_VERSION, SYSTEM, build_user_message
+from app.main import create_app
 from app.providers.base import ProviderError, ProviderRateLimitedError, ProviderTimeoutError
 
 from .conftest import AUTH
@@ -62,6 +64,14 @@ def test_lead_brief_and_metrics_need_the_internal_token(client, headers) -> None
     for res in (post(client, headers=headers), client.get("/metrics", headers=headers)):
         assert res.status_code == 401
         assert res.json()["error"]["code"] == "UNAUTHORIZED"
+
+
+def test_info_names_the_provider_model_and_prompt_version(client, settings) -> None:
+    assert client.get("/v1/info").status_code == 401
+    res = client.get("/v1/info", headers=AUTH)
+    assert res.json() == {"provider": "fake", "model": "fake", "promptVersion": PROMPT_VERSION}
+    ollama = TestClient(create_app(settings.model_copy(update={"ai_provider": "ollama"})))
+    assert ollama.get("/v1/info", headers=AUTH).json()["model"] == "llama3.2:3b"
 
 
 def test_health_needs_no_token(client) -> None:

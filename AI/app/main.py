@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app.config import Settings, get_settings
 from app.lead_brief.models import LeadBriefRequest
+from app.lead_brief.prompt import PROMPT_VERSION
 from app.lead_brief.service import BriefError, generate
 from app.metrics import Metrics
 from app.providers import make_provider
@@ -57,6 +58,12 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
     @app.get("/metrics", dependencies=[Depends(require_token)], response_class=PlainTextResponse)
     def metrics_text() -> str:
         return metrics.render()
+
+    @app.get("/v1/info", dependencies=[Depends(require_token)])
+    def info() -> dict[str, str]:
+        # What decides a brief's content besides its input: Express puts these in its cache key, so a new prompt,
+        # provider or model never serves an old brief.
+        return {"provider": provider.name, "model": provider.model, "promptVersion": PROMPT_VERSION}
 
     @app.post("/v1/lead-brief", dependencies=[Depends(require_token)])
     async def lead_brief(body: LeadBriefRequest) -> JSONResponse:
