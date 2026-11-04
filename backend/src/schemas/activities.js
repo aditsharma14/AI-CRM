@@ -21,13 +21,19 @@ export const activityCreate = z.object({
 export const activityUpdate = activityCreate.partial()
 
 // No sort or q: activitiesService.list always orders by the type's date field.
+// entityType + entityId: the activities linked to one record (a lead page's timeline). Both or neither.
 export const activityListQuery = listQuery({
   filters: {
     type: z.enum(['task', 'event', 'call', 'meeting']).optional(),
     status: z.enum(['open', 'done']).optional(),
     assigneeId: objectId.optional(),
+    entityType: z.enum(['lead', 'contact', 'company', 'deal']).optional(),
+    entityId: objectId.optional(),
   },
   dateRange: true,
+}).refine((q) => (q.entityType === undefined) === (q.entityId === undefined), {
+  message: 'entityType and entityId go together',
+  path: ['entityId'],
 })
 
 /** @typedef {z.infer<typeof activityCreate>} ActivityCreateInput */

@@ -62,3 +62,15 @@ describe('demo cursor pagination', () => {
     expect(res.data.error.message).toMatch(/page/)
   })
 })
+
+describe('demo activities for one record', () => {
+  it("?entityType=lead&entityId= lists only that lead's activities, and needs both", async () => {
+    const all = (await get('/activities', { limit: 100 })).data.data
+    const linked = all.find((a) => a.linkedTo?.entityType === 'lead')
+    const res = await get('/activities', { entityType: 'lead', entityId: linked.linkedTo.entityId, limit: 100 })
+    expect(res.status).toBe(200)
+    expect(res.data.data.length).toBeGreaterThan(0)
+    expect(res.data.data.every((a) => a.linkedTo.entityId === linked.linkedTo.entityId)).toBe(true)
+    expect((await get('/activities', { entityType: 'lead' })).status).toBe(400)
+  })
+})

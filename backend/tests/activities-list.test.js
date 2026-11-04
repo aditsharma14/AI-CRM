@@ -124,3 +124,50 @@ describe('isolation and validation', () => {
     }
   })
 })
+
+describe("one record's activities (?entityType=&entityId=, what the lead page's timeline reads)", () => {
+  let lead, linked, otherLinked
+  beforeAll(async () => {
+    const { Lead } = await import('../src/models/CRM.js')
+    lead = await Lead.create({ orgId: a.org._id, name: 'Timeline lead', ownerId: a.users.owner._id })
+    const otherLead = await Lead.create({ orgId: a.org._id, name: 'Other lead', ownerId: a.users.owner._id })
+    const make = (title, entityId) =>
+      Activity.create({
+        orgId: a.org._id,
+        type: 'call',
+        title,
+        startAt: day(4),
+        assigneeId: a.users.owner._id,
+        linkedTo: { entityType: 'lead', entityId },
+      })
+    linked = await make('Linked call', lead._id)
+    otherLinked = await make('Other call', otherLead._id)
+  })
+
+  const list = (query, token = a.tokens.owner) => request(app).get('/api/v1/activities').query(query).set(bearer(token))
+
+  it('lists only the activities linked to that record', async () => {
+    const res = await list({ entityType: 'lead', entityId: String(lead._id) })
+    expect(res.status).toBe(200)
+    expect(res.body.data.map((x) => x._id)).toEqual([String(linked._id)])
+    expect(res.body.data.map((x) => x._id)).not.toContain(String(otherLinked._id))
+  })
+
+  it('combines with the other filters', async () => {
+    const res = await list({ entityType: 'lead', entityId: String(lead._id), type: 'task' })
+    expect(res.body.data).toEqual([])
+  })
+
+  it('needs both parameters, and valid ones', async () => {
+    expect((await list({ entityType: 'lead' })).status).toBe(400)
+    expect((await list({ entityId: String(lead._id) })).status).toBe(400)
+    expect((await list({ entityType: 'invoice', entityId: String(lead._id) })).status).toBe(400)
+    expect((await list({ entityType: 'lead', entityId: 'nope' })).status).toBe(400)
+  })
+
+  it("another org's record id finds nothing", async () => {
+    const res = await list({ entityType: 'lead', entityId: String(lead._id) }, b.tokens.owner)
+    expect(res.status).toBe(200)
+    expect(res.body.data).toEqual([])
+  })
+})

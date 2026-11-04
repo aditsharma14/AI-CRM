@@ -29,12 +29,14 @@ export const crud = createCrudService(Activity, {
  * @param {import('../schemas/activities.js').ActivityListQuery} query
  * @returns {Promise<{ items: ActivityDoc[], meta: PageMeta }>}
  */
-export async function list(actor, { page, limit, type, status, assigneeId, dateFrom, dateTo }) {
+export async function list(actor, { page, limit, type, status, assigneeId, entityType, entityId, dateFrom, dateTo }) {
   /** @type {Record<string, unknown>} */
   const filter = { orgId: actor.orgId, ...scopeFor(actor, 'activity', 'read') }
   if (type) filter.type = type
   if (status) filter.status = status
   if (assigneeId) filter.assigneeId = assigneeId
+  if (entityType && entityId)
+    Object.assign(filter, { 'linkedTo.entityType': entityType, 'linkedTo.entityId': entityId })
 
   // Tasks live on dueDate; calendar events live on startAt — filter
   // whichever date field this request's type actually uses.

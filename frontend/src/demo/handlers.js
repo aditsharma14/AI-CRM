@@ -102,7 +102,15 @@ const RESOURCES = {
     policy: 'activity',
     owner: 'assigneeId',
     populate: ['assigneeId'],
-    filters: { type: oneOf(ACTIVITY_TYPES), status: oneOf(['open', 'done']), assigneeId: id },
+    filters: {
+      type: oneOf(ACTIVITY_TYPES),
+      status: oneOf(['open', 'done']),
+      assigneeId: id,
+      entityType: oneOf(['lead', 'contact', 'company', 'deal']),
+      entityId: id,
+    },
+    // entityType/entityId match linkedTo, both or neither (schemas/activities.js).
+    linked: true,
     dateRange: true,
     fields: [
       'type',
@@ -396,8 +404,12 @@ export function createDemoApi({ now = () => new Date() } = {}) {
   }
   const list = (resource, query) => {
     const spec = RESOURCES[resource]
+    if (spec.linked && (query.entityType === undefined) !== (query.entityId === undefined))
+      throw badRequest('entityId: entityType and entityId go together')
+    const valueOf = (r, key) =>
+      spec.linked && (key === 'entityType' || key === 'entityId') ? r.linkedTo?.[key] : r[key]
     let rows = db[resource].filter((r) =>
-      Object.keys(spec.filters).every((key) => query[key] === undefined || String(r[key]) === query[key]),
+      Object.keys(spec.filters).every((key) => query[key] === undefined || String(valueOf(r, key)) === query[key]),
     )
     if (query.q) rows = rows.filter(matchesText(spec.search, query.q))
     if (resource === 'activities') {
