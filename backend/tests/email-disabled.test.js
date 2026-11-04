@@ -51,15 +51,15 @@ describe('EMAIL_ENABLED', () => {
 })
 
 describe('GET /api/v1/config', () => {
-  it('is public and says whether email is on', async () => {
+  it('is public and says whether email (and AI) is on', async () => {
     expect((await request(app).get('/api/v1/config')).body).toEqual({
       success: true,
-      data: { emailEnabled: false },
+      data: { emailEnabled: false, aiEnabled: false },
       error: null,
       meta: null,
     })
     env.emailEnabled = true
-    expect((await request(app).get('/api/v1/config')).body.data).toEqual({ emailEnabled: true })
+    expect((await request(app).get('/api/v1/config')).body.data).toEqual({ emailEnabled: true, aiEnabled: false })
   })
 })
 

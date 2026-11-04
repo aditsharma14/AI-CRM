@@ -9,7 +9,10 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { checkShape, mergeShapes, shapeOf } from '../../contracts/shape.js'
 import app from '../src/app.js'
+import { env } from '../src/config/index.js'
 import Organization from '../src/models/Organization.js'
+import { resetAiBriefState } from '../src/services/aiBriefService.js'
+import { startAiStub } from './aiStub.js'
 import { asRefreshCookie, createUserWithPassword, refreshCookieFrom } from './factories.js'
 
 const CONTRACT = new URL('../../contracts/api-shapes.json', import.meta.url)
@@ -232,6 +235,24 @@ beforeAll(async () => {
   const notifications = await dataOf('GET /notifications', 200)
   await hit('PATCH /notifications/:id/read', 200, { path: `/notifications/${notifications[0]._id}/read` })
   await hit('PATCH /notifications/read-all', 200)
+
+  // ---- the AI lead brief, against a stand-in AI service: fresh, cached, and switched off
+  const stub = await startAiStub()
+  const saved = { ...env }
+  Object.assign(env, {
+    aiEnabled: true,
+    aiServiceUrl: `http://127.0.0.1:${stub.server.address().port}`,
+    aiInternalToken: 'contract-test-ai-token-0123',
+  })
+  resetAiBriefState()
+  await hit('POST /notes', 201, { body: { entityType: 'lead', entityId: lead._id, body: 'Asked for a quote.' } })
+  await hit('POST /ai/leads/:id/brief', 200, { path: `/ai/leads/${lead._id}/brief`, body: {} })
+  await hit('POST /ai/leads/:id/brief', 200, { path: `/ai/leads/${lead._id}/brief`, body: {} })
+  await hit('POST /ai/leads/:id/brief', 200, { path: `/ai/leads/${toConvert._id}/brief`, body: { refresh: true } })
+  env.aiEnabled = false
+  await hit('error', 503, { path: `/ai/leads/${lead._id}/brief`, method: 'POST', body: {} })
+  Object.assign(env, saved)
+  await new Promise((resolve) => stub.server.close(resolve))
 
   // ---- the error envelope, one of each status the demo produces
   await hit('error', 404, { path: `/leads/${'0'.repeat(24)}` })

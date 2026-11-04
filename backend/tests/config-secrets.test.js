@@ -44,3 +44,39 @@ describe('outside production', () => {
     expect(env.nodeEnv).toBe(nodeEnv)
   })
 })
+
+describe('AI_INTERNAL_TOKEN', () => {
+  it.each([
+    ['missing', undefined],
+    ['15 characters', 't'.repeat(15)],
+  ])('AI_ENABLED=true with the token %s -> refuses to start, in any environment', async (_, token) => {
+    for (const nodeEnv of ['development', 'production']) {
+      const vars = { NODE_ENV: nodeEnv, JWT_ACCESS_SECRET: STRONG, AI_ENABLED: 'true', AI_INTERNAL_TOKEN: token ?? '' }
+      await expect(bootWith(vars)).rejects.toThrow(/AI_INTERNAL_TOKEN/)
+      vi.resetModules()
+    }
+  })
+
+  it.each(['dev-only-internal-token-change-me', 'dev-only-compose-ai-token-change-me'])(
+    'the placeholder %s is refused in production, never echoed, and accepted in development',
+    async (token) => {
+      const vars = { JWT_ACCESS_SECRET: STRONG, AI_ENABLED: 'true', AI_INTERNAL_TOKEN: token }
+      await expect(bootWith({ ...vars, NODE_ENV: 'production' })).rejects.toThrow(
+        expect.objectContaining({ message: expect.stringMatching(/placeholder/) }),
+      )
+      await expect(bootWith({ ...vars, NODE_ENV: 'production' })).rejects.toThrow(
+        expect.objectContaining({ message: expect.not.stringContaining(token) }),
+      )
+      vi.resetModules()
+      expect((await bootWith({ ...vars, NODE_ENV: 'development' })).env.aiEnabled).toBe(true)
+    },
+  )
+
+  it('AI off needs no token; AI_TIMEOUT_MS is checked', async () => {
+    const { env } = await bootWith({ AI_ENABLED: 'false', AI_INTERNAL_TOKEN: '' })
+    expect(env.aiEnabled).toBe(false)
+    expect(env.aiTimeoutMs).toBe(60_000)
+    vi.resetModules()
+    await expect(bootWith({ AI_TIMEOUT_MS: '500' })).rejects.toThrow(/AI_TIMEOUT_MS/)
+  })
+})

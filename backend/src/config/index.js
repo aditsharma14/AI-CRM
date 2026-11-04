@@ -27,6 +27,18 @@ function parseTrustProxy(raw) {
 
 // No email provider until S2.6. While off, the frontend hides password reset and an invite's link goes back to
 // the admin who created it (orgAdminService.inviteMember).
+// A local model on a CPU is slow (docs/ai.md has the measured latency): 1 s to 5 min, default 60 s.
+function parseTimeoutMs(raw) {
+  if (raw === undefined || raw === '') return 60_000
+  const ms = Number(raw)
+  if (!Number.isInteger(ms) || ms < 1000 || ms > 300_000) {
+    throw new Error(
+      `AI_TIMEOUT_MS must be a whole number of milliseconds from 1000 to 300000, got ${JSON.stringify(raw)}.`,
+    )
+  }
+  return ms
+}
+
 function parseBoolean(name, raw) {
   if (raw === undefined || raw === '') return false
   if (raw !== 'true' && raw !== 'false')
@@ -46,6 +58,12 @@ export const env = {
   rateLimitMax: Number(process.env.RATE_LIMIT_MAX) || 100,
   trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
   emailEnabled: parseBoolean('EMAIL_ENABLED', process.env.EMAIL_ENABLED),
+  // The AI lead brief (docs/ai.md). Off unless AI_ENABLED=true; then the internal service's URL and shared token.
+  aiEnabled: parseBoolean('AI_ENABLED', process.env.AI_ENABLED),
+  aiServiceUrl: process.env.AI_SERVICE_URL || 'http://localhost:8000',
+  aiInternalToken: process.env.AI_INTERNAL_TOKEN,
+  // What the AI service gets per brief (it uses the same value); Express gives up a little later.
+  aiTimeoutMs: parseTimeoutMs(process.env.AI_TIMEOUT_MS),
   // Silent under the test runner: the role matrix makes hundreds of requests per file.
   logLevel: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'test' ? 'silent' : 'info'),
 }
@@ -62,6 +80,18 @@ if (env.nodeEnv === 'production') {
     throw new Error(
       'JWT_ACCESS_SECRET must be at least 32 characters, and not a placeholder, when NODE_ENV=production.',
     )
+  }
+}
+
+// With AI on, Express must authenticate to the AI service. The token is required whenever AI_ENABLED=true, and in
+// production a known placeholder is refused like a weak JWT secret. (The error never includes the token.)
+const PLACEHOLDER_AI_TOKENS = ['dev-only-internal-token-change-me', 'dev-only-compose-ai-token-change-me']
+if (env.aiEnabled) {
+  const token = env.aiInternalToken ?? ''
+  if (token.length < 16)
+    throw new Error('AI_ENABLED=true needs AI_INTERNAL_TOKEN (16+ characters, the same as the AI service).')
+  if (env.nodeEnv === 'production' && PLACEHOLDER_AI_TOKENS.includes(token)) {
+    throw new Error('AI_INTERNAL_TOKEN must not be a placeholder when NODE_ENV=production.')
   }
 }
 

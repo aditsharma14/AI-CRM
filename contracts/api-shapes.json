@@ -142,7 +142,8 @@
   "GET /config": {
     "success": "boolean",
     "data": {
-      "emailEnabled": "boolean"
+      "emailEnabled": "boolean",
+      "aiEnabled": "boolean"
     },
     "error": "null",
     "meta": "null"
@@ -765,6 +766,34 @@
       "__v": "number",
       "startAt?": "date",
       "endAt?": "date"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "POST /ai/leads/:id/brief": {
+    "success": "boolean",
+    "data": {
+      "summary": "string",
+      "nextAction": {
+        "action": "string",
+        "dueDate": "string"
+      },
+      "followUpEmail": {
+        "subject": "string",
+        "body": "string"
+      },
+      "citations": [
+        {
+          "claim": "string",
+          "sourceIds": ["id"]
+        }
+      ],
+      "cached": "boolean",
+      "provider": "string",
+      "model": "string",
+      "promptVersion": "string",
+      "truncated": "number",
+      "generatedAt": "date"
     },
     "error": "null",
     "meta": "null"

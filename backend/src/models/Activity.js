@@ -35,6 +35,8 @@ const activitySchema = new Schema(
 
 activitySchema.index({ orgId: 1, assigneeId: 1, dueDate: 1 })
 activitySchema.index({ orgId: 1, type: 1, startAt: 1 })
+// A lead's (or deal's) history, newest first: the AI lead brief reads it (aiBriefService).
+activitySchema.index({ orgId: 1, 'linkedTo.entityType': 1, 'linkedTo.entityId': 1, createdAt: -1 })
 
 /** Plain field shape inferred from the schema — what services read and write. */
 /** @typedef {import('mongoose').InferSchemaType<typeof activitySchema>} ActivityRecord */

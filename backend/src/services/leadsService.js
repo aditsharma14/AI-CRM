@@ -1,10 +1,11 @@
 // @ts-check
 // Lead CRUD plus convert-to-deal (one transaction, via dealsService.create). The AI rescore is promised, not built.
+import AiBrief from '../models/AiBrief.js'
 import { Company, Lead } from '../models/CRM.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
 import { leadList } from '../schemas/leads.js'
 import { badRequest } from '../utils/http.js'
-import { logActivity, notify } from './activityLogService.js'
+import { labelFor, logActivity, notify } from './activityLogService.js'
 import { createCrudService } from './crudService.js'
 import * as dealsService from './dealsService.js'
 
@@ -93,3 +94,34 @@ export async function convertToDeal(actor, leadId, dealInput = {}) {
 }
 
 const alreadyConverted = () => badRequest('This lead has already been converted.', 'ALREADY_CONVERTED')
+
+/**
+ * Deletes a lead and what exists only for it (its cached AI briefs), in one transaction: either both go or neither.
+ * Same rules and audit entry as the CRUD factory's remove.
+ * @param {AuthUser} actor
+ * @param {string} id
+ * @returns {Promise<import('mongoose').HydratedDocument<import('../models/CRM.js').LeadRecord>>} The deleted lead.
+ * @throws {import('../utils/http.js').AppError} 403, 404
+ */
+export async function remove(actor, id) {
+  return Lead.db.transaction(async (session) => {
+    const doc = await Lead.findOneAndDelete(
+      { _id: id, orgId: actor.orgId, ...scopeFor(actor, 'lead', 'delete') },
+      { session },
+    )
+    if (!doc) throw await missOrForbidden(Lead, actor, id)
+    await AiBrief.deleteMany({ orgId: actor.orgId, leadId: doc._id }, { session })
+    await logActivity(
+      {
+        orgId: actor.orgId,
+        userId: actor.id,
+        action: 'delete',
+        entityType: 'lead',
+        entityId: doc._id,
+        message: `Deleted lead "${labelFor(doc)}"`,
+      },
+      { session },
+    )
+    return doc
+  })
+}

@@ -49,7 +49,7 @@ router.delete(
   requirePermission('crm', 'delete'),
   validate({ params: idParam }),
   asyncHandler(async (req, res) => {
-    await leadsService.crud.remove(req.user, req.params.id)
+    await leadsService.remove(req.user, req.params.id)
     apiResponse(res, null)
   }),
 )
