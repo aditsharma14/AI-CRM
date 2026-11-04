@@ -1,5 +1,5 @@
-# Runs on every push and PR, and by hand (gh workflow run ci.yml --ref <branch>). There is no branch
-# protection, so this doesn't block merges; the pre-commit hook is the gate. See docs/ci.md.
+# Runs on every push and PR, and by hand (gh workflow run ci.yml --ref <branch>). The six jobs are required
+# checks in main's ruleset, so a PR merges only when they pass. See docs/ci.md.
 name: CI
 
 on:

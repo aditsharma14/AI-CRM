@@ -3,9 +3,10 @@
 [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs six jobs in parallel on every push and pull request, and
 by hand with `gh workflow run ci.yml --ref <branch>`. A newer push to the same branch cancels the run it supersedes.
 
-**CI doesn't block merges.** The repo has no branch protection. The gate is the pre-commit hook (lint, typecheck,
-format, ruff on staged files; see [CONTRIBUTING.md](../CONTRIBUTING.md)). CI is the full check on a clean machine,
-including the test suites and the Docker stack.
+**CI gates merges.** `main` takes changes only through pull requests, and its ruleset requires all six jobs below
+to pass before a PR merges ([CONTRIBUTING.md](../CONTRIBUTING.md#pull-requests)). The pre-commit hook (lint, typecheck,
+format, ruff on staged files) is the fast local check; CI is the full one on a clean machine, including the test
+suites and the Docker stack.
 
 ## Jobs
 

@@ -193,7 +193,7 @@ Read in [backend/src/config/index.js](backend/src/config/index.js) (`GIT_COMMIT`
 - **Checks (repo root):** `npm run lint` (ESLint, zero warnings, plus ruff), `npm run typecheck`, `npm run format:check`. The husky
   pre-commit hook runs them on staged files and blocks the commit; see [CONTRIBUTING.md](CONTRIBUTING.md). Logs are pino JSON.
 - **CI** ([docs/ci.md](docs/ci.md)): `repo`, `ai`, `backend` (fails below 98.65% `src/services` line coverage), `frontend`, `e2e`,
-  `docker` (compose stack, PRIMARY replica set, [smoke.mjs](scripts/smoke.mjs) through nginx). It doesn't block merges (no branch protection); the pre-commit hook does.
+  `docker` (compose stack, PRIMARY replica set, [smoke.mjs](scripts/smoke.mjs) through nginx). Its 6 jobs are required checks on `main`'s ruleset: a PR merges only when they pass ([CONTRIBUTING.md](CONTRIBUTING.md)).
 - **Docker:** compose sets the api's own env (replica-set `MONGO_URI`, `CLIENT_ORIGIN`, a dev-only JWT secret); `backend/.env` is optional;
   `.dockerignore` keeps `.env` and `node_modules` out. An existing DB after an index change: `node scripts/sync-indexes.js --apply` (backend/).
 - **Replica set:** a standalone mongod makes lead convert fail ("Transaction numbers are only allowed on a replica set").
@@ -231,7 +231,9 @@ Read in [backend/src/config/index.js](backend/src/config/index.js) (`GIT_COMMIT`
 1. **Plan first.** For anything beyond a trivial fix, explore, then present a plan and wait for approval.
 2. **Run tests and lint before saying done**, and show the output. If no tests exist for the area, say so explicitly.
 3. **Update [WORKLOG.md](WORKLOG.md) at the end of every session:** goal, what changed, how it was verified, next steps.
-4. **Never commit to `main`.** Create a branch first. Commit only when asked.
+4. **Every change is a PR.** A short branch off `main` (`<type>/<short-description>`), one task per PR, merged with
+   **Rebase and merge** once the 6 CI checks are green, so every commit lands on `main` as written. Never push to
+   `main` (a ruleset blocks it, and force pushes). Commit, push and open the PR only when asked.
 5. When editing this file, re-run the path check so every referenced path exists.
 
 ## 9. Known gaps
