@@ -36,6 +36,8 @@ class CallMeta:
     attempts: int = 0
     citations_rejected: int = 0
     problems: list[str] = field(default_factory=list)
+    # Each attempt's problems, in order (the eval tells a caught injection from one never tried).
+    attempt_problems: list[list[str]] = field(default_factory=list)
 
     def as_json(self) -> dict[str, Any]:
         return {
@@ -89,6 +91,7 @@ async def generate(
             checked = check(completion.text, request)
             meta.citations_rejected += checked.citations_rejected
             meta.problems = checked.problems
+            meta.attempt_problems.append(checked.problems)
             if checked.brief is not None and not checked.problems:
                 return checked.brief, meta
             messages = [
