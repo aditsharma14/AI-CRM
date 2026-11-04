@@ -1,5 +1,5 @@
-// One lead: its details and its history (activities and notes, newest first). Each history entry has an id
-// (history-<id>) that other parts of the page can scroll to.
+// One lead: its details, its history (activities and notes, newest first) and the AI brief, whose citations scroll
+// to the history entry they rest on (history-<id>).
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, CalendarClock, MessageSquareText, Phone, Users } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
@@ -8,6 +8,7 @@ import { api } from '../../api/client.js'
 import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { Badge, EmptyState, PageSkeleton } from '../../components/ui.jsx'
 import { formatDate } from '../../lib/utils.js'
+import { LeadBriefCard } from '../ai/LeadBriefCard.jsx'
 import { historyOf } from './history.js'
 
 const STATUS_VARIANT = { qualified: 'success', converted: 'success', unqualified: 'danger', contacted: 'warning' }
@@ -67,6 +68,9 @@ export default function LeadDetailPage() {
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        {/* key: a different lead starts with no brief on screen */}
+        <LeadBriefCard key={id} leadId={id} history={history} />
+
         <section aria-labelledby="history-heading">
           <h2 id="history-heading" className="mb-3 font-serif text-lg font-semibold">
             History

@@ -170,5 +170,5 @@ export function useAppConfig() {
     queryFn: async () => (await api.get('/config')).data.data,
     staleTime: Infinity,
   })
-  return { emailEnabled: data?.emailEnabled ?? false, isLoading }
+  return { emailEnabled: data?.emailEnabled ?? false, aiEnabled: data?.aiEnabled ?? false, isLoading }
 }
