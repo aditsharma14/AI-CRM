@@ -26,7 +26,7 @@ The backend needs MongoDB as a replica set (lead conversion runs in a transactio
 
 Tests run per package: `npm test` in `backend/` and `frontend/`, and `npm run e2e` in `frontend/`.
 
-**The pre-commit hook is the gate.** It runs on staged files only and blocks the commit on any failure: ESLint
+**The pre-commit hook is the local gate.** It runs on staged files only and blocks the commit on any failure: ESLint
 (`--fix`, zero warnings) and the package's typecheck for JS, ruff check and format for Python, and Prettier for
 everything it knows. Don't bypass it with `--no-verify`; fix what it reports. CI runs the same checks plus the tests.
 
@@ -49,6 +49,13 @@ stop, under about 80 characters. Types: `feat`, `fix`, `refactor`, `test`, `docs
 
 ## Pull requests
 
+Every change reaches `main` through a pull request; nobody pushes to `main`. A ruleset on `main` enforces it:
+
+- a pull request is required (no direct pushes, no force pushes, no deleting the branch);
+- the six CI jobs (`repo`, `ai`, `backend`, `frontend`, `e2e`, `docker`) must pass;
+- the only merge method is **Rebase and merge**, so each commit of the branch lands on `main` as written and the
+  history stays linear. Keep the branch's commits clean for that reason: they are the history.
+
 Fill in the [template](.github/pull_request_template.md): what, why, how you tested it, screenshots for UI changes.
-Keep a PR to one task. A bug you find along the way goes into [docs/known-issues.md](docs/known-issues.md), not into
+Keep a PR to one task and its branch short-lived. A bug you find along the way goes into [docs/known-issues.md](docs/known-issues.md), not into
 the PR.
