@@ -1,6 +1,6 @@
-# Local convenience only: production points MONGO_URI at MongoDB Atlas and supplies real secrets.
-# `docker compose up` starts client, api and mongo. The AI service is a stub until S2.1, so it sits behind
-# a profile: `docker compose --profile ai up` starts it too (S2.1 removes the profile).
+# Local convenience only: everything here is free and runs on this machine.
+# `docker compose up` starts client (:8080), api, ai and mongo. The AI service answers with the deterministic fake
+# provider; for a real local model, install Ollama, `ollama pull llama3.2:3b`, and set AI_PROVIDER=ollama (readme).
 services:
   client:
     build: ./frontend
@@ -27,22 +27,40 @@ services:
       GIT_COMMIT: ${GIT_COMMIT:-dev}
       # Dev-only default; the backend refuses it when NODE_ENV=production. Override with a real one.
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-compose-secret-change-me}
+      # The AI lead brief, through the ai service below. The token is dev-only; a production boot refuses it.
+      AI_ENABLED: 'true'
+      AI_SERVICE_URL: http://ai:8000
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:-dev-only-compose-ai-token-change-me}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-60000}
     ports:
       - '5000:5000'
     depends_on:
       mongo:
         condition: service_healthy
+      ai:
+        condition: service_healthy
 
+  # Reachable only on the compose network (no host port): the api is its one caller, with the shared token.
   ai:
-    profiles: ['ai']
     build: ./AI
     env_file:
       - path: ./AI/.env
         required: false
-    ports:
-      - '8000:8000'
-    depends_on:
-      - mongo
+    environment:
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:-dev-only-compose-ai-token-change-me}
+      AI_PROVIDER: ${AI_PROVIDER:-fake}
+      # Ollama runs on the host, not in compose (it wants the machine's whole CPU and RAM).
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-60000}
+    extra_hosts:
+      # host.docker.internal on Linux too (Docker Desktop provides it already).
+      - 'host.docker.internal:host-gateway'
+    healthcheck:
+      test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   # A one-node replica set, not a standalone server: lead conversion and signup run in transactions,
   # and MongoDB only supports transactions on replica sets.

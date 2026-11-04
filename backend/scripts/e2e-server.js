@@ -23,6 +23,11 @@ Object.assign(process.env, {
   RATE_LIMIT_MAX: '1000000',
   // The reset spec walks Forgot password, which the UI offers only with email on. (Email off: frontend unit tests.)
   EMAIL_ENABLED: 'true',
+  // The AI lead brief against the AI service Playwright starts (scripts/ai-serve.mjs, fake provider).
+  AI_ENABLED: 'true',
+  AI_SERVICE_URL: `http://127.0.0.1:${process.env.E2E_AI_PORT ?? '5057'}`,
+  AI_INTERNAL_TOKEN: process.env.E2E_AI_TOKEN ?? 'e2e-internal-token-0123456789',
+  AI_TIMEOUT_MS: '15000',
 })
 
 // Playwright stops this process when the run ends; take mongod down with it.

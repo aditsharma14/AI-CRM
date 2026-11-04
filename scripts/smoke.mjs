@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Full-stack smoke test, no dependencies (Node 24's fetch): node scripts/smoke.mjs <base-url>
 // Against the browser-facing origin (nginx on :8080 in docker compose), so it goes through the same proxy a user does:
-// health, register a throwaway smoke-<ts> org, create and convert a lead, refresh, log out, refresh refused.
+// health, register a throwaway smoke-<ts> org, create and convert a lead, an AI lead brief (when AI is on), refresh,
+// log out, refresh refused.
 // Exits non-zero on the first failure.
 import { randomBytes } from 'node:crypto'
 
@@ -114,6 +115,16 @@ async function main() {
     if (String(deal.convertedFromLeadId) !== String(leadId)) fail('convert: deal not linked to the lead')
     const lead = await expectStatus('read lead', 200, 'GET', `/leads/${leadId}`)
     if (lead.status !== 'converted') fail(`convert: lead status is ${lead.status}`)
+  })
+
+  // When AI is on (compose turns it on, with the fake provider), the api reaches the ai service with its token.
+  await step('AI lead brief (if AI is on)', async () => {
+    const config = await expectStatus('config', 200, 'GET', '/config', { auth: false })
+    if (!config.aiEnabled) return
+    const brief = await expectStatus('brief', 200, 'POST', `/ai/leads/${leadId}/brief`, { body: {} })
+    if (!brief.summary || !brief.followUpEmail?.subject) fail('brief: missing summary or email')
+    const again = await expectStatus('cached brief', 200, 'POST', `/ai/leads/${leadId}/brief`, { body: {} })
+    if (again.cached !== true) fail('brief: the second request was not served from the cache')
   })
 
   await step('refresh the session (cookie through the proxy)', async () => {
