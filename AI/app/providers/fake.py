@@ -59,7 +59,13 @@ class FakeProvider:
         }
 
     async def complete(
-        self, *, request: LeadBriefRequest, system: str, messages: list[dict[str, str]], schema: dict[str, Any]
+        self,
+        *,
+        request: LeadBriefRequest,
+        system: str,
+        messages: list[dict[str, str]],
+        schema: dict[str, Any],
+        timeout_ms: int,
     ) -> Completion:
         text = json.dumps(self.brief(request))
         prompt_chars = len(system) + sum(len(m["content"]) for m in messages)

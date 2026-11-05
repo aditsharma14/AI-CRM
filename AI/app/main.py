@@ -5,6 +5,8 @@ never echo the request body (FastAPI's default 422 would)."""
 
 import hmac
 import logging
+import time
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -66,9 +68,14 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
         return {"provider": provider.name, "model": provider.model, "promptVersion": PROMPT_VERSION}
 
     @app.post("/v1/lead-brief", dependencies=[Depends(require_token)])
-    async def lead_brief(body: LeadBriefRequest) -> JSONResponse:
+    async def lead_brief(
+        body: LeadBriefRequest,
+        # The time left on Express's budget when it sent the request: it gives up after that.
+        x_deadline_ms: Annotated[int | None, Header(ge=1000, le=300_000)] = None,
+    ) -> JSONResponse:
+        deadline = None if x_deadline_ms is None else time.monotonic() + x_deadline_ms / 1000
         try:
-            brief, meta = await generate(body, provider, settings, metrics)
+            brief, meta = await generate(body, provider, settings, metrics, deadline=deadline)
         except BriefError as err:
             return error(STATUS[err.code], err.code, str(err), meta=err.meta.as_json())
         return JSONResponse({"brief": brief.model_dump(by_alias=True, mode="json"), "meta": meta.as_json()})

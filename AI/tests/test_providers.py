@@ -44,7 +44,9 @@ def ollama(settings: Settings, handler) -> OllamaProvider:
 
 
 def run(provider, req=None):
-    return asyncio.run(provider.complete(request=req or request(), system="sys", messages=MESSAGES, schema=SCHEMA))
+    return asyncio.run(
+        provider.complete(request=req or request(), system="sys", messages=MESSAGES, schema=SCHEMA, timeout_ms=60_000)
+    )
 
 
 # ---- selection
@@ -142,6 +144,18 @@ def test_ollama_timeout_is_a_timeout(settings) -> None:
 
     with pytest.raises(ProviderTimeoutError):
         run(ollama(settings, handler))
+
+
+def test_ollama_waits_for_the_attempt_s_limit_not_the_setting(settings) -> None:
+    seen = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen["timeout"] = req.extensions["timeout"]
+        return httpx.Response(200, json=OK_BODY)
+
+    provider = ollama(settings, handler)
+    asyncio.run(provider.complete(request=request(), system="s", messages=MESSAGES, schema=SCHEMA, timeout_ms=12_500))
+    assert seen["timeout"]["read"] == 12.5 != settings.ai_timeout_ms / 1000
 
 
 def test_ollama_unreachable_is_a_provider_error(settings) -> None:

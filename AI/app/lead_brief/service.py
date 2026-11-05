@@ -1,11 +1,15 @@
 """Generates one lead brief: prompt, provider call, validation, and at most one retry when validation fails.
 
 A timeout, a 429 or a provider error is never retried: a timed-out call has already used its whole budget, and the
-other two would most likely fail again. Each call ends with one log line: numbers and codes, no content."""
+other two would most likely fail again. With a deadline (Express's X-Deadline-Ms), each attempt gets at most the time
+left, and the retry runs only if it can finish: the time left must be at least RETRY_MARGIN x the first attempt's
+duration (same model, input and hardware: the best predictor of the second). Otherwise the answer is BAD_OUTPUT now,
+not a cut-off attempt later. Each call ends with one log line: numbers and codes, no content."""
 
 import json
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -19,6 +23,7 @@ from app.providers.base import Provider, ProviderError, ProviderRateLimitedError
 log = logging.getLogger("app.lead_brief")
 SCHEMA = LeadBrief.model_json_schema(by_alias=True)
 MAX_ATTEMPTS = 2
+RETRY_MARGIN = 1.2
 
 ErrorCode = Literal["BAD_OUTPUT", "TIMEOUT", "RATE_LIMITED", "PROVIDER_ERROR"]
 
@@ -38,6 +43,7 @@ class CallMeta:
     problems: list[str] = field(default_factory=list)
     # Each attempt's problems, in order (the eval tells a caught injection from one never tried).
     attempt_problems: list[list[str]] = field(default_factory=list)
+    retry_skipped: bool = False
 
     def as_json(self) -> dict[str, Any]:
         return {
@@ -62,17 +68,33 @@ class BriefError(Exception):
 
 
 async def generate(
-    request: LeadBriefRequest, provider: Provider, settings: Settings, metrics: Metrics
+    request: LeadBriefRequest,
+    provider: Provider,
+    settings: Settings,
+    metrics: Metrics,
+    *,
+    deadline: float | None = None,
+    clock: Callable[[], float] = time.monotonic,
 ) -> tuple[LeadBrief, CallMeta]:
+    """`deadline`: a `clock()` reading by which the answer must be back. None: only the per-attempt limit."""
     meta = CallMeta(provider=provider.name, model=provider.model)
     messages = [{"role": "user", "content": build_user_message(request)}]
     started = time.perf_counter()
     outcome = "ok"
     try:
         for _ in range(MAX_ATTEMPTS):
+            timeout_ms = settings.ai_timeout_ms
+            if deadline is not None:
+                timeout_ms = min(timeout_ms, int((deadline - clock()) * 1000))
+                if timeout_ms <= 0:
+                    outcome = "timeout"
+                    raise BriefError("TIMEOUT", "no time left before the caller's deadline", meta)
             meta.attempts += 1
+            attempt_started = clock()
             try:
-                completion = await provider.complete(request=request, system=SYSTEM, messages=messages, schema=SCHEMA)
+                completion = await provider.complete(
+                    request=request, system=SYSTEM, messages=messages, schema=SCHEMA, timeout_ms=timeout_ms
+                )
             except ProviderTimeoutError as err:
                 outcome = "timeout"
                 raise BriefError("TIMEOUT", str(err), meta) from err
@@ -94,6 +116,11 @@ async def generate(
             meta.attempt_problems.append(checked.problems)
             if checked.brief is not None and not checked.problems:
                 return checked.brief, meta
+            took = clock() - attempt_started
+            if deadline is not None and deadline - clock() < RETRY_MARGIN * took:
+                meta.retry_skipped = True
+                outcome = "bad_output"
+                raise BriefError("BAD_OUTPUT", "the answer failed validation and a retry would not finish", meta)
             messages = [
                 *messages,
                 {"role": "assistant", "content": completion.text},
@@ -109,8 +136,10 @@ async def generate(
         ) / 1_000_000
         metrics.inc("lead_brief_requests_total", outcome=outcome)
         metrics.inc("lead_brief_attempts_total", meta.attempts)
+        metrics.inc("lead_brief_retries_skipped_total", int(meta.retry_skipped))
         metrics.inc("lead_brief_citations_rejected_total", meta.citations_rejected)
         metrics.inc("lead_brief_tokens_total", meta.input_tokens, direction="input")
         metrics.inc("lead_brief_tokens_total", meta.output_tokens, direction="output")
         # One line per call; problems are fixed sentences, never quotes of the answer or the notes.
-        log.info(json.dumps({"event": "lead_brief", "outcome": outcome, **meta.as_json(), "problems": meta.problems}))
+        line = {"event": "lead_brief", "outcome": outcome, **meta.as_json()}
+        log.info(json.dumps({**line, "retrySkipped": meta.retry_skipped, "problems": meta.problems}))

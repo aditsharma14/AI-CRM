@@ -33,5 +33,13 @@ class Provider(Protocol):
     model: str
 
     async def complete(
-        self, *, request: LeadBriefRequest, system: str, messages: list[dict[str, str]], schema: dict[str, Any]
-    ) -> Completion: ...
+        self,
+        *,
+        request: LeadBriefRequest,
+        system: str,
+        messages: list[dict[str, str]],
+        schema: dict[str, Any],
+        timeout_ms: int,
+    ) -> Completion:
+        """`timeout_ms`: this attempt's limit (the per-attempt limit, or less near the caller's deadline)."""
+        ...
