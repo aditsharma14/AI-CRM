@@ -3,6 +3,7 @@
 // one shared in-flight call, enforce the limits, re-check grounding, cache the result, and log one line per call.
 // What leaves the API for the AI service is listed in docs/ai.md; this file is where that list is enforced.
 import { createHash } from 'node:crypto'
+import { domainToASCII } from 'node:url'
 
 import { env } from '../config/index.js'
 import Activity from '../models/Activity.js'
@@ -21,7 +22,7 @@ import * as aiProxy from './aiProxyService.js'
  * What the AI service receives (docs/ai.md lists each field).
  * @typedef {object} Bundle
  * @property {string} today
- * @property {{ name: string, company: string | null, status: string, score: number | null, source: string | null, createdAt: string }} lead
+ * @property {{ name: string, company: string | null, companyDomain: string | null, status: string, score: number | null, source: string | null, createdAt: string }} lead
  * @property {Record<string, unknown>[]} history
  * @property {number} truncated
  */
@@ -33,6 +34,9 @@ export const BUNDLE_CHARS = 12_000
 export const ORG_CALLS_PER_HOUR = 20
 export const REFRESHES_PER_LEAD_PER_HOUR = 5
 const HOUR_MS = 3_600_000
+// A host name in its ASCII (punycode) form: dot-separated labels of letters, digits and inner hyphens, ending in a
+// letter TLD or a punycode one.
+const HOST_NAME = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/
 
 // In-memory, per process: correct for the one API instance compose runs (docs/known-issues.md: not shared across
 // replicas). Only calls that reach the AI service count; cache hits and joined in-flight calls are free.
@@ -82,8 +86,21 @@ const minutesLeft = (window, now) => Math.max(1, Math.ceil(((window[0] ?? now) +
 const cut = (text, max) => (text.length > max ? text.slice(0, max) : text)
 
 /**
+ * The company's website as the AI service may allow it: the `domain` field, lower case and without a trailing dot,
+ * only if it is a real host name (`пример.рф` is one, through its punycode form). Anything else, such as a URL with a
+ * path, is not sent: the brief's only allowed link is this domain, so a junk value must not widen it.
+ * @param {unknown} domain
+ * @returns {string | null}
+ */
+function websiteOf(domain) {
+  if (typeof domain !== 'string') return null
+  const host = domain.trim().toLowerCase().replace(/\.$/, '')
+  return /^[^\s/?#@:]+$/.test(host) && HOST_NAME.test(domainToASCII(host)) ? host : null
+}
+
+/**
  * The lead and up to 20 history items, newest first, within the size cap. Only these fields leave the API: the
- * lead's name, company name, status, score, source and creation date; per item its id, kind, type, title, text, date
+ * lead's name, company name and website, status, score, source and creation date; per item its id, kind, type, title, text, date
  * and status. Never an email, a phone number, a user, or any other id.
  * @param {string} orgId
  * @param {any} lead A lean lead with companyId populated.
@@ -140,6 +157,7 @@ async function buildBundle(orgId, lead) {
     lead: {
       name: lead.name,
       company: lead.companyId?.name ?? null,
+      companyDomain: websiteOf(lead.companyId?.domain),
       status: lead.status,
       score: lead.score ?? null,
       source: lead.source ?? null,
@@ -156,19 +174,21 @@ async function buildBundle(orgId, lead) {
 }
 
 /**
- * sha256 of everything the brief depends on: the org, the lead (its id and last change), each sent item's last change, and the service's
- * provider, model and prompt version. Same input, no second call; any edit or a new prompt makes a new key.
+ * sha256 of everything the brief depends on: the org, the lead (its id and last change), the company's website, each sent item's last
+ * change, and the service's provider, model and prompt version. Same input, no second call; any edit or a new prompt makes a new key.
  * @param {string} orgId
  * @param {any} lead
+ * @param {string | null} website The bundle's companyDomain: a company edit doesn't touch the lead's updatedAt.
  * @param {string[][]} versions
  * @param {import('../schemas/ai.js').AiInfo} info
  * @returns {string} hex digest
  */
-function cacheKey(orgId, lead, versions, info) {
+function cacheKey(orgId, lead, website, versions, info) {
   const input = [
     orgId,
     String(lead._id),
     new Date(lead.updatedAt).toISOString(),
+    website,
     versions,
     info.provider,
     info.model,
@@ -206,13 +226,13 @@ export async function generateLeadBrief(actor, leadId, { refresh = false }, log)
   if (!env.aiEnabled) throw aiProxy.aiUnavailable('AI features are turned off for this workspace.')
 
   const lead = await Lead.findOne({ _id: leadId, orgId: actor.orgId, ...scopeFor(actor, 'lead', 'read') })
-    .populate(scopedPopulate({ path: 'companyId', select: 'name' }, actor.orgId))
+    .populate(scopedPopulate({ path: 'companyId', select: 'name domain' }, actor.orgId))
     .lean()
   if (!lead) throw notFound('Lead not found.')
 
   const { bundle, versions } = await buildBundle(actor.orgId, lead)
   const info = await aiProxy.info()
-  const key = cacheKey(actor.orgId, lead, versions, info)
+  const key = cacheKey(actor.orgId, lead, bundle.lead.companyDomain, versions, info)
   /**
    * @param {Record<string, unknown>} fields
    * @returns {void}

@@ -45,7 +45,13 @@ export function buildBundle(db, lead, today) {
   const company = db.companies.find((c) => c._id === lead.companyId)
   return {
     today,
-    lead: { name: lead.name, company: company?.name ?? null, status: lead.status, source: lead.source ?? null },
+    lead: {
+      name: lead.name,
+      company: company?.name ?? null,
+      companyDomain: company?.domain ?? null,
+      status: lead.status,
+      source: lead.source ?? null,
+    },
     history: sent,
     truncated: items.length - sent.length,
   }
