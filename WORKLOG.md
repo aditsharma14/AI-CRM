@@ -1061,7 +1061,7 @@ injection cases; move the per-process rate limits to Mongo or Redis before a sec
 ## 2026-11-05 · S2-lite follow-ups: bare-domain links, the retry deadline, failed outputs in eval reports
 
 **Goal:** close the two known issues the first local eval exposed, and make the next eval show what a failing model
-actually wrote. First change through a branch and a PR (`fix/ai-links-deadline`); merged by the owner with "Rebase and
+actually wrote. First change through a branch and a PR (#35, `fix/ai-links-deadline`); merged by the owner with "Rebase and
 merge" once CI is green. The real eval was not rerun.
 
 **Commits**
@@ -1101,16 +1101,16 @@ merge" once CI is green. The real eval was not rerun.
 ## 2026-11-06 · Links only from structured fields
 
 **Goal:** a link in the brief may come only from a structured CRM field (the company's website), never from note or
-activity text, and look-alike hosts in other scripts never pass. Branch `fix/ai-links-structured`, one PR, merged by
+activity text, and look-alike hosts in other scripts never pass. Branch `fix/ai-links-structured`, one PR (#36), merged by
 the owner. The real eval was not rerun.
 
 **Commits**
 
 | Commit | Change |
 |---|---|
-| `85326ff` | AI service: the only allowed link is on `lead.companyDomain` (ASCII subdomains too); hosts compared lower case, without a trailing dot, as punycode; a non-ASCII or punycode host must equal the domain exactly; `find_links` sees non-ASCII hosts and hosts after any scheme (`hxxps://`); prompt `lead-brief/2` (31 tests red first, then 1 more for `hxxps://`) |
-| `42dd0ad` | Express: `companyDomain` in the bundle, only if it is a real host name (`node:url` `domainToASCII`); part of the cache key; the demo mirrors it (13 tests red first) |
-| this commit | docs/ai.md, known-issues (resolved; the gaps left are named), #35's commit ids corrected after its rebase-merge, this entry |
+| #36 | AI service: the only allowed link is on `lead.companyDomain` (ASCII subdomains too); hosts compared lower case, without a trailing dot, as punycode; a non-ASCII or punycode host must equal the domain exactly; `find_links` sees non-ASCII hosts and hosts after any scheme (`hxxps://`); prompt `lead-brief/2` (31 tests red first, then 1 more for `hxxps://`) |
+| #36 | Express: `companyDomain` in the bundle, only if it is a real host name (`node:url` `domainToASCII`); part of the cache key; the demo mirrors it (13 tests red first) |
+| #36 | docs/ai.md, known-issues (resolved; the gaps left are named), #35's commit ids corrected after its rebase-merge, this entry |
 
 **Decisions**
 - **Subdomains allowed for ASCII hosts only.** `shop.sahyadri.co.in` passes; `оплата.sahyadri.co.in` and `www.пример.рф`

@@ -231,10 +231,11 @@ Read in [backend/src/config/index.js](backend/src/config/index.js) (`GIT_COMMIT`
 1. **Plan first.** For anything beyond a trivial fix, explore, then present a plan and wait for approval.
 2. **Run tests and lint before saying done**, and show the output. If no tests exist for the area, say so explicitly.
 3. **Update [WORKLOG.md](WORKLOG.md) at the end of every session:** goal, what changed, how it was verified, next steps.
-4. **Every change is a PR.** A short branch off `main` (`<type>/<short-description>`), one task per PR, merged with
-   **Rebase and merge** once the 6 CI checks are green, so every commit lands on `main` as written. Never push to
-   `main` (a ruleset blocks it, and force pushes). Commit, push and open the PR only when asked.
+4. **Every change is a PR.** A short branch off `main` (`<type>/<short-description>`), one task per PR. Once the 6 CI
+   checks are green, the owner merges it with **Rebase and merge** (Claude never merges). Never push to `main` (a
+   ruleset blocks it, and force pushes). Commit, push and open the PR only when asked.
 5. When editing this file, re-run the path check so every referenced path exists.
+6. **Docs cite PR numbers (#35), never commit ids:** Rebase and merge rewrites ids ([conventions](docs/conventions.md#citing-changes)).
 
 ## 9. Known gaps
 

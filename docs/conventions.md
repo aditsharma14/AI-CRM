@@ -133,3 +133,14 @@ The backend stays JavaScript and has no build step. [backend/tsconfig.json](../b
   refuses to start with `NODE_ENV=production`.
 - **Windows:** Playwright stops its servers with `taskkill`, so `C:\Windows\System32` must be on `PATH`. Without it the run
   passes and then hangs on teardown. Normal terminals already have it on `PATH`; some agent or Git Bash shells don't.
+
+## Citing changes
+
+`main` takes changes through pull requests merged with **Rebase and merge**, which replays each commit onto `main`
+with a new id. An id quoted from the branch then points at nothing (it happened to #35's ids, fixed in #36).
+
+- **Docs cite the PR number:** `#36`, in WORKLOG tables, known-issues rows, docs/ai.md and anywhere else.
+  GitHub links it and it never changes.
+- **A commit id only for work that never had a PR** (the early sessions, committed straight to `main`), and only an
+  id that is on `main`: `git merge-base --is-ancestor <id> main` must succeed.
+- **Not yet merged?** Write the PR number: it's known as soon as the PR is open.
