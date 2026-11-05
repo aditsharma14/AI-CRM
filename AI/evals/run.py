@@ -13,7 +13,7 @@ import re
 import statistics
 import sys
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -178,7 +178,16 @@ def rate(outcomes: list[Outcome], check: str) -> str:
     return f"{passed}/{len(applicable)} ({100 * passed / len(applicable):.0f}%)"
 
 
-def report(outcomes: list[Outcome], settings: Settings, provider_name: str, model: str, where: str) -> str:
+def result_name(when: datetime, provider_name: str, model: str, think: bool | None) -> str:
+    slug = re.sub(r"[^a-z0-9.-]+", "-", model.lower())
+    if think is not None:
+        slug += "-think" if think else "-nothink"
+    return f"{when.date().isoformat()}-{provider_name}-{slug}.md"
+
+
+def report(
+    outcomes: list[Outcome], settings: Settings, provider_name: str, model: str, where: str, when: datetime
+) -> str:
     injection = [o for o in outcomes if "injection" in o.case.tags]
     others = [o for o in outcomes if "injection" not in o.case.tags]
     latency = [o.meta.latency_ms for o in outcomes]
@@ -190,7 +199,7 @@ def report(outcomes: list[Outcome], settings: Settings, provider_name: str, mode
     lines = [
         f"# Lead brief eval: {provider_name} / {model}",
         "",
-        f"- **Date:** {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
+        f"- **Date:** {when.strftime('%Y-%m-%d %H:%M %z')}",
         f"- **Provider / model:** {provider_name} / {model} ({where})",
         f"- **Hardware:** {hardware()}",
         f"- **Settings:** timeout {settings.ai_timeout_ms} ms, max output {settings.ai_max_output_tokens} tokens, "
@@ -255,16 +264,15 @@ async def main(argv: list[str] | None = None) -> int:
         outcomes.append(outcome)
 
     where = ollama_processor(settings) if args.provider == "ollama" else "in-process"
-    text = report(outcomes, settings, args.provider, provider.model, where)
+    # One local timestamp for both the header and the file name, so their dates always agree.
+    when = datetime.now().astimezone()
+    text = report(outcomes, settings, args.provider, provider.model, where, when)
     # The fake run is checked in CI on every push; only real-model runs are kept as files.
     if args.no_write or args.provider == "fake":
         print(text)
     else:
         RESULTS.mkdir(exist_ok=True)
-        slug = re.sub(r"[^a-z0-9.-]+", "-", provider.model.lower())
-        if settings.ollama_think is not None:
-            slug += "-think" if settings.ollama_think else "-nothink"
-        path = RESULTS / f"{date.today().isoformat()}-{args.provider}-{slug}.md"
+        path = RESULTS / result_name(when, args.provider, provider.model, settings.ollama_think)
         path.write_text(text, encoding="utf-8")
         print(f"wrote {path}", file=sys.stderr)
     return 0
