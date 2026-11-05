@@ -1,6 +1,8 @@
 # Weekly dependency updates, one PR per ecosystem and folder for all minor and patch bumps (majors stay separate,
 # one PR each, since they can break). Security updates are not grouped: each arrives as soon as it is published.
 # Commit messages follow CONTRIBUTING.md: chore(deps) for packages, ci(deps) for workflow actions.
+# Ignored majors wait for a decision (#48 triage, 2026-11-06): TypeScript 7 gets its own PR later; Tailwind 4 is a
+# config-to-CSS migration; @hookform/resolvers and dotenv majors bring nothing we need. Remove an entry to get them back.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -13,6 +15,11 @@ updates:
     groups:
       backend-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: dotenv
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
     directory: /frontend
@@ -24,6 +31,13 @@ updates:
     groups:
       frontend-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: tailwindcss
+        update-types: [version-update:semver-major]
+      - dependency-name: '@hookform/resolvers'
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: pip
     directory: /AI
