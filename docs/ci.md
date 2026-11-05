@@ -49,7 +49,7 @@ The backend job fails if **`src/services` line coverage drops below 98.65%** (`c
 minus 1. When coverage rises, raise the threshold with it; never lower it to make a change pass.
 
 The README shows two static shields.io badges for `src/services`: **line** coverage (the gated number) and
-**branch** coverage (89.13% on 2026-11-05; not gated), so the line number isn't read as the whole story. Update both in
+**branch** coverage (89.36% on 2026-11-06; not gated), so the line number isn't read as the whole story. Update both in
 a docs commit when the numbers change. They aren't live because a live badge needs the number published somewhere
 (a gist and a token secret, or a bot commit back to `main`); the gate already catches a real drop.
 

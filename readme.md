@@ -5,8 +5,8 @@
 [![Live demo](https://img.shields.io/badge/live%20demo-GitHub%20Pages-2ea44f)](https://aditsharma14.github.io/AI-CRM/login)
 [![Pages](https://github.com/aditsharma14/AI-CRM/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/aditsharma14/AI-CRM/actions/workflows/pages.yml)
 [![CI](https://github.com/aditsharma14/AI-CRM/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aditsharma14/AI-CRM/actions/workflows/ci.yml)
-[![Line coverage: backend services](https://img.shields.io/badge/lines%20(services)-99.74%25-brightgreen)](docs/ci.md#coverage)
-[![Branch coverage: backend services](https://img.shields.io/badge/branches%20(services)-89.13%25-green)](docs/ci.md#coverage)
+[![Line coverage: backend services](https://img.shields.io/badge/lines%20(services)-99.75%25-brightgreen)](docs/ci.md#coverage)
+[![Branch coverage: backend services](https://img.shields.io/badge/branches%20(services)-89.36%25-green)](docs/ci.md#coverage)
 
 A multi-tenant sales CRM: leads, contacts, companies, a deals pipeline, tasks, calendar, and org and role management,
 backed by an Express API. One AI feature, the **lead brief**: on a lead's page, a summary, a next step and a draft

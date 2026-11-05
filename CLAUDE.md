@@ -188,7 +188,7 @@ Read in [backend/src/config/index.js](backend/src/config/index.js) (`GIT_COMMIT`
 - **Tests:** `npm test` in `backend/` (Vitest + supertest + mongodb-memory-server; first run downloads a ~70 MB mongod) and in
   `frontend/` (Vitest + Testing Library + MSW). No `.env` needed. **e2e:** `npm run e2e` in `frontend/` (Playwright; starts its
   own API on in-memory Mongo, the AI service + Vite on :5055/:5057/:5175; first time: `npx playwright install chromium`). AI: `pytest` in `AI/`.
-- **Coverage and budgets:** `npm run test:coverage` in both (backend `src/services` 99.74% lines, 89.13% branches, 2026-11-05). Budgets ([bench/](bench/)): lead
+- **Coverage and budgets:** `npm run test:coverage` in both (backend `src/services` 99.75% lines, 89.36% branches, 2026-11-06). Budgets ([bench/](bench/)): lead
   list p95 under 200 ms at 100k leads on the bench machine (28 ms); first-load JS under [bundle-budget.json](frontend/bundle-budget.json) (CI).
 - **Checks (repo root):** `npm run lint` (ESLint, zero warnings, plus ruff), `npm run typecheck`, `npm run format:check`. The husky
   pre-commit hook runs them on staged files and blocks the commit; see [CONTRIBUTING.md](CONTRIBUTING.md). Logs are pino JSON.
