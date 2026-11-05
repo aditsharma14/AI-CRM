@@ -53,6 +53,14 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Open questions
 - What exactly happens if a token lacked `orgId`? Mongoose likely casts it to `null` and matches nothing. (A token whose
   org *document* is gone gets a 404; see [missing-org.test.js](../backend/tests/missing-org.test.js).) Not tested.
+- **One backend test failed once, unidentified (2026-11-06).** A local `npm run test:coverage` reported 1 failed of
+  682 and took about 31 minutes instead of about 150 s, with nothing else of ours running. The output went through a
+  filter that dropped the test's name. Tried since, all 682/682 with the JSON reporter keeping any failure's name:
+  5 runs beside a frontend build loop and test run (166-177 s), and 3 beside three build loops plus repeated
+  `npm ci` (186-216 s). None got near 31 minutes, so the stall itself wasn't reproduced; a disk stall after two
+  `npm ci` worktrees were created and deleted is a guess, not a finding. The search found one load-dependent
+  assertion (the reset token's expiry, 6 s of slack) and made it exact. If it happens again, keep the run's full
+  output: `npx vitest run --reporter=default --reporter=json --outputFile.json=<file>`.
 
 ## Resolved
 | Date | Issue | Fix |
