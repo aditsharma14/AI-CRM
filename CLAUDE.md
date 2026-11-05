@@ -245,5 +245,4 @@ Open gaps only. Smaller findings, open questions and everything resolved (with d
 1. **No email verification.** All users are created with `isEmailVerified: true`. (Reset works end to end since S1.7.)
 2. **No email sending** (`EMAIL_ENABLED=false`): no reset offered; the inviting admin copies the invite link. Dev logs the links.
 3. **One AI feature** (the lead brief). The rescore promised in [leadsService.js](backend/src/services/leadsService.js) doesn't exist.
-   Upload stubs: [upload.js](backend/src/middleware/upload.js), [cloudinaryUpload.js](backend/src/utils/cloudinaryUpload.js), [FileUploader.jsx](frontend/src/components/FileUploader.jsx).
 4. **No Kanban board.** [PipelinePage.jsx](frontend/src/features/deals/PipelinePage.jsx) renders a table.
