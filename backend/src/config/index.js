@@ -27,7 +27,7 @@ function parseTrustProxy(raw) {
 
 // No email provider until S2.6. While off, the frontend hides password reset and an invite's link goes back to
 // the admin who created it (orgAdminService.inviteMember).
-// A local model on a CPU is slow: 1 s to 5 min, default 90 s (llama3.2:3b's measured p95 is 52.3 s; docs/ai.md).
+// A local model on a CPU is slow: 1 s to 5 min, default 90 s (llama3.2:3b's measured p95 is 52,277 ms; docs/ai.md).
 function parseTimeoutMs(raw) {
   if (raw === undefined || raw === '') return 90_000
   const ms = Number(raw)

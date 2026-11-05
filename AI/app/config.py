@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     ai_max_output_tokens: int = Field(default=800, ge=128, le=8000)
     # One attempt gets this whole budget; Express aborts a little later (its AI_TIMEOUT_MS plus a margin). 90 s: the
-    # measured p95 of llama3.2:3b on a CPU is 52.3 s, its slowest brief 56.3 s (docs/ai.md#results).
+    # measured p95 of llama3.2:3b on a CPU is 52,277 ms, its slowest brief 56,331 ms (docs/ai.md#results).
     ai_timeout_ms: int = Field(default=90_000, ge=1000, le=300_000)
 
     # USD per million tokens. Zero: both providers are free. A paid hosted model needs only these and a provider.

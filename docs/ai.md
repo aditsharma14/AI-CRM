@@ -154,8 +154,8 @@ in six tries", not "resists injection". Temperature 0 makes a rerun on the same 
 runs add little; more and different attack cases would.
 
 **Shipping `llama3.2:3b` locally.** It produced all 19 briefs, every one valid and grounded on the first try, and
-its p95 (52.3 s) is below `qwen3:4b`'s p50 (70.0 s). `qwen3:4b` did better on one check (due dates, 10/10 against
-9/10) and worse on ten, nine of those from its one failed case; its 144.5 s p95 is too slow for someone waiting on a
+its p95 (52,277 ms) is below `qwen3:4b`'s p50 (69,977 ms). `qwen3:4b` did better on one check (due dates, 10/10 against
+9/10) and worse on ten, nine of those from its one failed case; its 144,540 ms p95 is too slow for someone waiting on a
 button. A bigger local model would only be slower on this CPU, so `qwen3:8b` was not run. **For production with real
 customer notes, the injection results argue for a stronger hosted model.** No contact detail or link the checks look
 for reached a rep in either run. But 3 of the 12 injection runs across the two models went wrong: in two, an email
@@ -179,7 +179,7 @@ took 14 s here).
 and instruction following and summarization as intended uses). Chosen for a CPU-only laptop, measured on the dev
 machine (AMD Ryzen 7 8840HS, 31 GB RAM, Radeon 780M iGPU unused: Ollama ran 100% on CPU): the 8B `llama3.1`
 processed prompts at 42 tokens/s and generated at 4.0 tokens/s, so a ~2,000-token brief would take well over a
-minute. The eval confirmed the choice ([Results](#results)): p95 52.3 s, against 144.5 s for `qwen3:4b` (2.5 GB)
+minute. The eval confirmed the choice ([Results](#results)): p95 52,277 ms, against 144,540 ms for `qwen3:4b` (2.5 GB)
 even with its thinking turned off (`OLLAMA_THINK=false`). `gemma3:4b` (3.4 GB, with vision weights the brief
 doesn't use) was not run.
 
