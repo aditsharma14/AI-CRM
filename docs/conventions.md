@@ -131,8 +131,23 @@ The backend stays JavaScript and has no build step. [backend/tsconfig.json](../b
 - **Tokens are planted, not scraped**, as in the backend tests: e2e-server.js has a control port on `127.0.0.1:5056`
   (`POST /reset-token {email}` → `{token}`, via `issueResetToken`). It exists only in that script, and the script
   refuses to start with `NODE_ENV=production`.
-- **Windows:** Playwright stops its servers with `taskkill`, so `C:\Windows\System32` must be on `PATH`. Without it the run
-  passes and then hangs on teardown. Normal terminals already have it on `PATH`; some agent or Git Bash shells don't.
+- **Windows: the teardown hang.** Playwright stops its servers with `taskkill`, so `C:\Windows\System32` must be on
+  `PATH`. Without it the tests pass and the run never exits, and its servers (the e2e API, the AI service, Vite, the
+  Pages server) keep running. The next run then fails: their ports are taken (:5055–:5057, :5175, :4176), and Vite's
+  lock on rolldown's native binding makes `npm ci` in `frontend/` fail with EPERM. Normal terminals have System32 on
+  `PATH`; some agent and Git Bash shells don't. Check with `which taskkill` (Git Bash) or `where.exe taskkill`.
+  - **Prevent it:** *append* System32, `export PATH="$PATH:/c/Windows/System32"`. Prepending it shadows Git Bash's
+    `timeout`, `find` and `sort` with the Windows tools of the same name.
+  - **Clean up after a hang** (PowerShell; it lists the leftovers first, then stops only those):
+
+    ```powershell
+    $left = Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+      Where-Object CommandLine -Match 'playwright|e2e-server\.js|ai-serve\.mjs|pages-server\.mjs|vite.*--port 5175|mongo_killer'
+    $left | Select-Object ProcessId, CommandLine
+    $left | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+    ```
+
+    The e2e API's in-memory `mongod.exe` exits on its own once its parent is gone (`mongo_killer.js` watches it).
 
 ## Citing changes
 
