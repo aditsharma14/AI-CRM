@@ -1068,11 +1068,11 @@ merge" once CI is green. The real eval was not rerun.
 
 | Commit | Change |
 |---|---|
-| `4fae5f2` | link check: bare domains on a TLD list (English-word TLDs only with a hyphen, three labels or a path); a link passes only if the history holds the same link (scheme and `www.` aside), so a defanged `hxxps://` link doesn't license its re-fanged form; eval case 20 `injection-bare-domain` (11 tests red first) |
-| `0a75074` | AI service honours `X-Deadline-Ms`: each attempt gets min(`AI_TIMEOUT_MS`, time left); the retry runs only if the time left is at least 1.2x the first attempt, else `BAD_OUTPUT` with `retrySkipped` in the log; a bad header is 422 (red first) |
-| `fa7e6bd` | Express sends `X-Deadline-Ms: AI_TIMEOUT_MS` (red first) |
-| `bf727d8` | eval reports: for each case with a failed check, every attempt's validation problems and raw output, via an eval-only `RecordingProvider` (red first) |
-| this commit | docs/ai.md, known-issues (both resolved; the gaps left are named), this entry |
+| `b498281` | link check: bare domains on a TLD list (English-word TLDs only with a hyphen, three labels or a path); a link passes only if the history holds the same link (scheme and `www.` aside), so a defanged `hxxps://` link doesn't license its re-fanged form; eval case 20 `injection-bare-domain` (11 tests red first) |
+| `a1d6422` | AI service honours `X-Deadline-Ms`: each attempt gets min(`AI_TIMEOUT_MS`, time left); the retry runs only if the time left is at least 1.2x the first attempt, else `BAD_OUTPUT` with `retrySkipped` in the log; a bad header is 422 (red first) |
+| `eb055d7` | Express sends `X-Deadline-Ms: AI_TIMEOUT_MS` (red first) |
+| `1e8300a` | eval reports: for each case with a failed check, every attempt's validation problems and raw output, via an eval-only `RecordingProvider` (red first) |
+| `8272b7d` | docs/ai.md, known-issues (both resolved; the gaps left are named), this entry |
 
 **Decisions**
 - **Retry cutoff 1.2x the first attempt**, not a rolling or configured p95: same model, input and hardware predict the
@@ -1097,3 +1097,37 @@ merge" once CI is green. The real eval was not rerun.
 | e2e | not run locally; in the PR's CI |
 
 **Next:** the owner reruns `npm run eval -- --provider ollama` on 20 cases; failed cases now carry their output.
+
+## 2026-11-06 · Links only from structured fields
+
+**Goal:** a link in the brief may come only from a structured CRM field (the company's website), never from note or
+activity text, and look-alike hosts in other scripts never pass. Branch `fix/ai-links-structured`, one PR, merged by
+the owner. The real eval was not rerun.
+
+**Commits**
+
+| Commit | Change |
+|---|---|
+| `85326ff` | AI service: the only allowed link is on `lead.companyDomain` (ASCII subdomains too); hosts compared lower case, without a trailing dot, as punycode; a non-ASCII or punycode host must equal the domain exactly; `find_links` sees non-ASCII hosts and hosts after any scheme (`hxxps://`); prompt `lead-brief/2` (31 tests red first, then 1 more for `hxxps://`) |
+| `42dd0ad` | Express: `companyDomain` in the bundle, only if it is a real host name (`node:url` `domainToASCII`); part of the cache key; the demo mirrors it (13 tests red first) |
+| this commit | docs/ai.md, known-issues (resolved; the gaps left are named), #35's commit ids corrected after its rebase-merge, this entry |
+
+**Decisions**
+- **Subdomains allowed for ASCII hosts only.** `shop.sahyadri.co.in` passes; `оплата.sahyadri.co.in` and `www.пример.рф`
+  must equal the domain, since a non-ASCII label is where look-alikes hide.
+- **Non-ASCII TLDs count only in a non-Latin script and with 2+ characters** (`рф`, `भारत`), so "Gracias.Señor" and
+  "Merci.À" stay text; a sweep found "Merci.À" before the rule. Left as a cost: "Привет.Как" (a missing space in
+  Russian) reads as an IDN and causes a retry.
+- **AI service first, then Express:** the new field is optional, so the service accepts it before Express sends it.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Backend `npm run test:coverage` | **682 passed** (37 files); `src/services` lines 99.75% |
+| Frontend `npm test` | **330 passed** (28 files) |
+| AI `pytest` | **152 passed** (was 131); ruff clean |
+| Root `lint`, `typecheck` | clean |
+| e2e | not run locally; in the PR's CI |
+
+**Next:** the owner reruns the Ollama eval (20 cases, `lead-brief/2`).
