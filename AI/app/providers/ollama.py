@@ -22,7 +22,13 @@ class OllamaProvider:
         self._client = client or httpx.AsyncClient()
 
     async def complete(
-        self, *, request: LeadBriefRequest, system: str, messages: list[dict[str, str]], schema: dict[str, Any]
+        self,
+        *,
+        request: LeadBriefRequest,
+        system: str,
+        messages: list[dict[str, str]],
+        schema: dict[str, Any],
+        timeout_ms: int,
     ) -> Completion:
         s = self._settings
         body = {
@@ -39,7 +45,7 @@ class OllamaProvider:
         if s.ollama_think is not None:
             body["think"] = s.ollama_think
         try:
-            res = await self._client.post(self._url, json=body, timeout=s.ai_timeout_ms / 1000)
+            res = await self._client.post(self._url, json=body, timeout=timeout_ms / 1000)
         except httpx.TimeoutException as err:
             raise ProviderTimeoutError("the local model did not answer in time") from err
         except httpx.HTTPError as err:
