@@ -1,6 +1,6 @@
 // @ts-check
 // The GitHub Pages demo as a visitor meets it: no backend, the API in a service worker, served like Pages
-// (404.html for any client route). pages.yml deploys only if this passes.
+// (a copy of index.html per route, 404.html for a route with a parameter). pages.yml deploys only if this passes.
 import { expect, test } from '@playwright/test'
 
 const DEAL = 'Tapti Logistics: label printers'
@@ -48,10 +48,10 @@ test('sign in as the Sales Manager, close a deal as Won from the Pipeline, the D
 })
 
 for (const path of ['pipeline', 'deals']) {
-  test(`a hard reload of /AI-CRM/${path} loads the app, not a 404 page`, async ({ page }) => {
-    // First visit straight to the deep link: Pages answers with 404.html, which is the app.
+  test(`a hard reload of /AI-CRM/${path} loads the app with status 200`, async ({ page }) => {
+    // First visit straight to the deep link: Pages answers with the route's copy of index.html.
     const response = await page.goto(path)
-    expect(response?.status()).toBe(404)
+    expect(response?.status()).toBe(200)
     await expect(page.getByRole('heading', { name: 'Pipeline' })).toBeVisible()
     await expect(page).toHaveURL(/\/AI-CRM\/deals$/)
 
@@ -68,3 +68,10 @@ for (const path of ['pipeline', 'deals']) {
     await expect(page.getByText(DEAL)).toBeVisible()
   })
 }
+
+test('a hard reload of a route with a parameter still loads the app, through 404.html', async ({ page }) => {
+  // /leads/:id can't have a file of its own, so Pages answers 404 with the app (scripts/pages-routes.mjs).
+  const response = await page.goto(`leads/${'0'.repeat(24)}`)
+  expect(response?.status()).toBe(404)
+  await expect(page.getByRole('note', { name: 'Demo mode' })).toBeVisible()
+})

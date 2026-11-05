@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // Fails if a normal build (frontend/dist) contains any part of the GitHub Pages demo: MSW, its worker, the 404.html
-// fallback, the seed data or the demo handlers. CI runs it after `npm run build`; locally:
+// fallback and per-route copies, the seed data or the demo handlers. CI runs it after `npm run build`; locally:
 //   npm run build && node scripts/check-no-demo.mjs        (or point it at another folder: ... dist-other)
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
+
+import { STATIC_ROUTES } from './pages-routes.mjs'
 
 const dir = process.argv[2] ?? 'dist'
 if (!existsSync(join(dir, 'index.html'))) {
@@ -12,7 +14,7 @@ if (!existsSync(join(dir, 'index.html'))) {
 }
 
 // Files only the demo build emits, and strings only the demo's code contains.
-const FILES = ['mockServiceWorker.js', '404.html']
+const FILES = ['mockServiceWorker.js', '404.html', ...STATIC_ROUTES.map((route) => `${route}.html`)]
 const MARKERS = [
   'mockServiceWorker', // the worker's URL in start.js
   'NOT_AVAILABLE_IN_DEMO', // handlers.js

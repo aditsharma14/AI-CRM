@@ -1,5 +1,5 @@
-// A static server that behaves like GitHub Pages for this repo: dist/ is served under /AI-CRM/, and any path with no
-// file gets dist/404.html with status 404 (Pages' only SPA hook). No dependencies.
+// A static server that behaves like GitHub Pages for this repo: dist/ is served under /AI-CRM/, /AI-CRM/deals is
+// dist/deals.html if there is one (status 200), and any other path gets dist/404.html with status 404. No dependencies.
 //   node e2e-demo/pages-server.mjs [port]      after VITE_DEMO=true npm run build
 import { createReadStream, existsSync, statSync } from 'node:fs'
 import { createServer } from 'node:http'
@@ -31,6 +31,7 @@ createServer((req, res) => {
     let file = normalize(join(ROOT, path.slice(BASE.length)))
     if (file.startsWith(normalize(ROOT)) && existsSync(file) && statSync(file).isDirectory())
       file = join(file, 'index.html')
+    else if (!existsSync(file) && existsSync(`${file}.html`)) file = `${file}.html`
     if (file.startsWith(normalize(ROOT)) && existsSync(file) && statSync(file).isFile()) return send(res, 200, file)
   }
   send(res, 404, join(ROOT, '404.html'))
