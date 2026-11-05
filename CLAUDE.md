@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Project memory for **Nimbus CRM**: a multi-tenant sales CRM with an AI assistant layer.
-Read this before changing anything. Overview: [readme.md](readme.md). History: [WORKLOG.md](WORKLOG.md). Detail: [docs/conventions.md](docs/conventions.md), [docs/known-issues.md](docs/known-issues.md).
+Read this before changing anything. Overview: [readme.md](readme.md). History: [WORKLOG.md](WORKLOG.md) (recent sessions; older ones in [docs/history.md](docs/history.md)). Detail: [docs/conventions.md](docs/conventions.md), [docs/known-issues.md](docs/known-issues.md).
 
 ## 1. Architecture
 
