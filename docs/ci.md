@@ -37,7 +37,7 @@ run never exits after the tests pass ([the teardown hang](conventions.md#end-to-
   an AI lead brief is generated (the api calling the ai service with its token) and the second one comes from the cache,
   the session refreshes, and after logout the old refresh token gets 401. Locally: `node scripts/smoke.mjs http://localhost:8080`.
 
-The AI container sits behind the `ai` compose profile until S2.1, so the stack is `client`, `api` and `mongo`.
+The stack is all four services: `client`, `api`, `mongo` and `ai` (on the fake provider).
 
 **Caching:** npm in every Node job (keyed on the lockfiles) and pip in the `ai` job (keyed on
 `AI/requirements-dev.txt`). Docker layers aren't cached; the whole docker job, builds included, takes about 50 s.
@@ -49,7 +49,7 @@ The backend job fails if **`src/services` line coverage drops below 98.65%** (`c
 minus 1. When coverage rises, raise the threshold with it; never lower it to make a change pass.
 
 The README shows two static shields.io badges for `src/services`: **line** coverage (the gated number) and
-**branch** coverage (89.36% on 2026-11-06; not gated), so the line number isn't read as the whole story. Update both in
+**branch** coverage (88.85% on 2026-11-06; not gated), so the line number isn't read as the whole story. Update both in
 a docs commit when the numbers change. They aren't live because a live badge needs the number published somewhere
 (a gist and a token secret, or a bot commit back to `main`); the gate already catches a real drop.
 

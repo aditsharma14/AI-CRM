@@ -49,7 +49,8 @@ stop, under about 80 characters. Types: `feat`, `fix`, `refactor`, `test`, `docs
 
 ## Pull requests
 
-Every change reaches `main` through a pull request; nobody pushes to `main`. A ruleset on `main` enforces it:
+Every change since #29 reaches `main` through a pull request; nobody pushes to `main`. (Before #29 only #1-4 were pull
+requests; the rest of that history was pushed to `main` directly.) A ruleset on `main` enforces it:
 
 - a pull request is required (no direct pushes, no force pushes, no deleting the branch);
 - the six CI jobs (`repo`, `ai`, `backend`, `frontend`, `e2e`, `docker`) must pass;

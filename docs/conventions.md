@@ -75,8 +75,8 @@ The backend stays JavaScript and has no build step. [backend/tsconfig.json](../b
   service code, confirm the specific test fails with a meaningful diff, then revert. (S1.1 and S1.1b each did this.)
 - **Pinning suspect behaviour.** If a test must encode behaviour that looks wrong, mark it `// suspect: <why>` and list
   it in [known-issues.md](known-issues.md). Whoever fixes it flips the test.
-- **Coverage.** `npm run test:coverage` (v8, over services, policies and utils; the empty `aiProxyService.js` is
-  excluded until S2.2).
+- **Coverage.** `npm run test:coverage` (v8, over services, policies and utils, nothing excluded; `aiProxyService.js`
+  was left out while it was an empty stub and is counted since it was built).
 
 ## Frontend tests
 
@@ -91,6 +91,8 @@ The backend stays JavaScript and has no build step. [backend/tsconfig.json](../b
   - [render.jsx](../frontend/tests/render.jsx): `renderWithProviders(ui, { session, route, strict })` wraps the real
     QueryClient, router, `SessionProvider` and `ProtectedRoute`. The session is restored through a mocked
     `POST /auth/refresh`, never a mocked context, so every test runs the real bootstrap.
+- **Coverage scope.** `npm run test:coverage` reports only `src/api` and `src/context` (78 statements, the session
+  plumbing), so its 100% says nothing about the pages, which behaviour tests cover. It isn't gated.
 - **Unhandled requests fail the test.** [setup.js](../frontend/tests/setup.js) collects them and throws in `afterEach`.
   MSW's plain `'error'` mode isn't enough: it only logs, and Vitest hides the logs of passing tests. Mock every
   endpoint a component calls, including the ones it reads in the background (e.g. Pipeline reads `/org/pipeline-stages`).
