@@ -48,9 +48,10 @@ The backend job fails if **`src/services` line coverage drops below 98.65%** (`c
 [backend/vitest.config.js](../backend/vitest.config.js)). That's the 99.65% measured when the gate was set (S1.6),
 minus 1. When coverage rises, raise the threshold with it; never lower it to make a change pass.
 
-The README's coverage badge is a static shields.io badge with that same number. Update it in a docs commit when
-the number changes. It isn't live because a live badge needs the number published somewhere (a gist and a token
-secret, or a bot commit back to `main`); the gate already catches a real drop.
+The README shows two static shields.io badges for `src/services`: **line** coverage (the gated number) and
+**branch** coverage (89.13% on 2026-11-05; not gated), so the line number isn't read as the whole story. Update both in
+a docs commit when the numbers change. They aren't live because a live badge needs the number published somewhere
+(a gist and a token secret, or a bot commit back to `main`); the gate already catches a real drop.
 
 Locally: `npm run test:coverage` in `backend/` prints the table and applies the same threshold.
 
