@@ -75,7 +75,7 @@ describe('AI_INTERNAL_TOKEN', () => {
   it('AI off needs no token; AI_TIMEOUT_MS is checked', async () => {
     const { env } = await bootWith({ AI_ENABLED: 'false', AI_INTERNAL_TOKEN: '' })
     expect(env.aiEnabled).toBe(false)
-    expect(env.aiTimeoutMs).toBe(60_000)
+    expect(env.aiTimeoutMs).toBe(90_000)
     vi.resetModules()
     await expect(bootWith({ AI_TIMEOUT_MS: '500' })).rejects.toThrow(/AI_TIMEOUT_MS/)
   })

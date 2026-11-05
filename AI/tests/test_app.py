@@ -30,3 +30,10 @@ def test_defaults_are_the_fake_provider_and_a_free_local_model(settings) -> None
     assert settings.ai_provider == "fake"
     assert settings.ollama_model == "llama3.2:3b"
     assert (settings.ai_price_input_per_mtok, settings.ai_price_output_per_mtok) == (0.0, 0.0)
+
+
+def test_the_default_time_limit_covers_the_measured_p95(monkeypatch) -> None:
+    # llama3.2:3b on the dev CPU: p95 52,277 ms, slowest 56,331 ms (AI/evals/results/2026-11-05-ollama-llama3.2-3b.md).
+    monkeypatch.delenv("AI_TIMEOUT_MS", raising=False)
+    s = Settings(_env_file=None, ai_internal_token="test-internal-token-000")  # type: ignore[call-arg]
+    assert s.ai_timeout_ms == 90_000
