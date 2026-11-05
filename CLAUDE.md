@@ -188,7 +188,8 @@ Read in [backend/src/config/index.js](backend/src/config/index.js) (`GIT_COMMIT`
 - **Tests:** `npm test` in `backend/` (Vitest + supertest + mongodb-memory-server; first run downloads a ~70 MB mongod) and in
   `frontend/` (Vitest + Testing Library + MSW). No `.env` needed. **e2e:** `npm run e2e` in `frontend/` (Playwright; starts its
   own API on in-memory Mongo, the AI service + Vite on :5055/:5057/:5175; first time: `npx playwright install chromium`). AI: `pytest` in `AI/`.
-- **Coverage and budgets:** `npm run test:coverage` in both (backend `src/services` 99.75% lines, 89.36% branches, 2026-11-06). Budgets ([bench/](bench/)): lead
+- **Coverage and budgets:** `npm run test:coverage` in both (backend `src/services` 99.77% lines, 88.85% branches, 2026-11-06, aiProxyService included;
+  the frontend number covers only `src/api` and `src/context`, not the pages, and isn't gated). Budgets ([bench/](bench/)): lead
   list p95 under 200 ms at 100k leads on the bench machine (28 ms); first-load JS under [bundle-budget.json](frontend/bundle-budget.json) (CI).
 - **Checks (repo root):** `npm run lint` (ESLint, zero warnings, plus ruff), `npm run typecheck`, `npm run format:check`. The husky
   pre-commit hook runs them on staged files and blocks the commit; see [CONTRIBUTING.md](CONTRIBUTING.md). Logs are pino JSON.
@@ -231,7 +232,8 @@ Read in [backend/src/config/index.js](backend/src/config/index.js) (`GIT_COMMIT`
 1. **Plan first.** For anything beyond a trivial fix, explore, then present a plan and wait for approval.
 2. **Run tests and lint before saying done**, and show the output. If no tests exist for the area, say so explicitly.
 3. **Update [WORKLOG.md](WORKLOG.md) at the end of every session:** goal, what changed, how it was verified, next steps.
-4. **Every change is a PR.** A short branch off `main` (`<type>/<short-description>`), one task per PR. Once the 6 CI
+4. **Every change is a PR** (enforced since #29; earlier history was mostly pushed to `main` directly). A short branch
+   off `main` (`<type>/<short-description>`), one task per PR. Once the 6 CI
    checks are green, the owner merges it with **Rebase and merge** (Claude never merges). Never push to `main` (a
    ruleset blocks it, and force pushes). Commit, push and open the PR only when asked.
 5. When editing this file, re-run the path check so every referenced path exists.

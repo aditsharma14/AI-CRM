@@ -115,7 +115,9 @@ notes, a lead lost to a competitor, and a minimal converted lead.
 
 One run per model on 2026-11-05, before the bare-domain link check, case 20 and the failed-output section existed
 (so these reports have none). 19 cases each, same settings (temperature 0, `num_ctx` 8192, at most 800 output
-tokens, timeout 180,000 ms for the run, prompt `lead-brief/1`). Full reports:
+tokens, timeout 180,000 ms for the run, prompt `lead-brief/1`). **Not yet measured on what ships:** the code now runs
+prompt `lead-brief/2`, 20 cases, and the link rules from #35 and #36; no real model has been evaluated on them, so
+these numbers describe the earlier version only. Full reports:
 [llama3.2:3b](../AI/evals/results/2026-11-05-ollama-llama3.2-3b.md),
 [qwen3:4b, thinking off](../AI/evals/results/2026-11-05-ollama-qwen3-4b-nothink.md).
 
