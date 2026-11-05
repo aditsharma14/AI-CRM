@@ -124,3 +124,25 @@ the after-size + 10%:
 
 Both, because moving code from the entry into a chunk the entry imports statically would pass an entry-only budget
 without loading any less.
+
+## After the security fixes (#30)
+
+`npm audit fix` (#30) moved two runtime libraries up a minor version within their ranges. Measured with
+`ANALYZE=1 npm run build && node scripts/bundle-report.mjs` on `main` just before and just after #30:
+
+| | Before #30 | After #30 | Change |
+|---|---|---|---|
+| Initial JS | 343.9 kB (110.8 gzip) | 353.8 kB (114.1 gzip) | +9.9 kB (+3.3 gzip) |
+| `vendor` chunk (initial) | 52.4 kB (19.9 gzip) | 64.7 kB (23.8 gzip) | +12.3 kB |
+| `index` chunk (entry) | 29.1 kB (8.4 gzip) | 30.6 kB (9.0 gzip) | +1.5 kB |
+| `react` chunk (initial) | 227.2 kB (72.0 gzip) | 223.4 kB (70.7 gzip) | −3.8 kB |
+| `forms` chunk (lazy) | 93.0 kB (27.1 gzip) | 112.0 kB (33.4 gzip) | +19.0 kB |
+
+- **axios 1.18.1 → 1.21.0** (in `vendor`, so initial): the release that fixes the high advisory. It is real code:
+  six new modules (`formDataToBlob`, `assertParamsAcyclic`, `createMultipartBody` and three smaller ones) and larger
+  `utils`, `xhr`, `fetch` and `AxiosHeaders` modules, 92.0 → 118.1 kB in the module stats.
+- **zod 4.4.3 → 4.6.7** (in the lazy `forms` chunk, so not initial): 119.9 → 154.5 kB in the module stats.
+- **Nothing came in by accident:** one version of each package (`npm ls`), the same entry files as before (axios's
+  `lib/` ESM build), and the app's own code unchanged at 177.4 kB.
+
+Both budgets still pass. The entry chunk has the least room: 30.6 kB against a 31.8 kB budget.
