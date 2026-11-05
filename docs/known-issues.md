@@ -35,6 +35,10 @@ plus a record of what has been resolved. Newest resolutions first.
   of not flagging "done.It". The model's own resistance covers these; the eval's `email_on_task` measures it. In the
   other direction, a missing space after a full stop in a non-Latin script (`Привет.Как`) reads as an IDN and costs
   a retry; briefs are written in English, so this should be rare.
+- **The ESLint toolchain has one moderate advisory, dev only** (#30): minimatch ReDoS, GHSA-g3hv-75wg-m249, under
+  `eslint` 10.14 (backend 7 findings, frontend 4, all the same chain). Nothing shipped is affected: `npm audit
+  --omit=dev` is clean in both. npm's only fixes are majors (eslint back to 9, `eslint-plugin-jsdoc` to 64), so they
+  wait for a separate low-priority PR; until then the risk is a slow lint on a hostile glob, on a dev machine or in CI.
 
 ### Lint disables (S1.7 audit)
 - No `react-hooks` rule is disabled anywhere in the frontend (the one in `GlobalSearch` was #12).

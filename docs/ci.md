@@ -23,8 +23,8 @@ suites and the Docker stack.
 with `VITE_DEMO=true`, run [demo.spec.js](../frontend/e2e-demo/demo.spec.js) against that exact artifact served the way
 Pages serves it ([pages-server.mjs](../frontend/e2e-demo/pages-server.mjs)), and deploy to
 https://aditsharma14.github.io/AI-CRM/ only from `main` and only if the smoke passed. Locally:
-`VITE_DEMO=true npm run build && npm run e2e:demo` in `frontend/` (on Windows the run ends slowly: Playwright takes
-minutes to stop the static server after the tests pass; on Linux CI it's instant).
+`VITE_DEMO=true npm run build && npm run e2e:demo` in `frontend/`. On Windows, `taskkill` must be on `PATH` or the
+run never exits after the tests pass ([the teardown hang](conventions.md#end-to-end-playwright)).
 
 **What the docker job proves** ([docker-smoke.sh](../scripts/ci/docker-smoke.sh)):
 - the API answers `/health`;
