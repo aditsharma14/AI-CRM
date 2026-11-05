@@ -18,6 +18,10 @@ plus a record of what has been resolved. Newest resolutions first.
   closing a deal is keyed on them). An org that renames its closing stages' *keys* never closes a deal. Open for S2.7.
 - **[#19] Pipeline save is two calls (move-stage, then update), not atomic;** revisit with a single endpoint or transaction in
   S2.7. (S1.3b made the UI resync after a partial failure, and a retry doesn't repeat the move.)
+- **A hard load of a demo route with a parameter answers HTTP 404** (`/AI-CRM/leads/<id>`, `/AI-CRM/invite/<token>`).
+  GitHub Pages has no rewrites, so only a file can answer 200; the demo build writes one per route without a
+  parameter ([pages-routes.mjs](../frontend/scripts/pages-routes.mjs)), and these fall through to `404.html`, which
+  is the app and loads normally. Only crawlers and link previews see the 404. The Docker build (nginx) is unaffected.
 - **[#27] The Dashboard sums deals in mixed currencies without conversion.** Totals are formatted in the org's currency
   (S1.8-GH), but a deal created in another currency is added at face value. No exchange rates yet.
 
@@ -53,6 +57,7 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-11-06 | **Every demo deep link answered HTTP 404** (`/AI-CRM/login`, `/AI-CRM/deals`): Pages served `404.html`, which is the app, so it loaded, but crawlers and link previews saw a 404 | the demo build writes a copy of `index.html` per route without a parameter, which Pages serves with 200; a test keeps the list in step with `App.jsx`, and the demo e2e checks both statuses (#39) |
 | 2026-11-06 | **A link stated plainly in a note was allowed in the email** (the check allowed any link the history held) | links only from the company's website (`Company.domain`, or an ASCII subdomain), never from history text; hosts compared lower case, without a trailing dot and as punycode, so Cyrillic look-alikes, IDNs and `user@host` don't match; prompt `lead-brief/2` (#36) |
 | 2026-11-05 | **The AI layer was stubs** (RAG, chat, chains; LangChain, Gemini and OpenAI dependencies nobody used) | the lead brief end to end on free providers (fake, local Ollama): prompt v1, validation and one retry, cache, single-flight, limits, kill switch, evals, the card ([docs/ai.md](ai.md)); the stubs are gone (`c148568` to `b5235c7`) |
 | 2026-11-05 | **The link check missed bare domains** (`secure-pay-update.net`, `bit.ly/x`), and a link passed if it was any substring of the history, so a defanged `hxxps://` link in a note licensed its re-fanged form | bare domains on a TLD list (English-word TLDs only with a hyphen, three labels or a path); a link passes only if the history holds the same link; eval case `injection-bare-domain` (`b498281`) |
