@@ -11,6 +11,23 @@ from app.lead_brief.models import LeadBrief, LeadBriefRequest
 
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 URL = re.compile(r"(?:https?://|www\.)[^\s<>\"')\]]+", re.IGNORECASE)
+# A bare domain (`secure-pay.net/x`, `bit.ly/x`): what an injected note asks for when a scheme would be caught. Only
+# TLDs from a list count, so "v2.0", "e.g.", "Node.js" or "report.pdf" never match. Not right after `@` (the email
+# check) or `://` (a defanged `hxxps://host` in a note is not a link the history offers), and never mid-host.
+TLDS = (
+    "com|net|org|info|biz|io|ai|app|dev|xyz|top|site|online|link|click|live|shop|store|tech|cloud|email|support|"
+    "help|page|website|space|digital|ly|gl|gd|cc|tk|ml|ga|cf|gq|pw|ws|tv|su|in|co|uk|de|fr|ru|cn|jp|br|au|ca|nl|"
+    "es|ch|se|pl|ua|ir|pk|bd|lk|np|ae|sa|sg|hk|kr|vn|th|ph|za|ng|ke|mx|ar|cl|pe|eu"
+)
+# Also English words: they count only when the host looks like a link (a hyphen, three or more labels, or a path),
+# so "done.It" and "Go.to the meeting" stay text. A two-label host with one of these and no path is not caught.
+WORD_TLDS = "to|us|it|is|so|at|be|my|go|do|no|am|me"
+DOMAIN = re.compile(
+    rf"(?<![\w@./:-])((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+)({TLDS}|{WORD_TLDS})\b"
+    r"(/[^\s<>\"')\]]*)?",
+    re.IGNORECASE,
+)
+TRAILING = ".,;:!?/"
 ISO_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 # A run of digits with phone-style separators; 9+ digits makes it a phone number (Indian mobiles have 10).
 DIGIT_RUN = re.compile(r"[+(]?\d[\d\s().-]{6,}\d")
@@ -37,6 +54,23 @@ def _without_identity(text: str, request: LeadBriefRequest) -> str:
         if part:
             text = re.sub(re.escape(part), " ", text, flags=re.IGNORECASE)
     return text
+
+
+def find_links(text: str) -> list[str]:
+    """Every link in the text: with a scheme or www., or a bare domain with an optional path."""
+    links = [m.rstrip(TRAILING) for m in URL.findall(text)]
+    rest = URL.sub(" ", text)
+    for m in DOMAIN.finditer(rest):
+        host, tld, path = m.group(1), m.group(2), m.group(3)
+        if re.fullmatch(WORD_TLDS, tld, re.IGNORECASE) and not (path or "-" in host or host.count(".") >= 2):
+            continue
+        links.append(m.group(0).rstrip(TRAILING))
+    return links
+
+
+def _normal(link: str) -> str:
+    """One spelling per link: no scheme, no www., lower case, no trailing punctuation or slash."""
+    return re.sub(r"^(?:https?://)?(?:www\.)?", "", link.lower()).rstrip(TRAILING)
 
 
 def _bundle_text(request: LeadBriefRequest) -> str:
@@ -73,7 +107,8 @@ def check(text: str, request: LeadBriefRequest) -> Checked:
     if request.history and not citations:
         problems.append("no citation points at an id from <history>")
 
-    bundle = _bundle_text(request)
+    # A link passes only if the history holds the same link (exactly, not as part of a longer one).
+    offered = {_normal(link) for link in find_links(_bundle_text(request))}
     email = f"{brief.follow_up_email.subject}\n{brief.follow_up_email.body}"
     for name, value in (("followUpEmail", email), ("nextAction", brief.next_action.action)):
         identity_free = _without_identity(value, request)
@@ -81,7 +116,7 @@ def check(text: str, request: LeadBriefRequest) -> Checked:
             problems.append(f"{name} contains an email address")
         if _has_phone(identity_free):
             problems.append(f"{name} contains a phone number")
-        if any(link.rstrip(".,;:!?") not in bundle for link in URL.findall(value)):
+        if any(_normal(link) not in offered for link in find_links(value)):
             problems.append(f"{name} contains a link that is not in the history")
 
     due = brief.next_action.due_date
