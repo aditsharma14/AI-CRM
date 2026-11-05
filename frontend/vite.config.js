@@ -6,19 +6,25 @@ import { msw } from 'msw/vite'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { defineConfig } from 'vite'
 
+import { STATIC_ROUTES } from './scripts/pages-routes.mjs'
+
 // VITE_DEMO=true builds the GitHub Pages demo: served under /AI-CRM/, the API answered in the browser by MSW
-// (src/demo/), and a 404.html copy of index.html so a reload of /AI-CRM/deals still loads the app.
+// (src/demo/), and copies of index.html so a reload of /AI-CRM/deals still loads the app.
 const demo = process.env.VITE_DEMO === 'true'
 // ANALYZE=1 npm run build writes a treemap of the bundle (sizes per module, raw and gzip) to dist/stats.html, and the
 // same data as dist/stats.json for scripts/bundle-report.mjs.
 const analyze = process.env.ANALYZE === '1'
 
-/** GitHub Pages serves 404.html for any unknown path; the app's router then reads the URL. */
+/**
+ * GitHub Pages serves deals.html at /deals with status 200, and 404.html (status 404) for any other unknown path. So
+ * each route without a parameter gets its own copy, and 404.html catches the rest (/leads/:id); either way the app's
+ * router then reads the URL.
+ */
 const spaFallback = {
   name: 'pages-spa-fallback',
   apply: 'build',
   writeBundle({ dir }) {
-    copyFileSync(join(dir, 'index.html'), join(dir, '404.html'))
+    for (const name of ['404', ...STATIC_ROUTES]) copyFileSync(join(dir, 'index.html'), join(dir, `${name}.html`))
   },
 }
 

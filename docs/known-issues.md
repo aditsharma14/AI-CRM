@@ -18,6 +18,10 @@ plus a record of what has been resolved. Newest resolutions first.
   closing a deal is keyed on them). An org that renames its closing stages' *keys* never closes a deal. Open for S2.7.
 - **[#19] Pipeline save is two calls (move-stage, then update), not atomic;** revisit with a single endpoint or transaction in
   S2.7. (S1.3b made the UI resync after a partial failure, and a retry doesn't repeat the move.)
+- **A hard load of a demo route with a parameter answers HTTP 404** (`/AI-CRM/leads/<id>`, `/AI-CRM/invite/<token>`).
+  GitHub Pages has no rewrites, so only a file can answer 200; the demo build writes one per route without a
+  parameter ([pages-routes.mjs](../frontend/scripts/pages-routes.mjs)), and these fall through to `404.html`, which
+  is the app and loads normally. Only crawlers and link previews see the 404. The Docker build (nginx) is unaffected.
 - **[#27] The Dashboard sums deals in mixed currencies without conversion.** Totals are formatted in the org's currency
   (S1.8-GH), but a deal created in another currency is added at face value. No exchange rates yet.
 
@@ -41,6 +45,7 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-11-05 | **Every demo deep link answered HTTP 404** (`/AI-CRM/login`, `/AI-CRM/deals`): Pages served `404.html`, which is the app, so it loaded, but crawlers and link previews saw a 404 | the demo build writes a copy of `index.html` per route without a parameter, which Pages serves with 200; a test keeps the list in step with `App.jsx`, and the demo e2e checks both statuses (`fix/pages-deep-links`) |
 | 2026-11-05 | **The AI layer was stubs** (RAG, chat, chains; LangChain, Gemini and OpenAI dependencies nobody used) | the lead brief end to end on free providers (fake, local Ollama): prompt v1, validation and one retry, cache, single-flight, limits, kill switch, evals, the card ([docs/ai.md](ai.md)); the stubs are gone (`c148568` to `b5235c7`) |
 | 2026-11-05 | **Deleting a lead left its rows behind** (there was no lead cleanup) | `leadsService.remove` deletes the lead and its cached AI briefs in one transaction (`6a28d31`) |
 | 2026-11-03 | **The production bundle was one 613 kB chunk** (Vite warned on every build) | pages are lazy chunks, libraries in their own chunks, framer-motion replaced by CSS, form libraries only with a form: initial JS 342 kB (110 kB gzip), and CI fails above [bundle-budget.json](../frontend/bundle-budget.json) (`2bec34b`, `0dcaefb`, `5c0d4ed`, `e717ad4`; [bench/frontend.md](../bench/frontend.md)) |
