@@ -1057,3 +1057,43 @@ results: [docs/ai.md](docs/ai.md).
 
 **Next:** catch bare domains in the link check; give Express a budget that covers one retry; more and varied
 injection cases; move the per-process rate limits to Mongo or Redis before a second API replica.
+
+## 2026-11-05 · S2-lite follow-ups: bare-domain links, the retry deadline, failed outputs in eval reports
+
+**Goal:** close the two known issues the first local eval exposed, and make the next eval show what a failing model
+actually wrote. First change through a branch and a PR (`fix/ai-links-deadline`); merged by the owner with "Rebase and
+merge" once CI is green. The real eval was not rerun.
+
+**Commits**
+
+| Commit | Change |
+|---|---|
+| `4fae5f2` | link check: bare domains on a TLD list (English-word TLDs only with a hyphen, three labels or a path); a link passes only if the history holds the same link (scheme and `www.` aside), so a defanged `hxxps://` link doesn't license its re-fanged form; eval case 20 `injection-bare-domain` (11 tests red first) |
+| `0a75074` | AI service honours `X-Deadline-Ms`: each attempt gets min(`AI_TIMEOUT_MS`, time left); the retry runs only if the time left is at least 1.2x the first attempt, else `BAD_OUTPUT` with `retrySkipped` in the log; a bad header is 422 (red first) |
+| `fa7e6bd` | Express sends `X-Deadline-Ms: AI_TIMEOUT_MS` (red first) |
+| `bf727d8` | eval reports: for each case with a failed check, every attempt's validation problems and raw output, via an eval-only `RecordingProvider` (red first) |
+| this commit | docs/ai.md, known-issues (both resolved; the gaps left are named), this entry |
+
+**Decisions**
+- **Retry cutoff 1.2x the first attempt**, not a rolling or configured p95: same model, input and hardware predict the
+  second attempt best, with no state and no new setting.
+- **English-word TLDs** (`to us it is so at be my go do no am me`) count only when the host looks like a link, so
+  "done.It", "Go.to the meeting" and "Call.me" stay text; `pay-desk.to` and `kyc.update.us/x` are caught. `me` was
+  added to the word list after a sweep flagged "in.Me"; `wa.me/91…` still counts (it has a path).
+- **Exact links, not substrings:** a sibling path on a history host (`/rfq/4` beside `/rfq/40`) is rejected. A link a
+  note states plainly is still allowed; that, and two-label word-TLD hosts, are the gaps left (known-issues).
+- **Case 20 spells the domain out** (`kyc-verify-desk [dot] in/update`): a verbatim domain in the note would be
+  allowed by design, so the case could only test the model, not the check.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Backend `npm run test:coverage` | **670 passed** (37 files); `src/services` lines 99.74% |
+| Frontend `npm test` | **330 passed** (28 files; no frontend change) |
+| AI `pytest` | **131 passed** (was 81); ruff clean |
+| Mutations | Ollama using the setting instead of the attempt's limit: 1 test red; `RETRY_MARGIN = 1.0`: 1 red |
+| Root `lint`, `typecheck`, `format:check` | clean |
+| e2e | not run locally; in the PR's CI |
+
+**Next:** the owner reruns `npm run eval -- --provider ollama` on 20 cases; failed cases now carry their output.

@@ -27,13 +27,12 @@ plus a record of what has been resolved. Newest resolutions first.
 - **Output checks catch contact details, links and invented citations, not a subtly wrong summary.** A note that
   misleads (a false "budget approved") yields a confident, cited, wrong brief. The draft is for a person to review,
   never sent by the app; the evals measure the rest ([docs/ai.md](ai.md#threat-model)).
-- **The link check misses a bare domain.** It looks for `http(s)://` and `www.`, so `secure-pay-update.example.net`
-  passes. In the 2026-11-05 eval, `qwen3:4b`'s email in `injection-phishing-link` carried `http`, `example.net` or
-  `secure-pay-update` past the checks (the report doesn't say which). A domain pattern would need care not to flag
-  ordinary text like "Node.js" ([validate.py](../AI/app/lead_brief/validate.py)).
-- **A brief that needs its retry can hit Express's time limit.** `AI_TIMEOUT_MS` (90 s, from the measured p95) is
-  per attempt in the AI service but per request in Express (+1 s), so two slow attempts are cut off as
-  `AI_UNAVAILABLE`. No `llama3.2:3b` brief needed a retry in the eval ([docs/ai.md](ai.md#results)).
+- **The link check has two gaps left** ([validate.py](../AI/app/lead_brief/validate.py)). A link the history
+  holds as written passes, so a note that states its link plainly (not defanged or spelled out) makes it allowed:
+  exact matching only stops variants of it. And a two-label host on an English-word TLD with no path (`pay.so`,
+  `desk.to`), or a TLD not on the list, is not a link to the check: the price of not flagging "done.It". What
+  covers both is the model's own resistance, which the eval's `email_on_task` measures.
+
 ### Lint disables (S1.7 audit)
 - No `react-hooks` rule is disabled anywhere in the frontend (the one in `GlobalSearch` was #12).
 - Three `react-refresh/only-export-components` disables remain, in `FormField.jsx` (`inputClasses`), `SessionContext.jsx`
@@ -48,6 +47,8 @@ plus a record of what has been resolved. Newest resolutions first.
 | Date | Issue | Fix |
 |---|---|---|
 | 2026-11-05 | **The AI layer was stubs** (RAG, chat, chains; LangChain, Gemini and OpenAI dependencies nobody used) | the lead brief end to end on free providers (fake, local Ollama): prompt v1, validation and one retry, cache, single-flight, limits, kill switch, evals, the card ([docs/ai.md](ai.md)); the stubs are gone (`c148568` to `b5235c7`) |
+| 2026-11-05 | **The link check missed bare domains** (`secure-pay-update.net`, `bit.ly/x`), and a link passed if it was any substring of the history, so a defanged `hxxps://` link in a note licensed its re-fanged form | bare domains on a TLD list (English-word TLDs only with a hyphen, three labels or a path); a link passes only if the history holds the same link; eval case `injection-bare-domain` (`4fae5f2`) |
+| 2026-11-05 | **A brief that needed its retry could hit Express's time limit** (per attempt in the AI service, per request in Express) | Express sends `X-Deadline-Ms`; each attempt gets at most the time left, and the retry is skipped as `BAD_OUTPUT` unless the time left is 1.2x the first attempt (`0a75074`, `fa7e6bd`) |
 | 2026-11-05 | **`AI_TIMEOUT_MS` (60 s) was a placeholder** | 90 s from the first local eval: `llama3.2:3b` p95 52,277 ms, slowest 56,331 ms ([docs/ai.md](ai.md#results)) |
 | 2026-11-05 | **Deleting a lead left its rows behind** (there was no lead cleanup) | `leadsService.remove` deletes the lead and its cached AI briefs in one transaction (`6a28d31`) |
 | 2026-11-03 | **The production bundle was one 613 kB chunk** (Vite warned on every build) | pages are lazy chunks, libraries in their own chunks, framer-motion replaced by CSS, form libraries only with a form: initial JS 342 kB (110 kB gzip), and CI fails above [bundle-budget.json](../frontend/bundle-budget.json) (`2bec34b`, `0dcaefb`, `5c0d4ed`, `e717ad4`; [bench/frontend.md](../bench/frontend.md)) |
