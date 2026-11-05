@@ -202,12 +202,15 @@ describe('POST /auth/forgot-password', () => {
     const { email, user } = await createUserWithPassword(org, { email: uniqueEmail('forgot') })
     const before = Date.now()
     expect((await request(app).post(`${api}/forgot-password`).send({ email })).status).toBe(200)
+    const after = Date.now()
 
     const stored = await User.findById(user._id).select('+passwordResetTokenHash +passwordResetExpires')
     expect(stored.passwordResetTokenHash).toMatch(/^[0-9a-f]{64}$/)
-    const minutes = (stored.passwordResetExpires.getTime() - before) / 60_000
-    expect(minutes).toBeGreaterThan(14.9)
-    expect(minutes).toBeLessThanOrEqual(15.1)
+    // Exactly 15 minutes from whenever the server handled the request, so a slow request can't fail it (a fixed
+    // slack after `before` would, once the request took over 6 s).
+    const fifteenMinutes = 15 * 60_000
+    expect(stored.passwordResetExpires.getTime()).toBeGreaterThanOrEqual(before + fifteenMinutes)
+    expect(stored.passwordResetExpires.getTime()).toBeLessThanOrEqual(after + fifteenMinutes)
   })
 })
 
