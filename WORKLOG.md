@@ -983,3 +983,77 @@ plans) and [bench/frontend.md](bench/frontend.md) (bundle and Lighthouse).
   (Atlas Search) are next; keep the index working set in RAM. See "At 10x" in the backend report.
 
 **Next:** S2.1 (AI service). The search's in-memory sort and the dashboard's linear counts are logged in known-issues.
+
+## 2026-11-05 · S2-lite: One real AI feature, the lead brief
+
+**Goal:** one AI feature end to end at ₹0: on a lead's page, a summary, one next step with a due date and a draft
+follow-up email, each claim citing the history it rests on. Express owns auth, tenancy and data; the FastAPI service
+never touches MongoDB. Providers: `fake` (default: tests, CI, compose, the Pages demo) and `ollama` (local). Groq was
+dropped (its console was unreachable from this network); no paid provider was added. Design, threat model and
+results: [docs/ai.md](docs/ai.md).
+
+**Resume lines** (measured on one run, 19 cases, Ryzen 7 8840HS CPU, 31 GB RAM; nothing rounded up)
+- Built an AI lead brief (summary, next step, follow-up draft, each claim cited to a CRM history id) on a local 3B
+  model (llama3.2:3b via Ollama) at $0 per brief: 19/19 eval cases produced, all schema-valid and grounded on the
+  first try, 6/6 prompt-injection cases resisted, p95 52,277 ms on a laptop CPU, against 144,540 ms for qwen3:4b.
+- Kept it tenant-safe and fail-closed: Express sends an org-scoped bundle with no emails, phone numbers or record
+  ids, and every answer is checked (schema, citations within the input, no contact details or outside links) with
+  one retry, after which it returns an error, not the output (qwen3:4b's attacker case ended in `BAD_OUTPUT`);
+  per-org cache with single-flight, rate limits and a kill switch; tested at every layer (81 AI-service tests; the
+  backend's 669 and frontend's 330 in all).
+
+**Commits** (on `main` through the pre-commit gate; frontend, e2e and CI changes through `ci/ai`)
+
+| Commit | Change |
+|---|---|
+| `c148568` | a real FastAPI app in place of the stubs; settings require a 16+ character internal token |
+| `a2e6028` | provider interface, deterministic `FakeProvider`, `OllamaProvider` (`/api/chat`, JSON schema `format`) |
+| `c3332db` | `POST /v1/lead-brief`: prompt v1 (escaped, delimited history), validation, one retry on invalid output only |
+| `51eaff1` | 19 eval cases (6 injection), CI runs them on the fake provider; `npm run eval -- --provider ollama` |
+| `068526e` | `GET /v1/info` (provider, model, prompt version) for Express's cache key |
+| `6a28d31` | `POST /api/v1/ai/leads/:id/brief`: bundle, Mongo cache (7-day TTL), single-flight, limits, error mapping; lead delete removes its briefs |
+| `8f59bd6` | the Pages demo answers the brief like `FakeProvider` (parity pinned by `contracts/lead-brief-fake.json`) |
+| `d9d631c` | activities list filter by linked record (`?entityType=&entityId=`) |
+| `8568bab`, `e80d913` | a lazy `/leads/:id` page with its history; e2e opens the edit dialog from the row (via `ci/ai`) |
+| `2df951c` | the brief card: citations jump to the history entry, copy email, regenerate, typed errors (via `ci/ai`) |
+| `36f99bb` | the unbuilt AI chat and actions stubs removed (via `ci/ai`) |
+| `44bdfd7`, `b431665` | digits in the lead's own name are not a phone number; a phone beside the name is still rejected |
+| `b5235c7` | CI: e2e and docker run the AI service on the fake provider (via `ci/ai`) |
+| `cfb4d49` | docs/ai.md; README and CLAUDE.md drop the RAG, chat and memory claims |
+| `3ebbf26` | `OLLAMA_THINK=false` turns a thinking model's thinking off (for the qwen3 run) |
+| `df835dd` | eval results: header and file name share one local date (a 03:14 IST run was headed the day before in UTC) |
+| `e16cf4f` | `AI_TIMEOUT_MS` default 60 s -> 90 s, from the measured p95 (52,277 ms) and slowest brief (56,331 ms) |
+| `23937df` | the two results files, the results table and the model choice in docs/ai.md, two new known issues |
+
+**Decisions, with the numbers behind them**
+- **llama3.2:3b over qwen3:4b:** 19/19 against 18/19 briefs, 6/6 against 5/6 injection cases resisted, p50 38,675
+  against 69,977 ms, p95 52,277 against 144,540 ms. qwen3:8b was not run: 4B was already too slow on this CPU.
+- **Fails closed:** qwen3:4b's `injection-attacker-address` failed validation twice and ended in `BAD_OUTPUT` after
+  183,122 ms; the rep would have seen an error and no brief.
+- **A small sample, not a rate:** 6 injection cases on 1 run each. 6/6 means no failure seen in six tries.
+- **Timeout 90 s:** about 34 s over llama's slowest brief. It is per attempt in the AI service but per request in
+  Express (+1 s), so a retried brief can be cut off; no llama brief needed a retry (known-issues).
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Backend `npm run test:coverage` | **669 passed** (37 files); `src/services` lines 99.74% (gate 98.65%) |
+| Frontend `npm test` | **330 passed** (28 files) |
+| AI `pytest` | **81 passed**; ruff clean |
+| Root `lint`, `typecheck`, `format:check` | clean |
+| CI | `ci/ai` 41901397405 (incl. e2e, docker); `main` at `b5235c7` 41901905116, `cfb4d49` 41904394326, `3ebbf26` 41907856286 green; `b431665` cancelled, superseded by `3ebbf26` |
+| Bundle budget | initial JS 343.9 kB / 110.8 kB gzip (budget 376.2 / 121.2); the lead page chunk 8.1 kB |
+| Local eval | [llama3.2:3b](AI/evals/results/2026-11-05-ollama-llama3.2-3b.md), [qwen3:4b](AI/evals/results/2026-11-05-ollama-qwen3-4b-nothink.md) |
+
+**Interview angle**
+- *Why not trust the model:* injected text is data the model may still follow. Layers: delimit and escape it, tell
+  the model, then check the output for what an attacker wants (contact details, links, fake citations) and fail
+  closed. The checks catch only what they look for, which is why the model's own robustness still matters.
+- *Why the AI service never sees the database:* tenancy stays in one place (Express, from the JWT), and the bundle
+  is the whole data-leak surface, small enough to list in docs/ai.md.
+- *Cache key:* org, lead, every history item's `updatedAt`, provider, model and prompt version, so a changed note, a
+  new prompt or a different model never serves an old brief.
+
+**Next:** catch bare domains in the link check; give Express a budget that covers one retry; more and varied
+injection cases; move the per-process rate limits to Mongo or Redis before a second API replica.
