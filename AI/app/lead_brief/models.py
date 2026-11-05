@@ -19,6 +19,8 @@ class CamelModel(BaseModel):
 class Lead(CamelModel):
     name: str = Field(min_length=1, max_length=200)
     company: str | None = Field(default=None, max_length=200)
+    # The company's website (`Company.domain`, a bare host): the only link a brief may contain.
+    company_domain: str | None = Field(default=None, max_length=253)
     status: Literal["new", "contacted", "qualified", "unqualified", "converted"]
     score: int | None = Field(default=None, ge=0, le=100)
     source: str | None = Field(default=None, max_length=100)

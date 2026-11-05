@@ -13,7 +13,7 @@ EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 URL = re.compile(r"(?:https?://|www\.)[^\s<>\"')\]]+", re.IGNORECASE)
 # A bare domain (`secure-pay.net/x`, `bit.ly/x`): what an injected note asks for when a scheme would be caught. Only
 # TLDs from a list count, so "v2.0", "e.g.", "Node.js" or "report.pdf" never match. Not right after `@` (the email
-# check) or `://` (a defanged `hxxps://host` in a note is not a link the history offers), and never mid-host.
+# check), and never mid-host; after any scheme, `hxxps://` included, a host still counts.
 TLDS = (
     "com|net|org|info|biz|io|ai|app|dev|xyz|top|site|online|link|click|live|shop|store|tech|cloud|email|support|"
     "help|page|website|space|digital|ly|gl|gd|cc|tk|ml|ga|cf|gq|pw|ws|tv|su|in|co|uk|de|fr|ru|cn|jp|br|au|ca|nl|"
@@ -22,12 +22,23 @@ TLDS = (
 # Also English words: they count only when the host looks like a link (a hyphen, three or more labels, or a path),
 # so "done.It" and "Go.to the meeting" stay text. A two-label host with one of these and no path is not caught.
 WORD_TLDS = "to|us|it|is|so|at|be|my|go|do|no|am|me"
+# A host may also use other scripts: a look-alike (`sahyadrі.co.in`, Cyrillic і) or a full IDN (`пример.рф`). Any
+# non-ASCII character that isn't space or punctuation can be part of a label. A non-ASCII TLD counts only in a
+# non-Latin script and with 2+ characters (`рф`, `भारत`): accented Latin makes words, so "Gracias.Señor" and
+# "Merci.À" stay text. Punycode TLDs (`xn--p1ai`) count too.
+NON_ASCII = r"[^\x00-\x7f\s\u00a0-\u00bf\u00d7\u00f7\u0964\u0965\u2000-\u206f\u3000-\u303f\ufe30-\ufe4f\uff00-\uff0f]"
+NON_LATIN = rf"(?:(?![\u00c0-\u024f\u1e00-\u1eff]){NON_ASCII})"
+LABEL_CHAR = rf"(?:[a-z0-9]|{NON_ASCII})"
+LABEL = rf"{LABEL_CHAR}(?:(?:{LABEL_CHAR}|-)*{LABEL_CHAR})?"
+IDN_TLD = rf"{NON_LATIN}(?:{NON_LATIN}|-)*{NON_LATIN}|xn--[a-z0-9-]+"
 DOMAIN = re.compile(
-    rf"(?<![\w@./:-])((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+)({TLDS}|{WORD_TLDS})\b"
+    rf"(?<![a-z0-9@._-])(?<!{NON_ASCII})((?:{LABEL}\.)+)({TLDS}|{WORD_TLDS}|{IDN_TLD})(?![a-z0-9_-])(?!{NON_ASCII})"
     r"(/[^\s<>\"')\]]*)?",
     re.IGNORECASE,
 )
 TRAILING = ".,;:!?/"
+# What a link's host is: after the scheme and any `user@`, before the port, path, query or fragment.
+HOST = re.compile(r"^(?:[a-z][a-z0-9+.-]*://)?(?:[^/?#\s]*@)?([^/?#:\s]+)", re.IGNORECASE)
 ISO_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 # A run of digits with phone-style separators; 9+ digits makes it a phone number (Indian mobiles have 10).
 DIGIT_RUN = re.compile(r"[+(]?\d[\d\s().-]{6,}\d")
@@ -68,16 +79,28 @@ def find_links(text: str) -> list[str]:
     return links
 
 
-def _normal(link: str) -> str:
-    """One spelling per link: no scheme, no www., lower case, no trailing punctuation or slash."""
-    return re.sub(r"^(?:https?://)?(?:www\.)?", "", link.lower()).rstrip(TRAILING)
+def canonical_host(host: str) -> str | None:
+    """One spelling per host: lower case, no trailing dot, other scripts as punycode (`пример.рф` and
+    `xn--e1afmkfd.xn--p1ai` are the same host; `sahyadrі.co.in` with a Cyrillic і is not `sahyadri.co.in`). None when
+    it can't be a host name."""
+    host = host.strip().rstrip(".").lower()
+    try:
+        return host.encode("idna").decode("ascii") if host else None
+    except UnicodeError:
+        return None
 
 
-def _bundle_text(request: LeadBriefRequest) -> str:
-    lead = request.lead
-    parts = [lead.name, lead.company or "", lead.source or ""]
-    parts += [part for item in request.history for part in (item.title or "", item.text)]
-    return "\n".join(parts)
+def is_company_site(link: str, domain: str | None) -> bool:
+    """The link is on the company's website: its host is the domain or, for a plain ASCII host, a subdomain of it.
+    A host in another script or in punycode must be the domain exactly: a subdomain there is a look-alike risk."""
+    match = HOST.match(link)
+    site = canonical_host(domain) if domain else None
+    host = canonical_host(match.group(1)) if match else None
+    if not site or not host:
+        return False
+    if not match.group(1).isascii() or any(label.startswith("xn--") for label in host.split(".")):
+        return host == site
+    return host == site or host.endswith("." + site)
 
 
 def _schema_problem(err: ValidationError) -> str:
@@ -107,8 +130,9 @@ def check(text: str, request: LeadBriefRequest) -> Checked:
     if request.history and not citations:
         problems.append("no citation points at an id from <history>")
 
-    # A link passes only if the history holds the same link (exactly, not as part of a longer one).
-    offered = {_normal(link) for link in find_links(_bundle_text(request))}
+    # The only link allowed is the company's own website, from the CRM's structured field. History text is untrusted
+    # (an attacker can write a note), so a link there, however plainly stated, never makes a link allowed.
+    domain = request.lead.company_domain
     email = f"{brief.follow_up_email.subject}\n{brief.follow_up_email.body}"
     for name, value in (("followUpEmail", email), ("nextAction", brief.next_action.action)):
         identity_free = _without_identity(value, request)
@@ -116,8 +140,8 @@ def check(text: str, request: LeadBriefRequest) -> Checked:
             problems.append(f"{name} contains an email address")
         if _has_phone(identity_free):
             problems.append(f"{name} contains a phone number")
-        if any(_normal(link) not in offered for link in find_links(value)):
-            problems.append(f"{name} contains a link that is not in the history")
+        if any(not is_company_site(link, domain) for link in find_links(value)):
+            problems.append(f"{name} contains a link that is not the company's website")
 
     due = brief.next_action.due_date
     if not request.today <= due <= request.today + timedelta(days=MAX_DUE_DAYS):

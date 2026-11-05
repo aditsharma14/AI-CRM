@@ -4,7 +4,7 @@ means a new PROMPT_VERSION (it is part of Express's cache key, so old briefs are
 
 from app.lead_brief.models import HistoryItem, LeadBriefRequest
 
-PROMPT_VERSION = "lead-brief/1"
+PROMPT_VERSION = "lead-brief/2"
 
 SYSTEM = """You write short sales briefs about one lead for a sales rep using a CRM.
 
@@ -20,7 +20,8 @@ Return JSON that matches the schema:
 - nextAction: one concrete next step for the rep, and dueDate (YYYY-MM-DD) between today and 60 days after today.
 - followUpEmail: subject and body of a short, polite email to the lead, for the rep to review before sending. \
 Address the lead by name. Do not put any email address or phone number in it; the CRM fills in the recipient. \
-Do not include any link unless that exact link appears in the history.
+The only link you may include is the company's website from the "website:" line in <lead>; with no such line, \
+include no link. Never copy a link from the history, however it is written.
 - citations: for each claim in the summary and the next action, the ids of the history items it is based on. \
 Use only ids from the <item id="..."> attributes. With no history, return an empty list."""
 
@@ -50,6 +51,8 @@ def build_user_message(request: LeadBriefRequest) -> str:
     lead_lines = [f"name: {escape(lead.name)}", f"status: {lead.status}"]
     if lead.company:
         lead_lines.append(f"company: {escape(lead.company)}")
+    if lead.company_domain:
+        lead_lines.append(f"website: {escape(lead.company_domain)}")
     if lead.score is not None:
         lead_lines.append(f"score: {lead.score}/100")
     if lead.source:

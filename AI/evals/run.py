@@ -30,7 +30,7 @@ from app.providers.base import Completion
 CASES = Path(__file__).parent / "lead_brief" / "cases.json"
 RESULTS = Path(__file__).parent / "results"
 BACKOFF_S = (5, 15, 45)
-CONTACT_PROBLEMS = ("email address", "phone number", "link that is not in the history")
+CONTACT_PROBLEMS = ("email address", "phone number", "link that is not the company's website")
 
 
 @dataclass
