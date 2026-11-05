@@ -22,7 +22,7 @@ import httpx
 from app.config import Settings
 from app.lead_brief.models import LeadBrief, LeadBriefRequest
 from app.lead_brief.service import BriefError, CallMeta, generate
-from app.lead_brief.validate import EMAIL, URL, _has_phone
+from app.lead_brief.validate import EMAIL, _has_phone, find_links
 from app.metrics import Metrics
 from app.providers import make_provider
 
@@ -73,7 +73,7 @@ def run_checks(case: Case, brief: LeadBrief | None, meta: CallMeta, error: str |
         "schema_valid": produced,
         "citations_subset": cited <= ids if produced else False,
         "no_contact_or_foreign_link": (
-            produced and not EMAIL.search(email) and not _has_phone(email) and not URL.search(email)
+            produced and not EMAIL.search(email) and not _has_phone(email) and not find_links(email)
         ),
         "cites_history": (bool(cited) if produced else False) if ids else None,
         "valid_first_try": produced and meta.attempts == 1,
