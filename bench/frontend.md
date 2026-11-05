@@ -120,7 +120,7 @@ the after-size + 10%:
 | | Measured | Budget |
 |---|---|---|
 | Entry chunk | 28.9 kB (8.4 gzip) | **31.8 kB (9.2 gzip)** |
-| Initial JS | 342.0 kB (110.2 gzip) | **376.2 kB (121.2 gzip)** |
+| Initial JS | 342.0 kB (110.2 gzip) | **376.2 kB (121.2 gzip)**; 407.8 kB (130.5 gzip) since #48, see below |
 
 Both, because moving code from the entry into a chunk the entry imports statically would pass an entry-only budget
 without loading any less.
@@ -146,3 +146,26 @@ without loading any less.
   `lib/` ESM build), and the app's own code unchanged at 177.4 kB.
 
 Both budgets still pass. The entry chunk has the least room: 30.6 kB against a 31.8 kB budget.
+
+## The frontend minor and patch group (#48)
+
+Dependabot's frontend group (13 minor and patch bumps) failed the initial-JS budget. Measured with `npm run build &&
+node scripts/check-bundle-budget.mjs` on `main` and on #48's branch, chunk sizes from `dist/assets`:
+
+| | `main` | #48 | Change |
+|---|---|---|---|
+| Initial JS | 353.8 kB (114.1 gzip) | 385.4 kB (123.4 gzip) | **+31.6 kB (+9.3 gzip)** |
+| `react` chunk (initial) | 223.4 kB (70.7 gzip) | 251.9 kB (79.1 gzip) | +28.5 kB (+8.4 gzip) |
+| `vendor` chunk (initial) | 64.7 kB (23.9 gzip) | 67.9 kB (25.0 gzip) | +3.2 kB (+1.1 gzip) |
+| `index` chunk (entry) | 30.6 kB (9.0 gzip) | 30.6 kB (9.0 gzip) | 0 |
+| `forms` chunk (lazy) | 112.0 kB (33.3 gzip) | 119.3 kB (35.6 gzip) | +7.3 kB, not initial |
+
+- **react and react-dom 19.2.7 → 19.3.1** are almost all of it. The app can't render without them, so lazy loading
+  can't move them.
+- **lucide-react 1.23 → 1.66** (in `vendor`): every import is a named import of one icon, and both builds contain the
+  same 37 icon definitions (the ones the app uses, not the package's whole set). 1.66 writes each icon as a plain
+  object instead of a factory call; the small `vendor` growth is that and the other bumps in the chunk.
+- **react-hook-form 7.80 → 7.91** grows the lazy `forms` chunk only.
+
+**Budget raised by the measured growth:** initial JS 376.2 → 407.8 kB, 121.2 → 130.5 kB gzip. The entry chunk budget
+is unchanged.
