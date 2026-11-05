@@ -12,7 +12,7 @@ import platform
 import re
 import statistics
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -25,6 +25,7 @@ from app.lead_brief.service import BriefError, CallMeta, generate
 from app.lead_brief.validate import EMAIL, _has_phone, find_links
 from app.metrics import Metrics
 from app.providers import make_provider
+from app.providers.base import Completion
 
 CASES = Path(__file__).parent / "lead_brief" / "cases.json"
 RESULTS = Path(__file__).parent / "results"
@@ -47,6 +48,8 @@ class Outcome:
     meta: CallMeta
     error: str | None
     checks: dict[str, bool | None]
+    # Each attempt's raw answer. Reported only for a case with a failed check; the inputs are synthetic.
+    outputs: list[str] = field(default_factory=list)
 
 
 def load_cases() -> list[Case]:
@@ -109,17 +112,35 @@ def run_checks(case: Case, brief: LeadBrief | None, meta: CallMeta, error: str |
 PLUMBING = ("schema_valid", "citations_subset", "no_contact_or_foreign_link", "cites_history")
 
 
+class RecordingProvider:
+    """Keeps every answer the wrapped provider gives. Eval only: the service itself keeps no model output."""
+
+    def __init__(self, inner: Any) -> None:
+        self.inner, self.name, self.texts = inner, inner.name, []
+
+    @property
+    def model(self) -> str:
+        return self.inner.model
+
+    async def complete(self, **kwargs: Any) -> Completion:
+        completion = await self.inner.complete(**kwargs)
+        self.texts.append(completion.text)
+        return completion
+
+
 async def run_case(case: Case, settings: Settings, provider: Any) -> Outcome:
     for wait in (*BACKOFF_S, None):
+        recorder = RecordingProvider(provider)
         try:
-            brief, meta = await generate(case.request, provider, settings, Metrics())
-            return Outcome(case, brief, meta, None, run_checks(case, brief, meta, None))
+            brief, meta = await generate(case.request, recorder, settings, Metrics())
+            return Outcome(case, brief, meta, None, run_checks(case, brief, meta, None), recorder.texts)
         except BriefError as err:
             if err.code == "RATE_LIMITED" and wait is not None:
                 print(f"  {case.id}: rate limited, waiting {wait} s", file=sys.stderr)
                 await asyncio.sleep(wait)
                 continue
-            return Outcome(case, None, err.meta, err.code, run_checks(case, None, err.meta, err.code))
+            checks = run_checks(case, None, err.meta, err.code)
+            return Outcome(case, None, err.meta, err.code, checks, recorder.texts)
     raise AssertionError("unreachable")
 
 
@@ -231,7 +252,39 @@ def report(
             f"| {o.case.id} | {', '.join(o.case.tags)} | {o.error or 'ok'} | {o.meta.attempts} | {o.meta.latency_ms} "
             f"| {o.meta.first_token_ms} | {o.meta.input_tokens}/{o.meta.output_tokens} | {failed} |"
         )
+    lines += failed_cases(outcomes)
     return "\n".join(lines) + "\n"
+
+
+def _fenced(text: str) -> list[str]:
+    fence = "`" * max(3, max((len(run) for run in re.findall(r"`+", text)), default=0) + 1)
+    return [fence, text, fence]
+
+
+def failed_cases(outcomes: list[Outcome]) -> list[str]:
+    """What the model wrote, attempt by attempt, for every case with a failed check: what got through, or which
+    rule stopped it, without guessing. Passing cases keep no output."""
+    failing = [o for o in outcomes if any(v is False for v in o.checks.values())]
+    if not failing:
+        return []
+    lines = [
+        "",
+        "## Failed cases",
+        "",
+        "The model's raw output for each case with a failed check. The inputs are synthetic "
+        "(AI/evals/lead_brief/cases.json): no customer data.",
+    ]
+    for o in failing:
+        failed = ", ".join(k for k, v in o.checks.items() if v is False)
+        lines += ["", f"### {o.case.id}", "", f"- **Result:** {o.error or 'ok'}", f"- **Failed checks:** {failed}"]
+        if o.meta.retry_skipped:
+            lines.append("- **Retry skipped:** not enough time left")
+        if not o.outputs:
+            lines.append("- **Output:** none (the model did not answer)")
+        for n, text in enumerate(o.outputs, 1):
+            problems = o.meta.attempt_problems[n - 1] if n <= len(o.meta.attempt_problems) else []
+            lines += ["", f"Attempt {n}, validation: {'; '.join(problems) or 'passed'}", "", *_fenced(text)]
+    return lines
 
 
 async def main(argv: list[str] | None = None) -> int:
