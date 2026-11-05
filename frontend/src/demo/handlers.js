@@ -673,7 +673,7 @@ export function createDemoApi({ now = () => new Date() } = {}) {
           cached,
           provider: 'fake',
           model: 'fake',
-          promptVersion: 'lead-brief/1',
+          promptVersion: 'lead-brief/2',
           truncated: bundle.truncated,
           generatedAt: entry.generatedAt,
         },

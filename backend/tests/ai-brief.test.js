@@ -21,11 +21,12 @@ let ctx, other, stub, saved
 const brief = (id, body = {}, token = ctx.tokens.owner) =>
   request(app).post(`${api}/ai/leads/${id}/brief`).set(bearer(token)).send(body)
 
-async function makeLead(owner = ctx, extra = {}) {
+async function makeLead(owner = ctx, extra = {}, companyExtra = {}) {
   const company = await Company.create({
     orgId: owner.org._id,
     name: 'Sahyadri Packaging',
     ownerId: owner.users.owner._id,
+    ...companyExtra,
   })
   return Lead.create({
     orgId: owner.org._id,
@@ -154,8 +155,17 @@ describe('the brief', () => {
     await brief(lead._id)
     const [sent] = stub.state.bodies
     expect(Object.keys(sent).sort()).toEqual(['history', 'lead', 'today', 'truncated'])
-    expect(Object.keys(sent.lead).sort()).toEqual(['company', 'createdAt', 'name', 'score', 'source', 'status'])
+    expect(Object.keys(sent.lead).sort()).toEqual([
+      'company',
+      'companyDomain',
+      'createdAt',
+      'name',
+      'score',
+      'source',
+      'status',
+    ])
     expect(sent.lead.company).toBe('Sahyadri Packaging')
+    expect(sent.lead.companyDomain).toBeNull() // this company has no domain
     expect(sent.history.map((h) => h.id).sort()).toEqual([call._id, note._id].map(String).sort())
     const text = JSON.stringify(sent)
     for (const leak of ['ravi@sahyadri.example', '98200', String(ctx.org._id), String(lead._id), 'owner 1', 'member']) {
@@ -165,6 +175,34 @@ describe('the brief', () => {
       expect(text).not.toContain(String(user._id))
       expect(text).not.toContain(user.name)
     }
+  })
+
+  // The company's website is the only link a brief may contain (the AI service checks it), so only a real host name
+  // is sent: anything else would widen what the check allows.
+  it.each([
+    ['sahyadri.co.in', 'sahyadri.co.in'],
+    ['Shop.Sahyadri.co.in.', 'shop.sahyadri.co.in'],
+    ['пример.рф', 'пример.рф'],
+    ['xn--e1afmkfd.xn--p1ai', 'xn--e1afmkfd.xn--p1ai'],
+    ['https://sahyadri.co.in/about', null],
+    ['sahyadri', null],
+    ['sahyadri..co.in', null],
+    ['-sahyadri.co.in', null],
+    ['not a domain.com', null],
+    ['sahyadri.co.in/x', null],
+    ['user@sahyadri.co.in', null],
+  ])('sends the company domain %j as %j', async (domain, sent) => {
+    const lead = await makeLead(ctx, {}, { domain })
+    await brief(lead._id)
+    expect(stub.state.bodies[0].lead.companyDomain).toBe(sent)
+  })
+
+  it('a changed company website changes the key', async () => {
+    const lead = await makeLead(ctx, {}, { domain: 'sahyadri.co.in' })
+    await brief(lead._id)
+    await Company.updateOne({ _id: lead.companyId }, { domain: 'sahyadri.com' })
+    expect((await brief(lead._id)).body.data.cached).toBe(false)
+    expect(stub.state.bodies[1].lead.companyDomain).toBe('sahyadri.com')
   })
 
   it('caps the history at 20 items and about 12,000 characters, dropping the oldest first', async () => {
