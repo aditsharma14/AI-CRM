@@ -9,8 +9,8 @@ import { AppError } from '../utils/http.js'
 /** @typedef {import('../schemas/ai.js').LeadBrief} LeadBrief */
 /** @typedef {import('../schemas/ai.js').AiCallMeta} AiCallMeta */
 
-// The AI service gets AI_TIMEOUT_MS for its model call; Express waits a little longer, so the service's own typed
-// TIMEOUT normally arrives first and the abort is only the backstop.
+// The AI service gets AI_TIMEOUT_MS (X-Deadline-Ms) for the whole brief; Express waits a little longer, so the
+// service's typed TIMEOUT or BAD_OUTPUT normally arrives first and the abort is only the backstop.
 export const ABORT_MARGIN_MS = 1000
 const INFO_TTL_MS = 5 * 60_000
 
@@ -110,7 +110,9 @@ export async function info() {
 export async function leadBrief(bundle) {
   const res = await call('/v1/lead-brief', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    // The time this request has before `call` aborts it (less the margin): the service skips a retry that couldn't
+    // finish in it and answers BAD_OUTPUT, instead of being cut off mid-attempt.
+    headers: { 'content-type': 'application/json', 'x-deadline-ms': String(env.aiTimeoutMs) },
     body: JSON.stringify(bundle),
   })
   const json = await jsonOf(res)

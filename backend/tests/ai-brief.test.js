@@ -126,6 +126,13 @@ describe('the brief', () => {
     expect(stub.state.headers.every((h) => h['x-internal-token'] === TOKEN)).toBe(true)
   })
 
+  it('tells the AI service how long it will wait (X-Deadline-Ms), so a retry that cannot finish is skipped', async () => {
+    const lead = await makeLead()
+    await brief(lead._id)
+    // The brief call is the last request; Express aborts AI_TIMEOUT_MS + ABORT_MARGIN_MS after sending it.
+    expect(stub.state.headers.at(-1)['x-deadline-ms']).toBe(String(env.aiTimeoutMs))
+  })
+
   it('the bundle carries no email, phone, user names or internal ids beyond history ids', async () => {
     const lead = await makeLead()
     const call = await Activity.create({
