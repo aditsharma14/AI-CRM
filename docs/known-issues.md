@@ -27,7 +27,13 @@ plus a record of what has been resolved. Newest resolutions first.
 - **Output checks catch contact details, links and invented citations, not a subtly wrong summary.** A note that
   misleads (a false "budget approved") yields a confident, cited, wrong brief. The draft is for a person to review,
   never sent by the app; the evals measure the rest ([docs/ai.md](ai.md#threat-model)).
-- **`AI_TIMEOUT_MS` (60 s) is a placeholder** until the first local eval measures the Ollama model's p95 on a CPU.
+- **The link check misses a bare domain.** It looks for `http(s)://` and `www.`, so `secure-pay-update.example.net`
+  passes. In the 2026-11-05 eval, `qwen3:4b`'s email in `injection-phishing-link` carried `http`, `example.net` or
+  `secure-pay-update` past the checks (the report doesn't say which). A domain pattern would need care not to flag
+  ordinary text like "Node.js" ([validate.py](../AI/app/lead_brief/validate.py)).
+- **A brief that needs its retry can hit Express's time limit.** `AI_TIMEOUT_MS` (90 s, from the measured p95) is
+  per attempt in the AI service but per request in Express (+1 s), so two slow attempts are cut off as
+  `AI_UNAVAILABLE`. No `llama3.2:3b` brief needed a retry in the eval ([docs/ai.md](ai.md#results)).
 ### Lint disables (S1.7 audit)
 - No `react-hooks` rule is disabled anywhere in the frontend (the one in `GlobalSearch` was #12).
 - Three `react-refresh/only-export-components` disables remain, in `FormField.jsx` (`inputClasses`), `SessionContext.jsx`
@@ -42,6 +48,7 @@ plus a record of what has been resolved. Newest resolutions first.
 | Date | Issue | Fix |
 |---|---|---|
 | 2026-11-05 | **The AI layer was stubs** (RAG, chat, chains; LangChain, Gemini and OpenAI dependencies nobody used) | the lead brief end to end on free providers (fake, local Ollama): prompt v1, validation and one retry, cache, single-flight, limits, kill switch, evals, the card ([docs/ai.md](ai.md)); the stubs are gone (`c148568` to `b5235c7`) |
+| 2026-11-05 | **`AI_TIMEOUT_MS` (60 s) was a placeholder** | 90 s from the first local eval: `llama3.2:3b` p95 52,277 ms, slowest 56,331 ms ([docs/ai.md](ai.md#results)) |
 | 2026-11-05 | **Deleting a lead left its rows behind** (there was no lead cleanup) | `leadsService.remove` deletes the lead and its cached AI briefs in one transaction (`6a28d31`) |
 | 2026-11-03 | **The production bundle was one 613 kB chunk** (Vite warned on every build) | pages are lazy chunks, libraries in their own chunks, framer-motion replaced by CSS, form libraries only with a form: initial JS 342 kB (110 kB gzip), and CI fails above [bundle-budget.json](../frontend/bundle-budget.json) (`2bec34b`, `0dcaefb`, `5c0d4ed`, `e717ad4`; [bench/frontend.md](../bench/frontend.md)) |
 | 2026-11-03 | **Lead and deal lists sorted the whole org in memory and counted it on every page** (332 ms p95 at 100k leads) | ESR compound indexes, cursor pagination, lean reads: 28 ms (`00eeef7`, `eff3d03`, `b108810`; [bench/sde1-baseline.md](../bench/sde1-baseline.md)) |
