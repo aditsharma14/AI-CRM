@@ -1,5 +1,8 @@
-// Dev-only: boots the API against a throwaway in-memory MongoDB for Playwright (frontend/e2e). Never used in production.
+// Dev-only: boots the API against a throwaway in-memory MongoDB for Playwright (frontend/e2e), and a lead-brief worker
+// as its own process on the same database, as compose runs it. Never used in production.
+import { spawn } from 'node:child_process'
 import http from 'node:http'
+import { fileURLToPath } from 'node:url'
 
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
 
@@ -28,11 +31,26 @@ Object.assign(process.env, {
   AI_SERVICE_URL: `http://127.0.0.1:${process.env.E2E_AI_PORT ?? '5057'}`,
   AI_INTERNAL_TOKEN: process.env.E2E_AI_TOKEN ?? 'e2e-internal-token-0123456789',
   AI_TIMEOUT_MS: '15000',
+  // A queued brief is picked up within 100 ms (compose: 500).
+  AI_WORKER_POLL_MS: '100',
+})
+
+// The worker: a separate process, like compose's `worker` service. Stopped with this script.
+let stopping = false
+const worker = spawn(process.execPath, ['src/worker.js'], {
+  cwd: fileURLToPath(new URL('..', import.meta.url)),
+  env: process.env,
+  stdio: 'inherit',
+})
+worker.on('exit', (code, signal) => {
+  if (!stopping) console.error(`e2e-server.js: the worker exited (${code ?? signal}).`)
 })
 
 // Playwright stops this process when the run ends; take mongod down with it.
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, async () => {
+    stopping = true
+    worker.kill()
     await mongod.stop()
     process.exit(0)
   })
