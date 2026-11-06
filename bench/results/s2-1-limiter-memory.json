@@ -1,0 +1,362 @@
+{
+  "label": "s2-1-limiter-memory",
+  "date": "2026-11-06T19:53:12.779Z",
+  "machine": {
+    "cpu": "AMD Ryzen 7 8840HS w/ Radeon 780M Graphics",
+    "threads": 16,
+    "ramGb": 31,
+    "os": "Windows_NT 10.0.26200",
+    "node": "v24.16.0",
+    "mongo": "8.3.4"
+  },
+  "method": {
+    "warmupSeconds": 5,
+    "runs": 3,
+    "runSeconds": 10,
+    "connections": 10
+  },
+  "results": [
+    {
+      "name": "lead list (default sort)",
+      "path": "/leads?limit=20",
+      "runs": [
+        {
+          "p50": 19,
+          "p95": 29,
+          "reqPerSec": 501
+        },
+        {
+          "p50": 18,
+          "p95": 25,
+          "reqPerSec": 535
+        },
+        {
+          "p50": 16,
+          "p95": 23,
+          "reqPerSec": 584
+        }
+      ],
+      "p50": 18,
+      "p95": 25,
+      "reqPerSec": 535,
+      "spread": {
+        "p50": "16-19",
+        "p95": "23-29",
+        "reqPerSec": "501-584"
+      },
+      "queries": [
+        {
+          "collection": "leads",
+          "kind": "find",
+          "plan": "LIMIT > FETCH > IXSCAN {orgId_1_createdAt_-1__id_-1}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 21,
+          "docsExamined": 21,
+          "returned": 21,
+          "millis": 2
+        },
+        {
+          "collection": "companies",
+          "kind": "find",
+          "plan": "PROJECTION_SIMPLE > FETCH > IXSCAN {_id_}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 28,
+          "docsExamined": 14,
+          "returned": 14,
+          "millis": 0
+        }
+      ]
+    },
+    {
+      "name": "lead list, status filter",
+      "path": "/leads?limit=20&status=qualified",
+      "runs": [
+        {
+          "p50": 15,
+          "p95": 22,
+          "reqPerSec": 601
+        },
+        {
+          "p50": 14,
+          "p95": 21,
+          "reqPerSec": 615
+        },
+        {
+          "p50": 15,
+          "p95": 23,
+          "reqPerSec": 598
+        }
+      ],
+      "p50": 15,
+      "p95": 22,
+      "reqPerSec": 601,
+      "spread": {
+        "p50": "14-15",
+        "p95": "21-23",
+        "reqPerSec": "598-615"
+      },
+      "queries": [
+        {
+          "collection": "leads",
+          "kind": "find",
+          "plan": "LIMIT > FETCH > IXSCAN {orgId_1_status_1_createdAt_-1__id_-1}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 21,
+          "docsExamined": 21,
+          "returned": 21,
+          "millis": 1
+        },
+        {
+          "collection": "companies",
+          "kind": "find",
+          "plan": "PROJECTION_SIMPLE > FETCH > IXSCAN {_id_}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 30,
+          "docsExamined": 15,
+          "returned": 15,
+          "millis": 0
+        }
+      ]
+    },
+    {
+      "name": "lead list, search",
+      "path": "/leads?limit=20&q=sharma",
+      "runs": [
+        {
+          "p50": 25,
+          "p95": 31,
+          "reqPerSec": 388
+        },
+        {
+          "p50": 25,
+          "p95": 31,
+          "reqPerSec": 392
+        },
+        {
+          "p50": 25,
+          "p95": 33,
+          "reqPerSec": 383
+        }
+      ],
+      "p50": 25,
+      "p95": 31,
+      "reqPerSec": 388,
+      "spread": {
+        "p50": "25-25",
+        "p95": "31-33",
+        "reqPerSec": "383-392"
+      },
+      "queries": [
+        {
+          "collection": "leads",
+          "kind": "find",
+          "plan": "SORT > TEXT_MATCH {orgId_1_name_text_email_text} > FETCH > IXSCAN {orgId_1_name_text_email_text}",
+          "collscan": false,
+          "inMemorySort": true,
+          "keysExamined": 4258,
+          "docsExamined": 4258,
+          "returned": 21,
+          "millis": 15
+        },
+        {
+          "collection": "companies",
+          "kind": "find",
+          "plan": "PROJECTION_SIMPLE > FETCH > IXSCAN {_id_}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 28,
+          "docsExamined": 14,
+          "returned": 14,
+          "millis": 1
+        }
+      ]
+    },
+    {
+      "name": "deal list",
+      "path": "/deals?limit=20&sort=-createdAt",
+      "runs": [
+        {
+          "p50": 17,
+          "p95": 25,
+          "reqPerSec": 546
+        },
+        {
+          "p50": 16,
+          "p95": 25,
+          "reqPerSec": 549
+        },
+        {
+          "p50": 17,
+          "p95": 24,
+          "reqPerSec": 540
+        }
+      ],
+      "p50": 17,
+      "p95": 25,
+      "reqPerSec": 546,
+      "spread": {
+        "p50": "16-17",
+        "p95": "24-25",
+        "reqPerSec": "540-549"
+      },
+      "queries": [
+        {
+          "collection": "deals",
+          "kind": "find",
+          "plan": "LIMIT > FETCH > IXSCAN {orgId_1_createdAt_-1__id_-1}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 21,
+          "docsExamined": 21,
+          "returned": 21,
+          "millis": 1
+        },
+        {
+          "collection": "companies",
+          "kind": "find",
+          "plan": "PROJECTION_SIMPLE > FETCH > IXSCAN {_id_}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 41,
+          "docsExamined": 21,
+          "returned": 21,
+          "millis": 0
+        }
+      ]
+    },
+    {
+      "name": "dashboard overview",
+      "path": "/dashboard/overview",
+      "runs": [
+        {
+          "p50": 36,
+          "p95": 44,
+          "reqPerSec": 269
+        },
+        {
+          "p50": 38,
+          "p95": 46,
+          "reqPerSec": 256
+        },
+        {
+          "p50": 38,
+          "p95": 45,
+          "reqPerSec": 256
+        }
+      ],
+      "p50": 38,
+      "p95": 45,
+      "reqPerSec": 256,
+      "spread": {
+        "p50": "36-38",
+        "p95": "44-46",
+        "reqPerSec": "256-269"
+      },
+      "queries": [
+        {
+          "collection": "leads",
+          "kind": "aggregate",
+          "plan": "GROUP > COUNT_SCAN {orgId_1_status_1_createdAt_-1__id_-1}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 10023,
+          "docsExamined": 0,
+          "returned": 1,
+          "millis": 5
+        },
+        {
+          "collection": "leads",
+          "kind": "aggregate",
+          "plan": "GROUP > COUNT_SCAN {orgId_1_status_1_createdAt_-1__id_-1}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 14714,
+          "docsExamined": 0,
+          "returned": 1,
+          "millis": 5
+        },
+        {
+          "collection": "deals",
+          "kind": "aggregate",
+          "plan": "GROUP > PROJECTION_COVERED > IXSCAN {orgId_1_status_1_value_1}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 6522,
+          "docsExamined": 0,
+          "returned": 1,
+          "millis": 9
+        },
+        {
+          "collection": "leads",
+          "kind": "aggregate",
+          "plan": "GROUP > COUNT_SCAN {orgId_1_status_1_createdAt_-1__id_-1}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 19991,
+          "docsExamined": 0,
+          "returned": 1,
+          "millis": 6
+        },
+        {
+          "collection": "leads",
+          "kind": "aggregate",
+          "plan": "GROUP > COUNT_SCAN {orgId_1_status_1_createdAt_-1__id_-1}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 25144,
+          "docsExamined": 0,
+          "returned": 1,
+          "millis": 10
+        },
+        {
+          "collection": "leads",
+          "kind": "aggregate",
+          "plan": "GROUP > COUNT_SCAN {orgId_1_status_1_createdAt_-1__id_-1}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 30128,
+          "docsExamined": 0,
+          "returned": 1,
+          "millis": 16
+        },
+        {
+          "collection": "deals",
+          "kind": "aggregate",
+          "plan": "GROUP > PROJECTION_COVERED > IXSCAN {orgId_1_stageKey_1_value_1}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 10000,
+          "docsExamined": 0,
+          "returned": 6,
+          "millis": 14
+        },
+        {
+          "collection": "logs",
+          "kind": "find",
+          "plan": "LIMIT > FETCH > IXSCAN {orgId_1_createdAt_-1}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 10,
+          "docsExamined": 10,
+          "returned": 10,
+          "millis": 0
+        },
+        {
+          "collection": "users",
+          "kind": "find",
+          "plan": "PROJECTION_SIMPLE > FETCH > IXSCAN {_id_}",
+          "collscan": false,
+          "inMemorySort": false,
+          "keysExamined": 13,
+          "docsExamined": 8,
+          "returned": 8,
+          "millis": 0
+        }
+      ]
+    }
+  ]
+}
