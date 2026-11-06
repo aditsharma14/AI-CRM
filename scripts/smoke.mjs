@@ -117,11 +117,20 @@ async function main() {
     if (lead.status !== 'converted') fail(`convert: lead status is ${lead.status}`)
   })
 
-  // When AI is on (compose turns it on, with the fake provider), the api reaches the ai service with its token.
+  // When AI is on (compose turns it on, with the fake provider), a worker reaches the ai service with its token.
   await step('AI lead brief (if AI is on)', async () => {
     const config = await expectStatus('config', 200, 'GET', '/config', { auth: false })
     if (!config.aiEnabled) return
-    const brief = await expectStatus('brief', 200, 'POST', `/ai/leads/${leadId}/brief`, { body: {} })
+    // Queued (202), then run by a worker container: polled until it ends.
+    const { jobId } = await expectStatus('brief', 202, 'POST', `/ai/leads/${leadId}/brief`, { body: {} })
+    let job
+    for (let i = 0; i < 60; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      job = await expectStatus('brief job', 200, 'GET', `/ai/jobs/${jobId}`)
+      if (job.state === 'done' || job.state === 'failed') break
+    }
+    if (job.state !== 'done') fail(`brief: the job ended ${job.state} (${JSON.stringify(job.error ?? null)}), not done`)
+    const brief = job.brief
     if (!brief.summary || !brief.followUpEmail?.subject) fail('brief: missing summary or email')
     const again = await expectStatus('cached brief', 200, 'POST', `/ai/leads/${leadId}/brief`, { body: {} })
     if (again.cached !== true) fail('brief: the second request was not served from the cache')
