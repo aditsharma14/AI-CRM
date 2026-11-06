@@ -11,6 +11,9 @@ import { fileURLToPath } from 'node:url'
 import mongoose from 'mongoose'
 
 import Activity from '../src/models/Activity.js'
+import AiBrief from '../src/models/AiBrief.js'
+import AiCall from '../src/models/AiCall.js'
+import AiJob from '../src/models/AiJob.js'
 import { Company, Contact, Lead } from '../src/models/CRM.js'
 import Deal from '../src/models/Deal.js'
 import { Log } from '../src/models/Logs.js'
@@ -18,7 +21,7 @@ import Note from '../src/models/Note.js'
 import Organization from '../src/models/Organization.js'
 import User from '../src/models/User.js'
 
-export const MODELS = [Organization, User, Company, Contact, Lead, Deal, Activity, Note, Log]
+export const MODELS = [Organization, User, Company, Contact, Lead, Deal, Activity, Note, Log, AiBrief, AiJob, AiCall]
 
 /** Per model, the indexes the database has that no model defines (toDrop) and those it lacks (toCreate). */
 export async function diff() {

@@ -98,6 +98,41 @@
     "error": "null",
     "meta": "null"
   },
+  "GET /ai/jobs/:jobId": {
+    "success": "boolean",
+    "data": {
+      "state": "string",
+      "brief?": {
+        "summary": "string",
+        "nextAction": {
+          "action": "string",
+          "dueDate": "string"
+        },
+        "followUpEmail": {
+          "subject": "string",
+          "body": "string"
+        },
+        "citations": [
+          {
+            "claim": "string",
+            "sourceIds": ["id"]
+          }
+        ],
+        "cached": "boolean",
+        "provider": "string",
+        "model": "string",
+        "promptVersion": "string",
+        "truncated": "number",
+        "generatedAt": "date"
+      },
+      "error?": {
+        "code": "string",
+        "message": "string"
+      }
+    },
+    "error": "null",
+    "meta": "null"
+  },
   "GET /companies": {
     "success": "boolean",
     "data": [
@@ -794,6 +829,14 @@
       "promptVersion": "string",
       "truncated": "number",
       "generatedAt": "date"
+    },
+    "error": "null",
+    "meta": "null"
+  },
+  "POST /ai/leads/:id/brief queued": {
+    "success": "boolean",
+    "data": {
+      "jobId": "id"
     },
     "error": "null",
     "meta": "null"

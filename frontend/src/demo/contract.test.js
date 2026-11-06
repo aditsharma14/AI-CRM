@@ -168,11 +168,13 @@ beforeAll(async () => {
   await call('PATCH /notes/:id', { path: `/notes/${id('note', 1)}`, body: { body: 'Volume confirmed.' } })
   await call('DELETE /notes/:id', { path: `/notes/${extra._id}` })
 
-  // the AI lead brief: fresh, then cached, then regenerated (a lead with history, so citations are sampled)
+  // the AI lead brief: queued and polled, then cached, then regenerated (a lead with history, so citations are sampled)
   const briefPath = `/ai/leads/${id('lead', 1)}/brief`
+  const first = await call('POST /ai/leads/:id/brief queued', { path: briefPath, body: {}, expect: 202 })
+  await call('GET /ai/jobs/:jobId', { path: `/ai/jobs/${first.jobId}` })
   await call('POST /ai/leads/:id/brief', { path: briefPath, body: {} })
-  await call('POST /ai/leads/:id/brief', { path: briefPath, body: {} })
-  await call('POST /ai/leads/:id/brief', { path: briefPath, body: { refresh: true } })
+  const fresh = await call('POST /ai/leads/:id/brief queued', { path: briefPath, body: { refresh: true }, expect: 202 })
+  await call('GET /ai/jobs/:jobId', { path: `/ai/jobs/${fresh.jobId}` })
   await call('GET /dashboard/overview')
   await call('GET /dashboard/reports')
   await call('GET /search', { params: { q: 'Sahyadri' } })

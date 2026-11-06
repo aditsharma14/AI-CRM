@@ -1,4 +1,4 @@
-// Query plans of the five most-used reads (bench/sde1-baseline.md): every MongoDB command each endpoint sends is captured
+// Query plans of the five most-used reads, and of the AI job queue's claim and stats (bench/sde1-baseline.md): every MongoDB command each endpoint sends is captured
 // with the profiler, explained, and checked on its winning plan's stages, never on timing. A few hundred documents per
 // collection, in two orgs, so the planner's choice is the one it makes on real data.
 import mongoose from 'mongoose'
@@ -7,11 +7,13 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import app from '../src/app.js'
 import Activity from '../src/models/Activity.js'
+import AiJob from '../src/models/AiJob.js'
 import { Company, Contact, Lead } from '../src/models/CRM.js'
 import Deal from '../src/models/Deal.js'
 import { ActivityLog, Log } from '../src/models/Logs.js'
 import Organization from '../src/models/Organization.js'
 import User from '../src/models/User.js'
+import { claimNext, queueStats } from '../src/services/aiJobService.js'
 import { bearer, seedOrg } from './helpers.js'
 
 const api = '/api/v1'
@@ -199,5 +201,110 @@ describe('query plans of the five most-used reads', () => {
     const plans = onlyOn(await plansFor('/dashboard/overview'), 'leads')
     expect(plans.length).toBeGreaterThan(0)
     for (const { plan } of plans) expect(plan).toMatch(/COUNT_SCAN \{orgId_1_status_1/)
+  })
+})
+
+describe('query plans of the AI job queue', () => {
+  // A queue that has run a while: mostly finished jobs, some queued, some running (a few with an expired lease), in
+  // two orgs, created in no particular order.
+  beforeAll(async () => {
+    const orgs = [ctx.org._id, new mongoose.Types.ObjectId()]
+    const now = Date.now()
+    const states = ['done', 'done', 'done', 'failed', 'queued', 'running']
+    await AiJob.insertMany(
+      Array.from({ length: 600 }, (_, i) => {
+        const state = states[i % states.length]
+        return {
+          orgId: orgs[i % 2],
+          leadId: new mongoose.Types.ObjectId(),
+          key: `key-${i}`,
+          state,
+          attempts: state === 'queued' ? 0 : 1,
+          ...(state === 'running'
+            ? { lockedBy: 'w', lockedUntil: new Date(now + (i % 4 === 0 ? -1000 : 60_000)) }
+            : {}),
+          createdAt: new Date(now - ((i * 7919) % 600) * 1000),
+        }
+      }),
+    )
+    await AiJob.syncIndexes()
+  })
+
+  /** Every command `run` sends to aijobs, explained: [{ op, plan, docsExamined }]. */
+  async function queuePlans(run) {
+    const db = mongoose.connection.db
+    await db.command({ profile: 0 })
+    await db
+      .collection('system.profile')
+      .drop()
+      .catch(() => {})
+    await db.command({ profile: 2 })
+    await run()
+    await db.command({ profile: 0 })
+    const entries = await db
+      .collection('system.profile')
+      .find({ ns: /\.aijobs$/ })
+      .toArray()
+    const out = []
+    for (const { command } of entries) {
+      let explain
+      if (command.findAndModify) {
+        const { findAndModify, query, sort, update, new: returnNew } = command
+        explain = { findAndModify, query, sort, update, new: returnNew }
+      } else if (command.find) {
+        explain = Object.fromEntries(KEYS.filter((k) => k in command).map((k) => [k, command[k]]))
+      } else if (command.aggregate) {
+        explain = { aggregate: command.aggregate, pipeline: command.pipeline, cursor: {} }
+      } else continue
+      const result = await db.command({ explain, verbosity: 'executionStats' })
+      const cursor = result.stages?.[0]?.$cursor ?? result
+      const winning = cursor.queryPlanner.winningPlan
+      out.push({
+        op: Object.keys(explain)[0],
+        plan: stages(winning.queryPlan ?? winning),
+        docsExamined: cursor.executionStats.totalDocsExamined,
+      })
+    }
+    return out
+  }
+
+  it('the claim: the oldest claimable job through the index, in createdAt order, no collection scan or sort', async () => {
+    let claimed
+    const plans = await queuePlans(async () => {
+      claimed = await claimNext('plan-worker', { leaseMs: 30_000 })
+    })
+    const claims = plans.filter((p) => p.op === 'findAndModify')
+    expect(claims, JSON.stringify(plans)).toHaveLength(1)
+    const [{ plan, docsExamined }] = claims
+    expect(plan).not.toContain('COLLSCAN')
+    expect(plan).toContain('IXSCAN {state_1_createdAt_1_lockedUntil_1}')
+    expect(sortsInMemory(plan), plan).toBe(false)
+    // The head of the queue, plus the running jobs ahead of it whose lease still holds (one per busy worker): read
+    // and passed over. Not every queued job. (The explain runs after the claim, so the job just claimed is one of them.)
+    const passedOver = await AiJob.countDocuments({
+      state: 'running',
+      lockedUntil: { $gte: claimed.startedAt },
+      createdAt: { $lte: claimed.createdAt },
+    })
+    expect(docsExamined, plan).toBeLessThanOrEqual(passedOver + 2)
+    // FIFO: nothing claimable is older than what was claimed.
+    const older = await AiJob.countDocuments({
+      createdAt: { $lt: claimed.createdAt },
+      attempts: { $lt: 2 },
+      $or: [{ state: 'queued' }, { state: 'running', lockedUntil: { $lt: claimed.startedAt } }],
+    })
+    expect(older).toBe(0)
+  })
+
+  it("queue stats: the org's queued count and its oldest job through the org-prefixed index", async () => {
+    const plans = await queuePlans(() =>
+      queueStats({ id: String(ctx.users.owner._id), orgId: String(ctx.org._id), role: 'owner' }),
+    )
+    expect(plans.length).toBeGreaterThan(0)
+    for (const { plan } of plans) {
+      expect(plan).not.toContain('COLLSCAN')
+      expect(sortsInMemory(plan), plan).toBe(false)
+      expect(plan).toContain('{orgId_1_state_1_createdAt_1}')
+    }
   })
 })

@@ -149,11 +149,23 @@ export function createDemoApi({ now = () => new Date() } = {}) {
   const db = createSeed(now())
   /** Briefs already generated in this tab: same input, same brief (cached: true), as the API's cache. */
   const briefCache = new Map()
+  /** Brief jobs, as the API's queue: jobId -> { key, brief }. The demo's "worker" is instant: the first poll is done. */
+  const briefJobs = new Map()
   let sequence = 0
   let sessionUserId = null
   const tokens = new Map()
 
   const stamp = () => now().toISOString()
+  /** A brief as the API returns it (aiBriefService.present). */
+  const presentBrief = (entry, cached, bundle) => ({
+    ...entry.brief,
+    cached,
+    provider: 'fake',
+    model: 'fake',
+    promptVersion: 'lead-brief/2',
+    truncated: bundle.truncated,
+    generatedAt: entry.generatedAt,
+  })
   const newId = () => oid('2a', ++sequence)
   const userById = (userId) => db.users.find((u) => u._id === String(userId))
   const stages = () => [...db.org.pipelineStages].sort((a, b) => a.order - b.order)
@@ -650,7 +662,8 @@ export function createDemoApi({ now = () => new Date() } = {}) {
     }),
     ...Object.keys(RESOURCES).flatMap(crudRoutes),
 
-    // The AI lead brief, answered like the API with the AI service on the fake provider (leadBrief.js).
+    // The AI lead brief, answered like the API with the AI service on the fake provider (leadBrief.js): a cached brief
+    // at once (200), else a job (202 { jobId }) that GET /ai/jobs/:jobId reports done on the first poll.
     route('post', '/ai/leads/:id/brief', ({ actor, params, body }) => {
       requirePermission(actor, 'ai', 'use')
       const extra = Object.keys(body ?? {}).find((key) => key !== 'refresh')
@@ -661,23 +674,18 @@ export function createDemoApi({ now = () => new Date() } = {}) {
       if (!lead) throw notFound('Lead not found.')
       const bundle = buildBundle(db, lead, now().toISOString().slice(0, 10))
       const key = briefKey(lead, bundle)
-      let entry = briefCache.get(key)
-      const cached = Boolean(entry) && !body?.refresh
-      if (!cached) {
-        entry = { brief: fakeBrief(bundle), generatedAt: now().toISOString() }
-        briefCache.set(key, entry)
-      }
-      return [
-        {
-          ...entry.brief,
-          cached,
-          provider: 'fake',
-          model: 'fake',
-          promptVersion: 'lead-brief/2',
-          truncated: bundle.truncated,
-          generatedAt: entry.generatedAt,
-        },
-      ]
+      const entry = briefCache.get(key)
+      if (entry && !body?.refresh) return [presentBrief(entry, true, bundle)]
+      const jobId = newId()
+      briefCache.set(key, { brief: fakeBrief(bundle), generatedAt: now().toISOString() })
+      briefJobs.set(jobId, { key, bundle })
+      return [{ jobId }, 202]
+    }),
+    route('get', '/ai/jobs/:jobId', ({ actor, params }) => {
+      requirePermission(actor, 'ai', 'use')
+      const job = briefJobs.get(params.jobId)
+      if (!job) throw notFound('Job not found.')
+      return [{ state: 'done', brief: presentBrief(briefCache.get(job.key), false, job.bundle) }]
     }),
 
     route('get', '/search', ({ url }) => {
