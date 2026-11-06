@@ -14,6 +14,19 @@ follow-up email written from the lead's history, each claim citing the entries i
 ([docs/ai.md](docs/ai.md)). It runs at zero cost: a deterministic fake provider by default, or a free local model
 in Ollama.
 
+## Start here
+
+1. [CLAUDE.md §4–5](CLAUDE.md#4-tenancy): the architecture, tenancy and the role and ownership rules.
+2. [bench/sde1-baseline.md](bench/sde1-baseline.md): the busiest reads at 100,000 leads, before and after, with query plans.
+3. [docs/ai.md](docs/ai.md): the lead brief: grounding, prompt-injection defences and the eval results.
+4. [docs/known-issues.md](docs/known-issues.md): what is still wrong or unfinished.
+
+## How I built this
+
+I built this with Claude Code as a pair programmer. The design decisions and the reviews of every change were mine.
+[CLAUDE.md](CLAUDE.md) is the brief I keep for the agent: the architecture, the rules it must follow and how it
+should work in this repo.
+
 ## The live demo
 
 The demo is this repo's real React frontend, built with `VITE_DEMO=true` and served by GitHub Pages. A mock service
