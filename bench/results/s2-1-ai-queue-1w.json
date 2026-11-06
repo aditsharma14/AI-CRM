@@ -1,0 +1,28 @@
+{
+  "label": "s2-1-ai-queue-1w",
+  "date": "2026-11-06T20:02:39.792Z",
+  "machine": {
+    "cpu": "AMD Ryzen 7 8840HS w/ Radeon 780M Graphics     ",
+    "cores": 16,
+    "os": "Windows_NT 10.0.26200",
+    "node": "v24.16.0"
+  },
+  "settings": {
+    "workers": 1,
+    "jobs": 199,
+    "ratePerSecond": 4,
+    "pollMs": 500,
+    "provider": "fake"
+  },
+  "failed": 0,
+  "queueMs": {
+    "p50": 265,
+    "p95": 501,
+    "max": 528
+  },
+  "enqueueToDoneMs": {
+    "p50": 285,
+    "p95": 518,
+    "max": 552
+  }
+}
