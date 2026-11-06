@@ -7,22 +7,21 @@ Read this before changing anything. Overview: [readme.md](readme.md). History: [
 
 ```
                  same-origin /api/v1
- browser ───────────────────────────▶ Express API  (backend/, :5000) ──read/write──▶ MongoDB
- (frontend/, Vite :5173 / nginx :8080)        │
-                                              │ HTTP, internal only, X-Internal-Token
-                                              ▼
-                                     FastAPI AI service (AI/, :8000) ──▶ provider: fake | Ollama (local)
+ browser ───────────────────────────▶ Express API (backend/, :5000) ──read/write, queue AI jobs──▶ MongoDB
+ (frontend/, Vite :5173 / nginx :8080)                                                   claim, lease │
+                                     FastAPI AI service (AI/, :8000) ◀──X-Internal-Token── worker(s) (backend/src/worker.js)
+                                              └──▶ provider: fake | Ollama (local)
 ```
 
 - **The browser only calls same-origin `/api/v1`.** [client.js](frontend/src/api/client.js) hardcodes
   `baseURL: '/api/v1'`. [vite.config.js](frontend/vite.config.js) proxies it in dev and
   [nginx.conf](frontend/nginx.conf) proxies it in Docker. Never put an API host in the client.
-- **Express is the only caller of the AI service.** The frontend never talks to FastAPI. The one AI feature, the lead
-  brief ([docs/ai.md](docs/ai.md)), goes [aiBriefService.js](backend/src/services/aiBriefService.js) → [aiProxyService.js](backend/src/services/aiProxyService.js).
+- **The worker is the only caller of the AI service; the frontend never talks to FastAPI.** The lead brief is a job ([docs/ai.md](docs/ai.md#the-job-queue)):
+  the API queues it and answers 202 ([aiBriefService.js](backend/src/services/aiBriefService.js)), a worker process runs it ([aiJobService.js](backend/src/services/aiJobService.js)
+  → [aiProxyService.js](backend/src/services/aiProxyService.js)). Queue, single-flight, AI limits and cache are in Mongo; only the `/api` limiter is per process.
 - **The AI service never touches MongoDB.** Express loads the data (org-scoped), sends a minimal bundle (no emails,
   phones, users or ids beyond history ids), re-validates the answer and saves what it keeps. Everything is free: no paid API.
-- Containers are wired in [docker-compose.yml](docker-compose.yml): `client`, `api`, `mongo` (Mongo 7), and
-  `ai` (fake provider by default; no host port, only the api calls it).
+- [docker-compose.yml](docker-compose.yml): `client`, `api`, `worker` (`--scale worker=N`), `mongo` (Mongo 7), `ai` (fake provider; no host port).
 - **There is no hosted backend.** The full stack runs in docker compose. The public demo ([pages.yml](.github/workflows/pages.yml))
   is a `VITE_DEMO=true` build on GitHub Pages that answers the API in the browser; its shapes are pinned by [contracts/](contracts/).
 
@@ -159,12 +158,12 @@ Copy `backend/.env.example` → `backend/.env` and `AI/.env.example` → `AI/.en
 ```bash
 # MongoDB must be a replica set (lead convert uses a transaction): a 1-node local set on :27017 (see
 # "Replica set" below), `docker compose up mongo` (already one)
-cd backend  && npm install && npm run dev     # :5000, GET /health → {"success":true,...}
+cd backend  && npm install && npm run dev     # :5000, GET /health; `npm run worker` (2nd shell) runs AI brief jobs
 cd frontend && npm install && npm run dev     # :5173, proxies /api → :5000
 cd frontend && npm run build                  # production bundle → frontend/dist
 cd AI && python -m venv .venv && .venv/Scripts/activate && pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000     # fake provider; AI_PROVIDER=ollama for a local model (docs/ai.md)
-docker compose up --build                     # client, api, mongo; :8080. See Docker below.
+docker compose up --build                     # client, api, worker, ai, mongo; :8080. See Docker below.
 ```
 
 | Var | Service | Required at boot | Actually read? |
@@ -172,7 +171,7 @@ docker compose up --build                     # client, api, mongo; :8080. See D
 | `MONGO_URI` | backend | yes | yes |
 | `JWT_ACCESS_SECRET` | backend | yes | yes |
 | `CLIENT_ORIGIN` | backend | yes | yes (CORS) |
-| `AI_ENABLED`, `AI_SERVICE_URL`, `AI_INTERNAL_TOKEN`, `AI_TIMEOUT_MS` | backend | token: when AI is on | yes (kill switch, default off; compose on) |
+| `AI_ENABLED`, `AI_SERVICE_URL`, `AI_INTERNAL_TOKEN`, `AI_TIMEOUT_MS`, `AI_JOB_LEASE_MS`, `AI_WORKER_POLL_MS` | backend | token: when AI is on | yes (kill switch, default off; compose on; the worker's lease and poll: [docs/ai.md](docs/ai.md#configuration)) |
 | `ACCESS_TOKEN_TTL` | backend | no (`15m`) | yes |
 | `REFRESH_TOKEN_TTL` | backend | no (`7d`; `30s`/`15m`/`2h`/`7d` form, checked at boot) | yes (refresh cookie lifetime) |
 | `NODE_ENV`, `PORT`, `LOG_LEVEL` | backend | no (`LOG_LEVEL`: `info`; `silent` under test) | yes |

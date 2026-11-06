@@ -1,6 +1,7 @@
 // @ts-check
 // Lead CRUD plus convert-to-deal (one transaction, via dealsService.create). The AI rescore is promised, not built.
 import AiBrief from '../models/AiBrief.js'
+import AiJob, { ACTIVE_STATES } from '../models/AiJob.js'
 import { Company, Lead } from '../models/CRM.js'
 import { missOrForbidden, scopeFor } from '../policies/ownership.js'
 import { leadList } from '../schemas/leads.js'
@@ -96,7 +97,7 @@ export async function convertToDeal(actor, leadId, dealInput = {}) {
 const alreadyConverted = () => badRequest('This lead has already been converted.', 'ALREADY_CONVERTED')
 
 /**
- * Deletes a lead and what exists only for it (its cached AI briefs), in one transaction: either both go or neither.
+ * Deletes a lead and what exists only for it (its cached AI briefs; its open AI jobs end), in one transaction: either both go or neither.
  * Same rules and audit entry as the CRUD factory's remove.
  * @param {AuthUser} actor
  * @param {string} id
@@ -111,6 +112,21 @@ export async function remove(actor, id) {
     )
     if (!doc) throw await missOrForbidden(Lead, actor, id)
     await AiBrief.deleteMany({ orgId: actor.orgId, leadId: doc._id }, { session })
+    // Its open jobs end here: a worker still running one finds it no longer running and writes nothing.
+    await AiJob.updateMany(
+      { orgId: actor.orgId, leadId: doc._id, state: { $in: [...ACTIVE_STATES] } },
+      {
+        $set: {
+          state: 'failed',
+          error: { code: 'NOT_FOUND', message: 'This lead was deleted.' },
+          finishedAt: new Date(),
+          lockedBy: null,
+          lockedUntil: null,
+        },
+        $unset: { bundle: 1 },
+      },
+      { session },
+    )
     await logActivity(
       {
         orgId: actor.orgId,

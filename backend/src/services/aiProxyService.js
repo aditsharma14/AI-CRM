@@ -64,15 +64,17 @@ export function resetInfoCache() {
 /**
  * @param {string} path
  * @param {{ method: string, headers?: Record<string, string>, body?: string }} init
+ * @param {AbortSignal} [signal] The caller's own abort (a worker that lost its job's lease), besides the timeout.
  * @returns {Promise<Response>}
- * @throws {AiError} AI_UNAVAILABLE when unreachable or too slow
+ * @throws {AiError} AI_UNAVAILABLE when unreachable, too slow or aborted
  */
-async function call(path, init) {
+async function call(path, init, signal) {
+  const timeout = AbortSignal.timeout(env.aiTimeoutMs + ABORT_MARGIN_MS)
   try {
     return await fetch(`${env.aiServiceUrl.replace(/\/+$/, '')}${path}`, {
       ...init,
       headers: { ...init.headers, 'x-internal-token': env.aiInternalToken ?? '' },
-      signal: AbortSignal.timeout(env.aiTimeoutMs + ABORT_MARGIN_MS),
+      signal: signal ? AbortSignal.any([timeout, signal]) : timeout,
     })
   } catch (err) {
     const name = err instanceof Error ? err.name : ''
@@ -104,17 +106,22 @@ export async function info() {
 
 /**
  * @param {unknown} bundle The minimal lead bundle (aiBriefService.buildBundle).
+ * @param {AbortSignal} [signal] Aborts the call (and reading its answer).
  * @returns {Promise<{ brief: LeadBrief, meta: AiCallMeta }>}
  * @throws {AiError}
  */
-export async function leadBrief(bundle) {
-  const res = await call('/v1/lead-brief', {
-    method: 'POST',
-    // The time this request has before `call` aborts it (less the margin): the service skips a retry that couldn't
-    // finish in it and answers BAD_OUTPUT, instead of being cut off mid-attempt.
-    headers: { 'content-type': 'application/json', 'x-deadline-ms': String(env.aiTimeoutMs) },
-    body: JSON.stringify(bundle),
-  })
+export async function leadBrief(bundle, signal) {
+  const res = await call(
+    '/v1/lead-brief',
+    {
+      method: 'POST',
+      // The time this request has before `call` aborts it (less the margin): the service skips a retry that couldn't
+      // finish in it and answers BAD_OUTPUT, instead of being cut off mid-attempt.
+      headers: { 'content-type': 'application/json', 'x-deadline-ms': String(env.aiTimeoutMs) },
+      body: JSON.stringify(bundle),
+    },
+    signal,
+  )
   const json = await jsonOf(res)
   if (res.ok) {
     const parsed = leadBriefAnswer.safeParse(json)

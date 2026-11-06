@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smoke test for the running compose stack (CI docker job; also runnable locally after `docker compose up -d`).
-# Proves: the API is healthy, mongo is a PRIMARY replica-set member, nginx proxies /api, and a lead
-# conversion (which runs in a transaction) works end to end.
+# Proves: the API is healthy, mongo is a PRIMARY replica-set member, the lead-brief workers are running, nginx
+# proxies /api, and a lead conversion (which runs in a transaction) works end to end.
 set -euo pipefail
 
 API=${API:-http://localhost:5000}
@@ -19,6 +19,11 @@ echo "== replica set"
 state=$(docker compose exec -T mongo mongosh --quiet --eval 'rs.status().members[0].stateStr')
 echo "member 0: $state"
 [ "$state" = "PRIMARY" ] || { echo "expected PRIMARY"; exit 1; }
+
+echo "== lead-brief workers (WORKERS, default 1; CI scales to 2)"
+running=$(docker compose ps --status running -q worker | wc -l)
+echo "running: $running"
+[ "$running" -eq "${WORKERS:-1}" ] || { echo "expected ${WORKERS:-1} running worker(s)"; exit 1; }
 
 echo "== nginx proxies /api to the API"
 proxied=$(curl -sS "$CLIENT/api/v1/nope" | jq -r '.error.code')

@@ -100,7 +100,7 @@ jobs:
             backend/package-lock.json
             frontend/package-lock.json
       # playwright.config.js starts the API (backend/scripts/e2e-server.js,
-      # in-memory Mongo) and a Vite dev server itself; both need their deps.
+      # in-memory Mongo, plus a lead-brief worker process) and a Vite dev server itself; both need their deps.
       - run: npm ci
         working-directory: backend
       - run: npm ci
@@ -138,9 +138,12 @@ jobs:
           node-version: 24
       - run: docker compose version
       - run: docker compose build
-      # Returns once mongo is healthy (PRIMARY) and the api and client have started.
-      - run: docker compose up -d
+      # Returns once mongo is healthy (PRIMARY) and the api, two workers and the client have started. Two workers
+      # share one queue: the smoke's brief is claimed by exactly one of them.
+      - run: docker compose up -d --scale worker=2
       - run: bash scripts/ci/docker-smoke.sh
+        env:
+          WORKERS: 2
       - if: failure()
         run: docker compose ps -a && docker compose logs --no-color
       - if: always()

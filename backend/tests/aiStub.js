@@ -4,13 +4,18 @@ import http from 'node:http'
 
 /** The AI service stand-in: counts calls, keeps what it was sent, and answers as `stub.reply` says. */
 export function startAiStub() {
-  const state = { calls: 0, bodies: [], headers: [], reply: null, delayMs: 0 }
+  const state = { calls: 0, bodies: [], headers: [], reply: null, delayMs: 0, infoDelayMs: 0, aborted: 0 }
   const server = http.createServer((req, res) => {
+    // A caller that gave up before the answer (a worker that lost its lease aborts its call).
+    res.on('close', () => {
+      if (!res.writableEnded) state.aborted += 1
+    })
     let raw = ''
     req.on('data', (chunk) => (raw += chunk))
     req.on('end', async () => {
       state.headers.push(req.headers)
       if (req.url === '/v1/info') {
+        if (state.infoDelayMs) await new Promise((resolve) => setTimeout(resolve, state.infoDelayMs))
         res.writeHead(200, { 'content-type': 'application/json' })
         return res.end(JSON.stringify({ provider: 'fake', model: 'fake', promptVersion: 'lead-brief/1' }))
       }

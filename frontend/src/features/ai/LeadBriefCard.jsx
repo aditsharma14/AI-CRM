@@ -1,8 +1,9 @@
-// The AI lead brief on a lead's page: generate it, read it with citations that scroll to the history entry they rest
-// on, copy the draft email (never sent from here), regenerate. Hidden while AI is off (GET /config: aiEnabled).
+// The AI lead brief on a lead's page: generate it (a cached brief at once, else a queued job polled with backoff until
+// it ends), read it with citations that scroll to the history entry they rest on, copy the draft email (never sent from
+// here), regenerate. Hidden while AI is off (GET /config: aiEnabled).
 import { useMutation } from '@tanstack/react-query'
 import { Copy, RefreshCw, Sparkles } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api/client.js'
 import { Button } from '../../components/ui.jsx'
@@ -12,8 +13,41 @@ import { apiErrorMessage, cn, formatDate } from '../../lib/utils.js'
 const RETRYABLE = new Set(['AI_UNAVAILABLE', 'AI_BAD_OUTPUT'])
 const HIGHLIGHT = ['ring-2', 'ring-accent', 'bg-accent-50', 'dark:bg-accent/10']
 
+// Waits before each poll: 1 s, 2 s, 4 s, then every 5 s. A fast brief is seen within a second; a slow local model
+// costs one request per 5 s.
+const POLL_DELAYS_MS = [1000, 2000, 4000]
+const POLL_CAP_MS = 5000
+
+/** A job that ended in `failed`: carries the job's typed error, shaped like the API's. */
+class JobFailed extends Error {
+  constructor(error) {
+    super(error.message)
+    this.job = error
+  }
+}
+
+/** Resolves after `ms`, or rejects as soon as `signal` aborts. */
+function sleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms)
+    signal.addEventListener('abort', () => (clearTimeout(timer), reject(signal.reason)), { once: true })
+  })
+}
+
+/** Polls GET /ai/jobs/:jobId with backoff until the job is done (its brief) or failed (throws JobFailed). */
+async function waitForJob(jobId, { signal, onState }) {
+  for (let n = 0; ; n++) {
+    await sleep(POLL_DELAYS_MS[n] ?? POLL_CAP_MS, signal)
+    const job = (await api.get(`/ai/jobs/${jobId}`, { signal })).data.data
+    if (job.state === 'done') return job.brief
+    if (job.state === 'failed') throw new JobFailed(job.error)
+    onState(job.state)
+  }
+}
+
 /** What went wrong, in words, and whether trying again could help. AI errors carry their own safe message. */
 function describe(error) {
+  if (error instanceof JobFailed) return { text: error.job.message, retry: RETRYABLE.has(error.job.code) }
   const envelope = error?.response?.data?.error
   if (envelope?.code?.startsWith('AI_')) return { text: envelope.message, retry: RETRYABLE.has(envelope.code) }
   return { text: apiErrorMessage(error), retry: !error?.response || error.response.status >= 500 }
@@ -33,9 +67,22 @@ export function LeadBriefCard({ leadId, history = [] }) {
   const { aiEnabled } = useAppConfig()
   const [copied, setCopied] = useState(false)
   const [lastRefresh, setLastRefresh] = useState(false)
+  // The job's last known state while it is polled: null before the POST answers.
+  const [jobState, setJobState] = useState(null)
+  const polling = useRef(null)
+  // Leaving the page stops the polling (and its request in flight).
+  useEffect(() => () => polling.current?.abort(), [])
   const generate = useMutation({
-    mutationFn: async (refresh) =>
-      (await api.post(`/ai/leads/${leadId}/brief`, refresh ? { refresh: true } : {})).data.data,
+    mutationFn: async (refresh) => {
+      polling.current?.abort()
+      const controller = new AbortController()
+      polling.current = controller
+      setJobState(null)
+      const res = await api.post(`/ai/leads/${leadId}/brief`, refresh ? { refresh: true } : {})
+      if (res.status !== 202) return res.data.data // a cached brief
+      setJobState('queued')
+      return waitForJob(res.data.data.jobId, { signal: controller.signal, onState: setJobState })
+    },
   })
   if (!aiEnabled) return null
 
@@ -75,7 +122,7 @@ export function LeadBriefCard({ leadId, history = [] }) {
       {generate.isPending ? (
         <div>
           <p role="status" className="mb-3 text-sm text-muted dark:text-muted-dark">
-            Generating, this can take a few seconds
+            {jobState ? `Generating… (${jobState})` : 'Generating…'} This can take a few seconds.
           </p>
           <div aria-hidden="true" className="space-y-2">
             {['w-full', 'w-11/12', 'w-4/5', 'w-2/3'].map((width) => (

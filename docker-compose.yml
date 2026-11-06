@@ -1,6 +1,7 @@
 # Local convenience only: everything here is free and runs on this machine.
-# `docker compose up` starts client (:8080), api, ai and mongo. The AI service answers with the deterministic fake
-# provider; for a real local model, install Ollama, `ollama pull llama3.2:3b`, and set AI_PROVIDER=ollama (readme).
+# `docker compose up` starts client (:8080), api, worker, ai and mongo (more workers: `--scale worker=N`). The AI
+# service answers with the deterministic fake provider; for a real local model, install Ollama,
+# `ollama pull llama3.2:3b`, and set AI_PROVIDER=ollama (readme).
 services:
   client:
     build: ./frontend
@@ -16,8 +17,9 @@ services:
     env_file:
       - path: ./backend/.env
         required: false
-    environment:
-      # Dev stack: the image defaults to production, which refuses the dev-only secret below.
+    # Dev stack: the image defaults to production, which refuses the dev-only secret below. The worker reuses this
+    # block (&api-env).
+    environment: &api-env
       NODE_ENV: development
       MONGO_URI: mongodb://mongo:27017/nimbus-crm?replicaSet=rs0
       CLIENT_ORIGIN: http://localhost:8080
@@ -40,7 +42,25 @@ services:
       ai:
         condition: service_healthy
 
-  # Reachable only on the compose network (no host port): the api is its one caller, with the shared token.
+  # Runs queued AI lead-brief jobs (src/worker.js): the api only queues them, so this is the one caller of `ai`. Same
+  # image and settings as the api, no port. Any number can run (`--scale worker=N`); they share the queue in mongo.
+  worker:
+    build: ./backend
+    command: ['node', 'src/worker.js']
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment: *api-env
+    # On stop, a worker finishes the job in hand: AI_TIMEOUT_MS (90 s) plus a margin, or Docker's SIGKILL would cut
+    # the call off and the job would wait out its lease before another worker retried it.
+    stop_grace_period: 100s
+    depends_on:
+      mongo:
+        condition: service_healthy
+      ai:
+        condition: service_healthy
+
+  # Reachable only on the compose network (no host port): the worker is its one caller, with the shared token.
   ai:
     build: ./AI
     env_file:

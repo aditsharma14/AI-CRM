@@ -1,13 +1,16 @@
 // @ts-check
 // The AI lead brief: load the lead and its history (org-scoped), build the minimal bundle, answer from the cache or
-// one shared in-flight call, enforce the limits, re-check grounding, cache the result, and log one line per call.
-// What leaves the API for the AI service is listed in docs/ai.md; this file is where that list is enforced.
+// queue a job (one active job per org and key), enforce the limits, and, in the worker, call the AI service and
+// re-check grounding. What leaves the API for the AI service is listed in docs/ai.md; this file is where that list
+// is enforced. Nothing here is kept in process memory: the limits, the queue and the cache are in MongoDB.
 import { createHash } from 'node:crypto'
 import { domainToASCII } from 'node:url'
 
 import { env } from '../config/index.js'
 import Activity from '../models/Activity.js'
 import AiBrief from '../models/AiBrief.js'
+import AiCall, { WINDOW_MS } from '../models/AiCall.js'
+import AiJob, { ACTIVE_STATES } from '../models/AiJob.js'
 import { Lead } from '../models/CRM.js'
 import Note from '../models/Note.js'
 import { scopeFor } from '../policies/ownership.js'
@@ -17,7 +20,10 @@ import * as aiProxy from './aiProxyService.js'
 
 /** @typedef {import('../types/index.js').AuthUser} AuthUser */
 /** @typedef {import('../schemas/ai.js').LeadBrief} LeadBrief */
-/** @typedef {{ info: (obj: Record<string, unknown>, msg?: string) => void }} Log */
+/**
+ * req.log, or the worker's logger.
+ * @typedef {{ info: (obj: Record<string, unknown>, msg?: string) => void, warn: (obj: Record<string, unknown>, msg?: string) => void, error: (obj: Record<string, unknown>, msg?: string) => void }} Log
+ */
 /**
  * What the AI service receives (docs/ai.md lists each field).
  * @typedef {object} Bundle
@@ -33,50 +39,73 @@ export const TITLE_CHARS = 200
 export const BUNDLE_CHARS = 12_000
 export const ORG_CALLS_PER_HOUR = 20
 export const REFRESHES_PER_LEAD_PER_HOUR = 5
-const HOUR_MS = 3_600_000
 // A host name in its ASCII (punycode) form: dot-separated labels of letters, digits and inner hyphens, ending in a
 // letter TLD or a punycode one.
 const HOST_NAME = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/
 
-// In-memory, per process: correct for the one API instance compose runs (docs/known-issues.md: not shared across
-// replicas). Only calls that reach the AI service count; cache hits and joined in-flight calls are free.
-/** @type {Map<string, number[]>} */
-const orgCalls = new Map()
-/** @type {Map<string, number[]>} */
-const leadRefreshes = new Map()
-/** One shared promise per (org, cache key): a double click or two tabs make one AI call. @type {Map<string, Promise<any>>} */
-const inFlight = new Map()
-
 /**
- * Clears the limits, the in-flight table and the cached service info (tests).
+ * Clears the cached AI service info (tests). The limits, the queue and the cache are in MongoDB.
  * @returns {void}
  */
 export function resetAiBriefState() {
-  orgCalls.clear()
-  leadRefreshes.clear()
-  inFlight.clear()
   aiProxy.resetInfoCache()
 }
 
 /**
- * Timestamps in the last hour, pruned.
- * @param {Map<string, number[]>} map
- * @param {string} key
- * @param {number} now
- * @returns {number[]} The window, still in the map (push to it to count a call).
+ * @param {Date | undefined} oldest The oldest call still in the window.
+ * @param {Date} now
+ * @returns {number} Whole minutes until it leaves the window (at least 1).
  */
-function lastHour(map, key, now) {
-  const kept = (map.get(key) ?? []).filter((t) => now - t < HOUR_MS)
-  map.set(key, kept)
-  return kept
-}
+const minutesLeft = (oldest, now) =>
+  Math.max(1, Math.ceil(((oldest ?? now).getTime() + WINDOW_MS - now.getTime()) / 60_000))
 
 /**
- * @param {number[]} window
- * @param {number} now
- * @returns {number} Whole minutes until the oldest call leaves the window (at least 1).
+ * Counts one AI call against the org's hourly limit (and, for a refresh, the lead's). Insert first, then count: two
+ * processes can't both see room for one more call. At the boundary both may be refused, never both let through.
+ * The count filters on `at` itself: the TTL monitor deletes old rows only about once a minute.
+ * @param {string} orgId
+ * @param {import('mongoose').Types.ObjectId} leadId
+ * @param {boolean} refresh
+ * @returns {Promise<import('mongoose').Types.ObjectId[]>} The rows written (released again if no job is queued).
+ * @throws {aiProxy.AiError} 429 AI_RATE_LIMITED
  */
-const minutesLeft = (window, now) => Math.max(1, Math.ceil(((window[0] ?? now) + HOUR_MS - now) / 60_000))
+async function countCall(orgId, leadId, refresh) {
+  const now = new Date()
+  const since = new Date(now.getTime() - WINDOW_MS)
+  /** @type {import('mongoose').Types.ObjectId[]} */
+  const rows = []
+  /**
+   * @param {'call' | 'refresh'} kind
+   * @param {Record<string, unknown>} scope
+   * @param {number} limit
+   * @param {(minutes: number) => string} message
+   * @returns {Promise<void>}
+   */
+  const take = async (kind, scope, limit, message) => {
+    rows.push((await AiCall.create({ orgId, leadId, kind, at: now }))._id)
+    const window = { ...scope, kind, at: { $gt: since } }
+    if ((await AiCall.countDocuments(window)) <= limit) return
+    await AiCall.deleteMany({ _id: { $in: rows } })
+    const oldest = await AiCall.findOne(window).sort({ at: 1 }).select('at').lean()
+    throw aiProxy.aiRateLimited(message(minutesLeft(oldest?.at, now)))
+  }
+  await take(
+    'call',
+    { orgId },
+    ORG_CALLS_PER_HOUR,
+    (m) => `Your workspace has used its ${ORG_CALLS_PER_HOUR} AI briefs for this hour. Try again in ${m} minutes.`,
+  )
+  if (refresh) {
+    await take(
+      'refresh',
+      { orgId, leadId },
+      REFRESHES_PER_LEAD_PER_HOUR,
+      (m) =>
+        `This brief was regenerated ${REFRESHES_PER_LEAD_PER_HOUR} times in the last hour. Try again in ${m} minutes.`,
+    )
+  }
+  return rows
+}
 
 /**
  * @param {string} text
@@ -202,7 +231,7 @@ function cacheKey(orgId, lead, website, versions, info) {
  * @param {boolean} cached
  * @returns {Record<string, unknown>} The brief as the client gets it.
  */
-const present = (doc, cached) => ({
+export const present = (doc, cached) => ({
   ...doc.brief,
   cached,
   provider: doc.provider,
@@ -213,15 +242,16 @@ const present = (doc, cached) => ({
 })
 
 /**
- * Generates (or serves from the cache) the brief for one lead.
+ * Answers a brief request: the cached brief (200), or a job for the worker (202 with its id). A request for a brief
+ * that already has a queued or running job gets that job, without counting against a limit.
  * @param {AuthUser} actor
  * @param {string} leadId
- * @param {{ refresh?: boolean }} options refresh skips the cache read and replaces the entry.
- * @param {Log} log req.log: one line per call, numbers only.
- * @returns {Promise<Record<string, unknown>>}
- * @throws {import('../utils/http.js').AppError} 404 for a lead outside the org; AI_* errors from aiProxyService
+ * @param {{ refresh?: boolean }} options refresh skips the cache read; the worker then replaces the entry.
+ * @param {Log} log req.log: one line per request, numbers only.
+ * @returns {Promise<{ status: 200, data: Record<string, unknown> } | { status: 202, data: { jobId: string } }>}
+ * @throws {import('../utils/http.js').AppError} 404 for a lead outside the org; 429 AI_RATE_LIMITED; 503 when AI is off
  */
-export async function generateLeadBrief(actor, leadId, { refresh = false }, log) {
+export async function requestLeadBrief(actor, leadId, { refresh = false }, log) {
   const started = Date.now()
   if (!env.aiEnabled) throw aiProxy.aiUnavailable('AI features are turned off for this workspace.')
 
@@ -246,10 +276,6 @@ export async function generateLeadBrief(actor, leadId, { refresh = false }, log)
         model: info.model,
         promptVersion: info.promptVersion,
         refresh,
-        inputTokens: 0,
-        outputTokens: 0,
-        costUsd: 0,
-        citationsRejected: 0,
         ...fields,
         latencyMs: Date.now() - started,
       },
@@ -260,97 +286,56 @@ export async function generateLeadBrief(actor, leadId, { refresh = false }, log)
     const hit = await AiBrief.findOne({ orgId: actor.orgId, key }).lean()
     if (hit) {
       logLine({ cacheHit: true, outcome: 'ok' })
-      return present(hit, true)
+      return { status: 200, data: present(hit, true) }
     }
   }
 
-  const flightKey = `${actor.orgId}:${key}`
-  const shared = inFlight.get(flightKey)
-  if (shared) {
-    const doc = await shared
-    logLine({ cacheHit: false, sharedCall: true, outcome: 'ok' })
-    return present(doc, false)
+  const activeJob = { orgId: actor.orgId, key, state: { $in: [...ACTIVE_STATES] } }
+  /**
+   * @param {unknown} id
+   * @param {boolean} shared
+   * @returns {{ status: 202, data: { jobId: string } }}
+   */
+  const queued = (id, shared) => {
+    logLine({ cacheHit: false, outcome: 'queued', jobId: String(id), sharedJob: shared })
+    return { status: 202, data: { jobId: String(id) } }
   }
+  const joined = await AiJob.findOne(activeJob).select('_id').lean()
+  if (joined) return queued(joined._id, true)
 
-  // The limits guard what costs time or money: calls that reach the AI service.
-  const now = Date.now()
-  const orgWindow = lastHour(orgCalls, actor.orgId, now)
-  if (orgWindow.length >= ORG_CALLS_PER_HOUR) {
-    throw aiProxy.aiRateLimited(
-      `Your workspace has used its ${ORG_CALLS_PER_HOUR} AI briefs for this hour. Try again in ${minutesLeft(orgWindow, now)} minutes.`,
-    )
-  }
-  const leadWindow = lastHour(leadRefreshes, `${actor.orgId}:${leadId}`, now)
-  if (refresh && leadWindow.length >= REFRESHES_PER_LEAD_PER_HOUR) {
-    throw aiProxy.aiRateLimited(
-      `This brief was regenerated ${REFRESHES_PER_LEAD_PER_HOUR} times in the last hour. Try again in ${minutesLeft(leadWindow, now)} minutes.`,
-    )
-  }
-  orgWindow.push(now)
-  if (refresh) leadWindow.push(now)
-
-  const call = (async () => {
-    const answer = await aiProxy.leadBrief(bundle)
-    // Grounding, checked again here: only ids that were in the bundle survive.
-    const sentIds = new Set(bundle.history.map((item) => String(item.id)))
-    let rejected = 0
-    const citations = answer.brief.citations
-      .map((c) => {
-        const kept = c.sourceIds.filter((id) => sentIds.has(id))
-        rejected += c.sourceIds.length - kept.length
-        return { ...c, sourceIds: kept }
-      })
-      .filter((c) => c.sourceIds.length > 0)
-    const row = {
-      orgId: actor.orgId,
-      leadId: lead._id,
-      key,
-      brief: { ...answer.brief, citations },
-      provider: answer.meta.provider,
-      model: answer.meta.model,
-      promptVersion: answer.meta.promptVersion,
-      truncated: bundle.truncated,
-      createdAt: new Date(),
-    }
-    // A lead deleted while its brief was being written must not get a row back.
-    if (await Lead.exists({ _id: lead._id, orgId: actor.orgId })) {
-      await AiBrief.updateOne({ orgId: actor.orgId, key }, { $set: row }, { upsert: true })
-    }
-    return { row, meta: answer.meta, rejected }
-  })()
-  inFlight.set(
-    flightKey,
-    call.then(({ row }) => row),
-  )
-  inFlight.get(flightKey)?.catch(() => {}) // joiners see the error through their own await
-
+  // The limits guard what costs time or money: jobs that will reach the AI service.
+  const counted = await countCall(actor.orgId, lead._id, refresh)
   try {
-    const { row, meta, rejected } = await call
-    logLine({
-      cacheHit: false,
-      outcome: 'ok',
-      provider: meta.provider,
-      model: meta.model,
-      inputTokens: meta.inputTokens,
-      outputTokens: meta.outputTokens,
-      costUsd: meta.costUsd,
-      aiLatencyMs: meta.latencyMs,
-      firstTokenMs: meta.firstTokenMs,
-      attempts: meta.attempts,
-      citationsRejected: meta.citationsRejected + rejected,
-    })
-    return present(row, false)
+    const job = await AiJob.create({ orgId: actor.orgId, leadId: lead._id, key, refresh, bundle })
+    return queued(job._id, false)
   } catch (err) {
-    const failed = err instanceof aiProxy.AiError ? err : null
-    logLine({
-      cacheHit: false,
-      outcome: failed?.code ?? 'error',
-      inputTokens: failed?.meta?.inputTokens ?? 0,
-      outputTokens: failed?.meta?.outputTokens ?? 0,
-      attempts: failed?.meta?.attempts,
-    })
-    throw err
-  } finally {
-    inFlight.delete(flightKey)
+    await AiCall.deleteMany({ _id: { $in: counted } })
+    // Another request queued the same brief between our read and our insert (the partial unique index): join it.
+    const duplicate = /** @type {{ code?: number }} */ (err).code === 11000
+    const raced = duplicate ? await AiJob.findOne(activeJob).select('_id').lean() : null
+    if (!raced) throw err
+    return queued(raced._id, true)
   }
+}
+
+/**
+ * The worker's half: one AI call for a job's bundle, with grounding checked again (only ids that were in the bundle
+ * survive).
+ * @param {Bundle} bundle
+ * @param {AbortSignal} [signal] Aborts the call (a worker that lost the job's lease).
+ * @returns {Promise<{ brief: LeadBrief, meta: import('../schemas/ai.js').AiCallMeta, rejected: number }>}
+ * @throws {aiProxy.AiError}
+ */
+export async function generateFromBundle(bundle, signal) {
+  const answer = await aiProxy.leadBrief(bundle, signal)
+  const sentIds = new Set(bundle.history.map((item) => String(item.id)))
+  let rejected = 0
+  const citations = answer.brief.citations
+    .map((c) => {
+      const kept = c.sourceIds.filter((id) => sentIds.has(id))
+      rejected += c.sourceIds.length - kept.length
+      return { ...c, sourceIds: kept }
+    })
+    .filter((c) => c.sourceIds.length > 0)
+  return { brief: { ...answer.brief, citations }, meta: answer.meta, rejected }
 }

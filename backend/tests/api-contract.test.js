@@ -12,6 +12,7 @@ import app from '../src/app.js'
 import { env } from '../src/config/index.js'
 import Organization from '../src/models/Organization.js'
 import { resetAiBriefState } from '../src/services/aiBriefService.js'
+import { drain } from '../src/services/aiJobService.js'
 import { startAiStub } from './aiStub.js'
 import { asRefreshCookie, createUserWithPassword, refreshCookieFrom } from './factories.js'
 
@@ -236,7 +237,8 @@ beforeAll(async () => {
   await hit('PATCH /notifications/:id/read', 200, { path: `/notifications/${notifications[0]._id}/read` })
   await hit('PATCH /notifications/read-all', 200)
 
-  // ---- the AI lead brief, against a stand-in AI service: fresh, cached, and switched off
+  // ---- the AI lead brief through the job queue, against a stand-in AI service: queued, polled (queued, done,
+  // failed), cached, refreshed, and switched off
   const stub = await startAiStub()
   const saved = { ...env }
   Object.assign(env, {
@@ -245,12 +247,30 @@ beforeAll(async () => {
     aiInternalToken: 'contract-test-ai-token-0123',
   })
   resetAiBriefState()
+  const quiet = { info: () => {}, warn: () => {}, error: () => {} }
+  const briefOf = (id) => `/ai/leads/${id}/brief`
+  const poll = (jobId) => hit('GET /ai/jobs/:jobId', 200, { path: `/ai/jobs/${jobId}` })
   await hit('POST /notes', 201, { body: { entityType: 'lead', entityId: lead._id, body: 'Asked for a quote.' } })
-  await hit('POST /ai/leads/:id/brief', 200, { path: `/ai/leads/${lead._id}/brief`, body: {} })
-  await hit('POST /ai/leads/:id/brief', 200, { path: `/ai/leads/${lead._id}/brief`, body: {} })
-  await hit('POST /ai/leads/:id/brief', 200, { path: `/ai/leads/${toConvert._id}/brief`, body: { refresh: true } })
+  const first = await dataOf('POST /ai/leads/:id/brief queued', 202, { path: briefOf(lead._id), body: {} })
+  await poll(first.jobId)
+  await drain({ log: quiet })
+  await poll(first.jobId)
+  await hit('POST /ai/leads/:id/brief', 200, { path: briefOf(lead._id), body: {} })
+  const fresh = await dataOf('POST /ai/leads/:id/brief queued', 202, {
+    path: briefOf(toConvert._id),
+    body: { refresh: true },
+  })
+  await drain({ log: quiet })
+  await poll(fresh.jobId)
+  stub.state.reply = () => [502, { error: { code: 'BAD_OUTPUT', message: 'x' } }]
+  const failed = await dataOf('POST /ai/leads/:id/brief queued', 202, {
+    path: briefOf(lead._id),
+    body: { refresh: true },
+  })
+  await drain({ log: quiet })
+  await poll(failed.jobId)
   env.aiEnabled = false
-  await hit('error', 503, { path: `/ai/leads/${lead._id}/brief`, method: 'POST', body: {} })
+  await hit('error', 503, { path: briefOf(lead._id), method: 'POST', body: {} })
   Object.assign(env, saved)
   await new Promise((resolve) => stub.server.close(resolve))
 

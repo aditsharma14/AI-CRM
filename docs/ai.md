@@ -20,8 +20,11 @@ No paid API, hosted service or key is needed anywhere: not in CI, the tests, com
  browser ──POST /api/v1/ai/leads/:id/brief──▶ Express API (backend/)
                                                │ auth → ai:use → AI_ENABLED? → lead in the caller's org? (else 404, no AI call)
                                                │ lead + last 20 activities and notes, org-scoped; minimal bundle (below)
-                                               │ cache (Mongo, per org, 7-day TTL) ─ hit ─▶ answer, no AI call
-                                               │ one in-flight call per key; 20 calls/org/hour; 5 refreshes/lead/hour
+                                               │ cache (Mongo, per org, 7-day TTL) ─ hit ─▶ 200 with the brief, no AI call
+                                               │ one active job per key; 20 calls/org/hour; 5 refreshes/lead/hour (Mongo)
+                                               ▼ AiJob in Mongo ─▶ 202 { jobId }; the browser polls GET /ai/jobs/:jobId
+                                     worker process (backend/src/worker.js; any number of them)
+                                               │ claims the oldest job, holds a lease, renews it while it runs
                                                ▼  X-Internal-Token, X-Deadline-Ms; aborts at AI_TIMEOUT_MS + 1 s
                                      AI service (AI/, FastAPI; never touches MongoDB)
                                                │ prompt v1: history in escaped, delimited data blocks
@@ -33,11 +36,13 @@ No paid API, hosted service or key is needed anywhere: not in CI, the tests, com
                                      due date) ─ fail ─▶ one retry with the reasons ─ fail ─▶ BAD_OUTPUT
                                                (no retry if it can't finish by the deadline: BAD_OUTPUT at once)
                                                ▼
- Express: re-validate (Zod), drop citations outside the bundle, cache, one log line ──▶ the card
+ worker: re-validate (Zod), drop citations outside the bundle, write the brief and `done` (one transaction), one log
+ line ──▶ the card's next poll
 ```
 
-Code: [aiBriefService.js](../backend/src/services/aiBriefService.js) (bundle, cache, limits),
-[aiProxyService.js](../backend/src/services/aiProxyService.js) (HTTP, errors),
+Code: [aiBriefService.js](../backend/src/services/aiBriefService.js) (bundle, cache, limits, enqueue),
+[aiJobService.js](../backend/src/services/aiJobService.js) (claim, lease, run, reaper, polls),
+[worker.js](../backend/src/worker.js) (the process), [aiProxyService.js](../backend/src/services/aiProxyService.js) (HTTP, errors),
 [AI/app/lead_brief/](../AI/app/lead_brief/) (prompt, validation, retry), [AI/app/providers/](../AI/app/providers/).
 
 ### What leaves the API
@@ -56,6 +61,81 @@ user names or ids, the org id, the lead's id, or any other id.
 **Where it goes:** with `fake`, nowhere: the brief is computed inside the AI service. With `ollama`, to the Ollama
 server at `OLLAMA_URL`, which is this machine (`localhost`, or `host.docker.internal` from compose). **No lead data
 leaves the machine with either provider.**
+
+## The job queue
+
+A brief takes milliseconds on the fake provider and up to 90 s on a local model: too long to hold an HTTP request
+open. So the API only queues it, and a worker process runs it. Since S2.1 (#58) nothing about the brief lives in a
+process's memory: the queue, the single-flight, the limits and the cache are all in MongoDB, so any number of API and
+worker processes share them.
+
+```mermaid
+sequenceDiagram
+    participant C as Browser (LeadBriefCard)
+    participant A as Express API
+    participant M as MongoDB
+    participant W as Worker (src/worker.js)
+    participant S as AI service (FastAPI)
+    C->>A: POST /ai/leads/:id/brief
+    A->>M: lead + history (org-scoped), cache lookup
+    alt cached
+        A-->>C: 200 brief (cached: true)
+    else an active job for this (org, key)
+        A-->>C: 202 { jobId } of that job (free)
+    else new
+        A->>M: count the call (aicalls), insert AiJob (queued)
+        A-->>C: 202 { jobId }
+    end
+    W->>M: claim: findOneAndUpdate oldest queued (or lease ran out) → running, lockedBy, lockedUntil, attempts + 1
+    par the call
+        W->>S: POST /v1/lead-brief (the job's bundle)
+        S-->>W: brief + meta
+    and every lease / 3 while it runs
+        W->>M: heartbeat: extend lockedUntil where lockedBy = me (none matched → abort the call, write nothing)
+    end
+    W->>M: transaction: upsert the brief; job → done where lockedBy = me; bundle unset
+    loop after 1, 2, 4, then every 5 s, until done or failed
+        C->>A: GET /ai/jobs/:jobId
+        A->>M: job by { _id, orgId }
+        A-->>C: { state: queued | running | done | failed, brief?, error? }
+    end
+```
+
+**States.** `queued` → `running` → `done` or `failed`, and `running` → `queued` once, for a retry.
+
+| Rule | How |
+|---|---|
+| **One claim per job** | One `findOneAndUpdate`: `state` in {queued, running}, "queued, or its lease ran out", `attempts < 2`, oldest `createdAt` first (FIFO). It reads the index `{ state, createdAt, lockedUntil }` (hinted): both states in `createdAt` order, merged, no in-memory sort ([query-plans.test.js](../backend/tests/query-plans.test.js)). Two workers racing for one job: exactly one gets it (tested 50 times). |
+| **Single-flight** | A partial unique index on `{ orgId, key }` where `state` is queued or running. A second POST for the same brief, on any API process, gets the first job's id; joining is free. |
+| **A worker crashes** | Its lease (`AI_JOB_LEASE_MS`, 30 s) runs out and another worker claims the job: `attempts` becomes 2. Tested with a real worker process killed with SIGKILL. |
+| **A long call** | A heartbeat every third of the lease renews it while the call runs. |
+| **A lost lease** | If a heartbeat finds the job no longer held by this worker (another took it over, or its lead was deleted), the AI call is aborted and nothing is written. The final write is conditional on holding the job too, in one transaction with the brief. |
+| **Retries** | At most 2 attempts. `AI_UNAVAILABLE` (down or too slow) and an unexpected error (logged; a database hiccup) are retried once; `AI_BAD_OUTPUT` (already retried inside the AI service) and `AI_RATE_LIMITED` fail at once. A job whose second lease runs out is failed by the reaper (every worker tick). A failed job carries `error: { code, message }`, the same codes as before. |
+| **Shutdown** | SIGTERM: the worker finishes the job in hand, claims no other, and exits 0. Compose gives it `stop_grace_period: 100s` (`AI_TIMEOUT_MS` plus a margin). |
+| **Bundle hygiene** | A job holds its bundle (lead history text) only while it can still run: it is unset when the job is done, failed, reaped, or its lead is deleted. |
+| **Retention** | Jobs expire after 7 days (TTL on `createdAt`), like the cache. |
+| **Limits** | One `aicalls` row per counted call: insert, then count the rows with `at` in the last hour. The TTL monitor deletes old rows only about once a minute, so the count never relies on it. Two requests at the boundary may both be refused, never both let through. |
+| **Stats** | `GET /api/v1/ai/queue/stats` (owners): the org's queued and running counts and the oldest queued job's age. Each job run logs one `ai_lead_job` line with `queueMs`, `runMs`, `attempts` and `outcome` (S2.6 builds on both). |
+
+**What stays per process, and why.** Everything else that lives across requests is in MongoDB.
+
+| State | Where | Why it may stay |
+|---|---|---|
+| The `/api` rate limiter's counts | `apiRateLimiter` in [observability.js](../backend/src/middleware/observability.js) (express-rate-limit's MemoryStore) | A MongoDB store added 14–27% to the filtered lead list's p95 in two runs ([memory](../bench/results/s2-1-limiter-memory.json), [Mongo](../bench/results/s2-1-limiter-mongo.json)), over the 10% allowed. Compose runs one api; with N, a client gets up to N times the limit. A shared store waits for Redis (S2.5). |
+| The AI service's `/v1/info` (5 min) | `infoCache` in [aiProxyService.js](../backend/src/services/aiProxyService.js) | A cache of a value that changes only when the AI service is redeployed. Each process fetching its own copy is correct; two disagreeing for up to 5 minutes can generate one brief twice, nothing worse. |
+| The AI service's metrics counters | [AI/app/metrics.py](../AI/app/metrics.py) | Per instance by design: each instance is scraped on its own. |
+
+**Queue latency**, from enqueue to a worker's claim: the fake provider, 200 briefs at 4 per second, worker poll
+500 ms ([scripts/bench/ai-queue.mjs](../scripts/bench/ai-queue.mjs); AMD Ryzen 7 8840HS, Windows 11, Node 24.16.0):
+
+| Workers | Queue p50 / p95 / max | Enqueue to done p50 / p95 / max | Failed |
+|---|---|---|---|
+| 1 | 265 / 501 / 528 ms | 285 / 518 / 552 ms | 0 of 199 |
+| 2 | 244 / 470 / 517 ms | 263 / 495 / 539 ms | 0 of 199 |
+
+The wait is the idle poll: a job queued while every worker sleeps waits up to `AI_WORKER_POLL_MS`. A second worker
+barely helps at this rate: a fake brief runs in about 20 ms (enqueue-to-done minus queue time, above), so one worker
+is rarely busy. It matters when calls are slow (a local model). The browser's first poll comes after 1 s, so on the fake provider a brief usually shows then.
 
 ## Threat model
 
@@ -239,6 +319,8 @@ the metrics and the eval results.
 | `AI_ENABLED` | backend | `false` (compose: `true`) | The kill switch. Off: no button, 503 `AI_UNAVAILABLE`. |
 | `AI_SERVICE_URL` | backend | `http://localhost:8000` | The AI service (compose: `http://ai:8000`). |
 | `AI_INTERNAL_TOKEN` | both | none | The shared secret; 16+ characters; required when AI is on. |
+| `AI_JOB_LEASE_MS` | backend (worker) | `30000` | How long a claimed job is held; a heartbeat renews it every third of that. Once it runs out, another worker may take the job over. |
+| `AI_WORKER_POLL_MS` | backend (worker) | `500` | How long an idle worker waits before looking again (the queue latency above). |
 | `AI_TIMEOUT_MS` | both | `90000` | Per attempt (AI) and per request (Express, sent as `X-Deadline-Ms`; it aborts 1 s later). From the measured p95 ([Results](#results)). |
 | `AI_PROVIDER` | AI | `fake` | `fake` or `ollama`. |
 | `OLLAMA_URL`, `OLLAMA_MODEL` | AI | `http://localhost:11434`, `llama3.2:3b` | Compose: `http://host.docker.internal:11434`. |

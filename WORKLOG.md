@@ -267,3 +267,59 @@ Draft PRs #28–#34 from 2026-11-05 were reused where they still applied to `mai
 `npm audit --omit=dev` 0 in both packages.
 
 **Next:** the low-priority ESLint major PR; the owner sets the `main` ruleset; the Ollama eval rerun on `lead-brief/2`.
+
+## 2026-11-07 · S2.1: The lead brief as an async job; no shared state in process memory
+
+**Goal:** the lead brief runs as a queued job in MongoDB, done by worker processes that can scale to N, and nothing
+that must hold across replicas lives in a process's memory. Built on the S2-lite brief: there was no earlier PR for
+shared limits or a Mongo single-flight (the "3b" asked about doesn't exist); its next step said to move them.
+
+**Changed** (#58, branch `feat/s2.1-ai-jobs`)
+
+| Area | Change |
+|---|---|
+| API | `POST /ai/leads/:id/brief`: 200 with the cached brief, else 202 `{ jobId }`. `GET /ai/jobs/:jobId` (org-scoped, 404 for another org's): `{ state, brief?, error? }`. `GET /ai/queue/stats` for owners: queued, running, oldest queued age |
+| Queue | `AiJob` (7-day TTL; partial unique `{ orgId, key }` while queued or running = the single-flight; claim index `{ state, createdAt, lockedUntil }`; `{ state, lockedUntil }`). Atomic FIFO claim, lease plus heartbeat, a lost lease aborts the AI call and writes nothing, brief and `done` in one transaction, 2 attempts, a reaper, the bundle unset on every end (done, failed, reaped, lead deleted) |
+| Worker | `backend/src/worker.js`, compose service `worker` (`--scale worker=N`, `stop_grace_period: 100s`); SIGTERM finishes the job in hand. `AI_JOB_LEASE_MS` (30 s), `AI_WORKER_POLL_MS` (500 ms) |
+| Limits | the AI limits are `aicalls` rows counted on `at` (insert, then count), shared by every API process. The two Maps and the in-flight table are gone |
+| `/api` limiter | stays per process: a MongoDB store was built and measured, and it added more than the 10% allowed (below) |
+| Frontend | the card polls after 1, 2, 4, then every 5 s, shows "Generating… (queued)" or "(running)", stops on done or failed, and stops when the page is left. The demo (MSW) and `contracts/api-shapes.json` follow 202 + poll |
+| CI | e2e starts a real worker process (spawned by `e2e-server.js`); the docker job runs `--scale worker=2`, checks both run, and the smoke polls the job |
+
+**Decisions**
+- **Retry policy:** only `AI_UNAVAILABLE` (and an unexpected error) gets the second attempt; bad output was already
+  retried inside the AI service, and a busy model shouldn't be asked again at once.
+- **The claim is written as `state ∈ {queued, running}` plus a filter, and hinted.** The plain `$or` made the planner
+  pick `{ state, lockedUntil }` per branch and sort every candidate in memory (`UPDATE > SORT > FETCH > OR`); now
+  `SORT_MERGE` of two scans of the claim index ([query-plans.test.js](backend/tests/query-plans.test.js)).
+- **The `/api` limiter stays per process** (the rule: more than 10% on lead-list p95 means per process, Redis in S2.5).
+  p95 at 100k leads, same tree, MemoryStore vs a MongoDB store (one atomic upsert per request), ms:
+
+  | Endpoint | MemoryStore | Mongo, run 1 | Mongo, run 2 |
+  |---|---|---|---|
+  | lead list (default sort) | 25 | 27 | 25 |
+  | lead list, status filter | 22 | 28 | 25 |
+  | deal list | 25 | 31 | 30 |
+
+  The second Mongo run overwrote the first's file ([s2-1-limiter-mongo.json](bench/results/s2-1-limiter-mongo.json);
+  [s2-1-limiter-memory.json](bench/results/s2-1-limiter-memory.json)); run 1's numbers are from its printed table.
+
+**Queue latency**, measured (enqueue to a worker's claim; fake provider; 200 briefs at 4/s; poll 500 ms;
+[scripts/bench/ai-queue.mjs](scripts/bench/ai-queue.mjs)):
+
+| Workers | Queue p50 / p95 / max | Enqueue to done p50 / p95 / max | Failed |
+|---|---|---|---|
+| 1 | 265 / 501 / 528 ms | 285 / 518 / 552 ms | 0 of 199 |
+| 2 | 244 / 470 / 517 ms | 263 / 495 / 539 ms | 0 of 199 |
+
+**Verified** (Windows, before the PR): backend 714 passed, 1 skipped (the SIGTERM-to-a-process test: Windows has no
+catchable SIGTERM, so it runs on Linux CI; the same shutdown path is tested in process); `src/services` 99.61% lines,
+89.61% branches. Frontend 337. AI 152. Root lint, typecheck, format clean. Mutation checks, each turning its test red:
+a non-atomic claim, no reclaim of an expired lease, no `attempts` increment, no heartbeat, no abort on a lost lease,
+`stop()` that keeps claiming, a reaper that keeps the bundle, an unscoped GET or stats, the hour counted without `at`,
+no unique index, the limits back in a Map, the `/api` limiter on MemoryStore (while the Mongo store existed), a flat
+backoff, no abort on unmount. The single-flight test was too weak at first (two concurrent POSTs never overlapped,
+so it passed with no unique index); it now sends 8 across both instances behind a slow `/v1/info` and fails without it.
+
+**Next:** Redis for the `/api` limiter (S2.5); alerting on the queue stats (S2.6); push instead of polling (SSE) if
+the poll cost shows up.

@@ -31,6 +31,9 @@ export const requestLogger = pinoHttp({
   customErrorMessage: (req, res) => `${req.method} ${pathOf(req)} ${res.statusCode}`,
 })
 
+// Per API process (express-rate-limit's MemoryStore), on purpose: compose runs one api, and a MongoDB store added
+// 14-27% to the filtered lead list's p95 (bench/results/s2-1-limiter-*.json). A shared store waits for Redis (S2.5);
+// with N api replicas a client gets up to N times the limit. The AI limits are shared (aiBriefService, in MongoDB).
 export const apiRateLimiter = rateLimit({
   windowMs: env.rateLimitWindowMs,
   limit: env.rateLimitMax,
