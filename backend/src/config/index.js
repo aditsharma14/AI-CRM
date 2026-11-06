@@ -39,6 +39,17 @@ function parseTimeoutMs(raw) {
   return ms
 }
 
+// The lead-brief worker (src/worker.js): how long a claimed job is held before another worker may take it over (a
+// heartbeat renews it while the call runs), and how long an idle worker waits before looking again.
+function parseMs(name, raw, fallback, min, max) {
+  if (raw === undefined || raw === '') return fallback
+  const ms = Number(raw)
+  if (!Number.isInteger(ms) || ms < min || ms > max) {
+    throw new Error(`${name} must be a whole number of milliseconds from ${min} to ${max}, got ${JSON.stringify(raw)}.`)
+  }
+  return ms
+}
+
 function parseBoolean(name, raw) {
   if (raw === undefined || raw === '') return false
   if (raw !== 'true' && raw !== 'false')
@@ -64,6 +75,8 @@ export const env = {
   aiInternalToken: process.env.AI_INTERNAL_TOKEN,
   // What the AI service gets per brief (it uses the same value); Express gives up a little later.
   aiTimeoutMs: parseTimeoutMs(process.env.AI_TIMEOUT_MS),
+  aiJobLeaseMs: parseMs('AI_JOB_LEASE_MS', process.env.AI_JOB_LEASE_MS, 30_000, 1000, 600_000),
+  aiWorkerPollMs: parseMs('AI_WORKER_POLL_MS', process.env.AI_WORKER_POLL_MS, 500, 20, 60_000),
   // Silent under the test runner: the role matrix makes hundreds of requests per file.
   logLevel: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'test' ? 'silent' : 'info'),
 }

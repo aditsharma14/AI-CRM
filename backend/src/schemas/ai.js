@@ -2,8 +2,13 @@
 // AI request schemas, and the AI service's answers, which Express re-validates before trusting them.
 import { z } from 'zod'
 
+import { objectId } from '../utils/validators.js'
+
 /** POST /api/v1/ai/leads/:id/brief. `refresh` skips the cache (and counts against the per-lead refresh limit). */
 export const leadBriefBody = z.object({ refresh: z.boolean().optional() }).strict()
+
+/** GET /api/v1/ai/jobs/:jobId */
+export const jobIdParam = z.object({ jobId: objectId })
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
@@ -39,6 +44,7 @@ export const leadBriefAnswer = z.object({ brief: leadBrief, meta: aiCallMeta })
 export const aiInfo = z.object({ provider: z.string(), model: z.string(), promptVersion: z.string() })
 
 /** @typedef {z.infer<typeof leadBriefBody>} LeadBriefBody */
+/** @typedef {z.infer<typeof jobIdParam>} JobIdParam */
 /** @typedef {z.infer<typeof leadBrief>} LeadBrief */
 /** @typedef {z.infer<typeof aiCallMeta>} AiCallMeta */
 /** @typedef {z.infer<typeof aiInfo>} AiInfo */

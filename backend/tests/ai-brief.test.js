@@ -1,5 +1,6 @@
-// POST /api/v1/ai/leads/:id/brief against a stub AI service: tenancy, kill switch, cache and single-flight, rate
-// limits, error mapping, grounding, the minimal bundle, truncation, the log line, and cleanup when a lead is deleted.
+// The lead brief through the job queue against a stub AI service: POST /api/v1/ai/leads/:id/brief, a worker run
+// (drain), GET /api/v1/ai/jobs/:id. Tenancy, kill switch, cache and single-flight, rate limits, error mapping,
+// grounding, the minimal bundle, truncation, the log lines, and cleanup when a lead is deleted.
 import mongoose from 'mongoose'
 import request from 'supertest'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -8,9 +9,12 @@ import app from '../src/app.js'
 import { env } from '../src/config/index.js'
 import Activity from '../src/models/Activity.js'
 import AiBrief from '../src/models/AiBrief.js'
+import AiCall from '../src/models/AiCall.js'
+import AiJob from '../src/models/AiJob.js'
 import { Company, Lead } from '../src/models/CRM.js'
 import Note from '../src/models/Note.js'
-import { generateLeadBrief, resetAiBriefState } from '../src/services/aiBriefService.js'
+import { requestLeadBrief, resetAiBriefState } from '../src/services/aiBriefService.js'
+import { drain } from '../src/services/aiJobService.js'
 import { goodAnswer, META, startAiStub } from './aiStub.js'
 import { bearer, seedOrg } from './helpers.js'
 
@@ -18,8 +22,20 @@ const api = '/api/v1'
 const TOKEN = 'test-ai-internal-token-0123'
 let ctx, other, stub, saved
 
-const brief = (id, body = {}, token = ctx.tokens.owner) =>
+const quiet = { info: () => {}, warn: () => {}, error: () => {} }
+// What a client would have seen once its job ended, as one response: a done job is a 200 with the brief, a failed one
+// the status its typed error maps to. A POST that doesn't queue (cache hit, 4xx, 429, 503) is returned as it is.
+const STATUS = { AI_BAD_OUTPUT: 502, AI_UNAVAILABLE: 503, AI_RATE_LIMITED: 429 }
+const post = (id, body = {}, token = ctx.tokens.owner) =>
   request(app).post(`${api}/ai/leads/${id}/brief`).set(bearer(token)).send(body)
+async function brief(id, body = {}, token = ctx.tokens.owner) {
+  const queued = await post(id, body, token)
+  if (queued.status !== 202) return queued
+  await drain({ workerId: 'test-worker', log: quiet })
+  const job = await request(app).get(`${api}/ai/jobs/${queued.body.data.jobId}`).set(bearer(token))
+  const { state, brief: data, error } = job.body.data
+  return state === 'done' ? { status: 200, body: { data } } : { status: STATUS[error.code], body: { error } }
+}
 
 async function makeLead(owner = ctx, extra = {}, companyExtra = {}) {
   const company = await Company.create({
@@ -48,7 +64,7 @@ beforeAll(async () => {
   saved = { ...env }
 })
 
-beforeEach(() => {
+beforeEach(async () => {
   Object.assign(env, {
     aiEnabled: true,
     aiServiceUrl: `http://127.0.0.1:${stub.server.address().port}`,
@@ -57,6 +73,7 @@ beforeEach(() => {
   })
   Object.assign(stub.state, { calls: 0, bodies: [], headers: [], reply: null, delayMs: 0 })
   resetAiBriefState()
+  await Promise.all([AiCall.deleteMany({}), AiJob.deleteMany({})])
 })
 
 afterEach(() => Object.assign(env, saved))
@@ -314,13 +331,17 @@ describe('cache and single-flight', () => {
     expect(String(entry.orgId)).toBe(String(ctx.org._id))
   })
 
-  it('two concurrent requests for the same brief make one AI call', async () => {
+  it('two concurrent requests for the same brief share one job: one AI call', async () => {
     const lead = await makeLead()
-    stub.state.delayMs = 300
-    const [a, b] = await Promise.all([brief(lead._id), brief(lead._id)])
-    expect([a.status, b.status]).toEqual([200, 200])
+    const [a, b] = await Promise.all([post(lead._id), post(lead._id)])
+    expect([a.status, b.status]).toEqual([202, 202])
+    expect(a.body).toEqual({ success: true, data: { jobId: expect.any(String) }, error: null, meta: null })
+    expect(b.body.data.jobId).toBe(a.body.data.jobId)
+    const later = await post(lead._id, { refresh: true }) // a refresh joins the active job too
+    expect(later.body.data.jobId).toBe(a.body.data.jobId)
+    await drain({ workerId: 'w', log: quiet })
     expect(stub.state.calls).toBe(1)
-    expect(a.body.data.summary).toBe(b.body.data.summary)
+    expect(await AiCall.countDocuments({ orgId: ctx.org._id })).toBe(1) // joining is free
   })
 
   it('the cache collection expires entries (TTL index) and is unique per org and key', async () => {
@@ -397,8 +418,8 @@ describe('errors from the AI service', () => {
   })
 })
 
-describe('the log line', () => {
-  it('one line per call with numbers, and no content', async () => {
+describe('the log lines', () => {
+  it('one line when queued, one per job from the worker (queueMs, runMs, attempts, outcome), one per cache hit; numbers, no content', async () => {
     const lead = await makeLead()
     await Note.create({
       orgId: ctx.org._id,
@@ -408,13 +429,23 @@ describe('the log line', () => {
       authorId: ctx.users.owner._id,
     })
     const lines = []
-    const log = { info: (obj, msg) => lines.push({ ...obj, msg }) }
+    const log = { info: (obj, msg) => lines.push({ ...obj, msg }), warn: () => {}, error: () => {} }
     const actor = { id: String(ctx.users.owner._id), orgId: String(ctx.org._id), role: 'owner' }
-    await generateLeadBrief(actor, String(lead._id), {}, log)
-    await generateLeadBrief(actor, String(lead._id), {}, log)
-    expect(lines).toHaveLength(2)
+    const queued = await requestLeadBrief(actor, String(lead._id), {}, log)
+    await drain({ workerId: 'w', log })
+    await requestLeadBrief(actor, String(lead._id), {}, log)
+    expect(lines).toHaveLength(3)
     expect(lines[0]).toMatchObject({
       event: 'ai_lead_brief',
+      orgId: String(ctx.org._id),
+      cacheHit: false,
+      outcome: 'queued',
+      jobId: String(queued.data.jobId),
+      sharedJob: false,
+    })
+    expect(lines[1]).toMatchObject({
+      event: 'ai_lead_job',
+      jobId: String(queued.data.jobId),
       orgId: String(ctx.org._id),
       provider: 'fake',
       model: 'fake',
@@ -422,14 +453,25 @@ describe('the log line', () => {
       inputTokens: 900,
       outputTokens: 200,
       costUsd: 0,
-      cacheHit: false,
-      latencyMs: expect.any(Number),
+      queueMs: expect.any(Number),
+      runMs: expect.any(Number),
+      attempts: 1,
       citationsRejected: 0,
-      outcome: 'ok',
+      outcome: 'done',
     })
-    expect(lines[1]).toMatchObject({ cacheHit: true, inputTokens: 0, outputTokens: 0 })
+    expect(lines[2]).toMatchObject({ event: 'ai_lead_brief', cacheHit: true, outcome: 'ok' })
     const text = JSON.stringify(lines)
     for (const content of ['Ravi', 'Sahyadri', 'Secret budget', 'Following up']) expect(text).not.toContain(content)
+  })
+
+  it('a failed job logs its typed error code as the outcome', async () => {
+    const lead = await makeLead()
+    stub.state.reply = () => [502, { error: { code: 'BAD_OUTPUT', message: 'x' }, meta: META }]
+    const lines = []
+    const log = { info: (obj) => lines.push(obj), warn: (obj) => lines.push(obj), error: () => {} }
+    await post(lead._id)
+    await drain({ workerId: 'w', log })
+    expect(lines).toEqual([expect.objectContaining({ event: 'ai_lead_job', outcome: 'AI_BAD_OUTPUT', attempts: 1 })])
   })
 })
 
