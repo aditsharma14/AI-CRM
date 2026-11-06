@@ -25,9 +25,19 @@ plus a record of what has been resolved. Newest resolutions first.
 - **[#27] The Dashboard sums deals in mixed currencies without conversion.** Totals are formatted in the org's currency
   (S1.8-GH), but a deal created in another currency is added at face value. No exchange rates yet.
 
-- **The AI brief's rate limits live in the API process** (20 calls per org per hour, 5 regenerations per lead):
-  right for the one API instance compose runs, not shared across replicas. Move them to Mongo or Redis before
-  running more than one ([aiBriefService.js](../backend/src/services/aiBriefService.js)).
+- **The `/api` rate limiter counts per API process** (express-rate-limit's MemoryStore). Compose runs one api; with
+  N replicas a client gets up to N times `RATE_LIMIT_MAX`. A MongoDB store was built and measured in S2.1 (#PR): it
+  added 14–27% to the filtered lead list's p95, over the 10% allowed, so it was not kept. A shared store waits for
+  Redis (S2.5). The AI limits are shared (in MongoDB, [docs/ai.md](ai.md#the-job-queue)).
+- **A stack with no worker leaves briefs queued.** The API only queues; if no `worker` runs (an old compose file, a
+  worker crash loop), jobs stay `queued` and the card keeps polling every 5 s. The owners' `GET /ai/queue/stats`
+  shows it (the oldest queued job's age); alerting on it is S2.6.
+- **The brief is polled, not pushed:** a fake brief usually shows on the first poll (1 s); a slow one costs a
+  request per 5 s per open card. A push (SSE) would remove both.
+- **At the AI limit, two concurrent requests can both be refused** (insert, then count): the safe direction; neither
+  is let through over the limit.
+- **Mongoose warns that `new: true` is deprecated** (`returnDocument: 'after'`): the job service uses the new option;
+  the older services (crud, orgAdmin, notifications) still pass `new`. Harmless until a Mongoose major.
 - **Output checks catch contact details, links and invented citations, not a subtly wrong summary.** A note that
   misleads (a false "budget approved") yields a confident, cited, wrong brief. The draft is for a person to review,
   never sent by the app; the evals measure the rest ([docs/ai.md](ai.md#threat-model)).
@@ -57,6 +67,7 @@ plus a record of what has been resolved. Newest resolutions first.
 ## Resolved
 | Date | Issue | Fix |
 |---|---|---|
+| 2026-11-07 | **The AI brief's limits and single-flight lived in the API process** (two Maps and an in-flight promise table): each replica had its own, and a slow brief held an HTTP request open for up to 90 s | the brief is a job in MongoDB, run by separate worker processes: a partial unique index is the single-flight, the limits are rows counted on `at`, and every claim, lease, retry and shutdown path is tested, including a real worker killed mid-job (#PR) |
 | 2026-11-06 | **Every demo deep link answered HTTP 404** (`/AI-CRM/login`, `/AI-CRM/deals`): Pages served `404.html`, which is the app, so it loaded, but crawlers and link previews saw a 404 | the demo build writes a copy of `index.html` per route without a parameter, which Pages serves with 200; a test keeps the list in step with `App.jsx`, and the demo e2e checks both statuses (#39) |
 | 2026-11-06 | **A link stated plainly in a note was allowed in the email** (the check allowed any link the history held) | links only from the company's website (`Company.domain`, or an ASCII subdomain), never from history text; hosts compared lower case, without a trailing dot and as punycode, so Cyrillic look-alikes, IDNs and `user@host` don't match; prompt `lead-brief/2` (#36) |
 | 2026-11-05 | **The AI layer was stubs** (RAG, chat, chains; LangChain, Gemini and OpenAI dependencies nobody used) | the lead brief end to end on free providers (fake, local Ollama): prompt v1, validation and one retry, cache, single-flight, limits, kill switch, evals, the card ([docs/ai.md](ai.md)); the stubs are gone (`c148568` to `b5235c7`) |
