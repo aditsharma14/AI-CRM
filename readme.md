@@ -37,13 +37,15 @@ Four services, wired together in [docker-compose.yml](docker-compose.yml):
 |------------|-------------|---------------------------------|-------|
 | `client`   | `frontend/` | React 19 + Vite + Tailwind      | 8080  |
 | `api`      | `backend/`  | Node/Express + Mongoose         | 5000  |
+| `worker`   | `backend/`  | Node (runs queued AI briefs; scale to N) | none |
 | `ai`       | `AI/`       | Python FastAPI (lead brief)     | internal only |
 | `mongo`    | —           | MongoDB 7 (local dev only)      | 27017 |
 
 The client always calls same-origin `/api/v1` — in dev, Vite proxies it to the `api`
 container ([vite.config.js](frontend/vite.config.js)); in production, nginx reverse-proxies
-it the same way ([nginx.conf](frontend/nginx.conf)). The `api` service is the only caller of
-the `ai` service, sending it only a minimal bundle for each brief; the `ai` service never touches MongoDB.
+it the same way ([nginx.conf](frontend/nginx.conf)). The `api` service queues each AI brief
+as a job in MongoDB and a `worker` service runs it (`docker compose up --scale worker=N` for more), sending the `ai`
+service only a minimal bundle; the `ai` service never touches MongoDB ([docs/ai.md](docs/ai.md#the-job-queue)).
 
 ## Getting started
 
@@ -83,6 +85,7 @@ cd backend
 npm install
 cp .env.example .env   # fill in secrets
 npm run dev        # http://localhost:5000
+npm run worker     # in a second terminal: runs queued AI briefs (needs AI_ENABLED=true and the AI service)
 ```
 
 **AI service**
