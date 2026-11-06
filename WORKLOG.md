@@ -274,7 +274,7 @@ Draft PRs #28–#34 from 2026-11-05 were reused where they still applied to `mai
 that must hold across replicas lives in a process's memory. Built on the S2-lite brief: there was no earlier PR for
 shared limits or a Mongo single-flight (the "3b" asked about doesn't exist); its next step said to move them.
 
-**Changed** (#PR, branch `feat/s2.1-ai-jobs`)
+**Changed** (#58, branch `feat/s2.1-ai-jobs`)
 
 | Area | Change |
 |---|---|
