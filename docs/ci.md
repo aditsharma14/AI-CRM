@@ -49,9 +49,14 @@ The backend job fails if **`src/services` line coverage drops below 98.65%** (`c
 minus 1. When coverage rises, raise the threshold with it; never lower it to make a change pass.
 
 The README shows two static shields.io badges for `src/services`: **line** coverage (the gated number) and
-**branch** coverage (88.85% on 2026-11-06; not gated), so the line number isn't read as the whole story. Update both in
-a docs commit when the numbers change. They aren't live because a live badge needs the number published somewhere
-(a gist and a token secret, or a bot commit back to `main`); the gate already catches a real drop.
+**branch** coverage (not gated), so the line number isn't read as the whole story. The badges are the one place the
+numbers live; other docs link here instead of repeating them.
+
+**Source of the current badges:** the `backend` job's coverage table (the `services` row) in
+[CI run 42119535410](https://github.com/aditsharma14/AI-CRM/actions/runs/42119535410), on `main` after #54
+(2026-11-05). To update: take the `services` row from the latest `main` run's backend log, change both badges and the
+run link above in one docs commit. They aren't live because a live badge needs the number published somewhere (a gist
+and a token secret, or a bot commit back to `main`); the gate already catches a real drop.
 
 Locally: `npm run test:coverage` in `backend/` prints the table and applies the same threshold.
 

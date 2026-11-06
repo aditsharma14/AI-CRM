@@ -267,3 +267,26 @@ Draft PRs #28–#34 from 2026-11-05 were reused where they still applied to `mai
 `npm audit --omit=dev` 0 in both packages.
 
 **Next:** the low-priority ESLint major PR; the owner sets the `main` ruleset; the Ollama eval rerun on `lead-brief/2`.
+
+---
+
+## 2026-11-07 · Doc drift fixes from the portfolio review
+
+**Goal:** fix the doc drift the review found: line-number references that went stale, coverage numbers that differed
+between files, and a README with no clear reading order or account of how the repo was built.
+
+**Changed** (one docs PR)
+- CLAUDE.md §7.5: the dev-only token logging is cited as `forgotPassword` and `inviteMember`, not `authService.js:219`
+  / `orgAdminService.js:83` (on `main` the second had drifted to 85; the refresh reuse-detection branch moves the
+  first to 302). These were the only file:line references in CLAUDE.md,
+  docs/, bench/, the README and this file.
+- Coverage: the README badges are the one source. docs/ci.md names the run they come from and how to update them;
+  CLAUDE.md §6 links there instead of repeating the numbers. Entries above keep the numbers measured at the time.
+- README: "Start here" (four docs) and a draft "How I built this" for the owner to reword.
+
+**Verified:** CI run 42119535410 on `main` after #54 (2026-11-05), `backend` job: `src/services` 99.77% lines, 88.85%
+branches, the numbers the badges already showed; the entry above (99.75%, 89.36%) predates it. Every relative link in
+CLAUDE.md and the README resolves; `npm run format:check` clean.
+
+**Next:** the owner rewords "How I built this"; update the badges and the run link in docs/ci.md when the refresh
+reuse-detection branch lands.

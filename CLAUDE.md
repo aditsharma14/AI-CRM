@@ -188,7 +188,8 @@ Read in [backend/src/config/index.js](backend/src/config/index.js) (`GIT_COMMIT`
 - **Tests:** `npm test` in `backend/` (Vitest + supertest + mongodb-memory-server; first run downloads a ~70 MB mongod) and in
   `frontend/` (Vitest + Testing Library + MSW). No `.env` needed. **e2e:** `npm run e2e` in `frontend/` (Playwright; starts its
   own API on in-memory Mongo, the AI service + Vite on :5055/:5057/:5175; first time: `npx playwright install chromium`). AI: `pytest` in `AI/`.
-- **Coverage and budgets:** `npm run test:coverage` in both (backend `src/services` 99.77% lines, 88.85% branches, 2026-11-06, aiProxyService included;
+- **Coverage and budgets:** `npm run test:coverage` in both (backend `src/services`, aiProxyService included: the README's
+  coverage badges are the one source, taken from the CI run named in [docs/ci.md](docs/ci.md#coverage); don't repeat the numbers here;
   the frontend number covers only `src/api` and `src/context`, not the pages, and isn't gated). Budgets ([bench/](bench/)): lead
   list p95 under 200 ms at 100k leads on the bench machine (28 ms); first-load JS under [bundle-budget.json](frontend/bundle-budget.json) (CI).
 - **Checks (repo root):** `npm run lint` (ESLint, zero warnings, plus ruff), `npm run typecheck`, `npm run format:check`. The husky
@@ -217,8 +218,10 @@ Read in [backend/src/config/index.js](backend/src/config/index.js) (`GIT_COMMIT`
 4. **Never bypass `orgId` or the ownership policy** (§4, §5). New tenant models get a required, indexed `orgId`; new
    owned resources get an `OWNER_FIELD` entry and matrix tests.
 5. **Never log secrets or tokens** (raw tokens, passwords, JWTs, API keys, cookies).
-   *Known dev-only violations, never run in production (tested), removed once email exists:* [authService.js:219](backend/src/services/authService.js#L219)
-   (reset token) and [orgAdminService.js:83](backend/src/services/orgAdminService.js#L83) (invite token). Do not add more.
+   *Known dev-only violations, never run in production (tested), removed once email exists:* `forgotPassword` in
+   [authService.js](backend/src/services/authService.js) (reset token) and `inviteMember` in
+   [orgAdminService.js](backend/src/services/orgAdminService.js) (invite token). Do not add more. Cite code by file and
+   function name, never by line number: line numbers go stale.
 6. CRM mutations go through `activityLogService.logActivity` (the CRUD factory does this when given `activityLabel`).
 7. Keep the envelope: throw `AppError` helpers; never hand-build error JSON or call `res.json` in routes. Log with `req.log`.
 8. Style: Prettier and sorted imports (both enforced), ESM, a one-line purpose comment per file, comments that explain *why*.
