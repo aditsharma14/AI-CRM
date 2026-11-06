@@ -1,6 +1,7 @@
 // The AI brief card: hidden while AI is off; generate, loading copy, result with citations that scroll to the history
-// entry, copy, regenerate (refresh: true); each AI error says what happened, with Retry only where it can help.
-import { act, screen, waitFor } from '@testing-library/react'
+// entry, copy, regenerate (refresh: true); each AI error says what happened, with Retry only where it can help. A 202
+// is a queued job: polled at 1, 2, 4, then every 5 s, showing queued or running, until it ends; leaving stops it.
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -12,6 +13,7 @@ import { LeadBriefCard } from './LeadBriefCard.jsx'
 
 const LEAD_ID = 'a'.repeat(24)
 const NOTE_ID = '3'.repeat(24)
+const JOB_ID = 'b'.repeat(24)
 const HISTORY = [
   { id: NOTE_ID, kind: 'note', title: 'Note', text: 'Budget approved', date: '2026-11-03T16:00:00.000Z' },
 ]
@@ -40,9 +42,23 @@ function serve({ aiEnabled = true, answer } = {}) {
   return bodies
 }
 
+/** POST answers 202 with a job; each GET of it answers the next of `states` (the last one repeats). */
+function serveJob(states) {
+  const polls = []
+  server.use(
+    http.get(`${API}/config`, () => ok({ emailEnabled: false, aiEnabled: true })),
+    http.post(`${API}/ai/leads/:id/brief`, () => ok({ jobId: JOB_ID }, null, 202)),
+    http.get(`${API}/ai/jobs/:jobId`, ({ params }) => {
+      polls.push({ at: Date.now(), jobId: params.jobId })
+      return ok(states[Math.min(polls.length, states.length) - 1])
+    }),
+  )
+  return polls
+}
+
 function renderCard() {
   const user = userEvent.setup()
-  renderWithProviders(
+  const view = renderWithProviders(
     <>
       <LeadBriefCard leadId={LEAD_ID} history={HISTORY} />
       <ol>
@@ -53,7 +69,7 @@ function renderCard() {
     </>,
     { session: makeUser('member') },
   )
-  return user
+  return Object.assign(user, { unmount: view.unmount })
 }
 
 beforeEach(() => {
@@ -76,7 +92,7 @@ describe('LeadBriefCard', () => {
     const bodies = serve({ answer: async () => (await gate, ok(BRIEF)) })
     const user = renderCard()
     await user.click(await screen.findByRole('button', { name: /generate brief/i }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Generating, this can take a few seconds')
+    expect(await screen.findByRole('status')).toHaveTextContent('Generating… This can take a few seconds.')
     release()
     expect(await screen.findByText(BRIEF.summary)).toBeInTheDocument()
     expect(screen.getByText(/Send the quote/)).toBeInTheDocument()
@@ -145,5 +161,88 @@ describe('LeadBriefCard', () => {
     await user.click(await screen.findByRole('button', { name: /generate brief/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/Can't reach the server/)
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+  })
+
+  describe('a queued job (202)', () => {
+    // Fake clock (setTimeout and Date only), installed once the card is on screen: the poll delays are asserted
+    // exactly, and nothing waits for real seconds. Testing Library's findBy/waitFor poll on setTimeout, so after
+    // that point the tests advance the clock and let real I/O (MSW, axios) settle instead, and click with fireEvent
+    // (user-event waits on a setTimeout(0) that only Jest's fake timers advance on their own).
+    const fakeClock = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    const settle = async () => {
+      for (let i = 0; i < 10; i++) {
+        await act(() => vi.advanceTimersByTimeAsync(0))
+        // A real macrotask (the fake clock owns setTimeout): lets MSW and axios move on. Vitest runs on Node.
+        await new Promise((resolve) => globalThis.setImmediate(resolve))
+      }
+    }
+    const tick = async (ms) => {
+      await act(() => vi.advanceTimersByTimeAsync(ms))
+      await settle()
+    }
+    async function start(states) {
+      const polls = serveJob(states)
+      const { unmount } = renderCard()
+      const button = await screen.findByRole('button', { name: /generate brief/i })
+      fakeClock()
+      const at = Date.now()
+      fireEvent.click(button)
+      await settle()
+      return { polls, unmount, at }
+    }
+
+    it('polls at 1, 2, 4, 5, 5 s, shows queued then running, and stops once done', async () => {
+      const { polls, at } = await start([
+        { state: 'queued' },
+        { state: 'queued' },
+        { state: 'running' },
+        { state: 'running' },
+        { state: 'done', brief: BRIEF },
+      ])
+      expect(screen.getByRole('status')).toHaveTextContent('Generating… (queued)')
+      await tick(999)
+      expect(polls).toHaveLength(0)
+      await tick(1)
+      expect(polls).toHaveLength(1)
+      await tick(2000)
+      expect(polls).toHaveLength(2)
+      expect(screen.getByRole('status')).toHaveTextContent('Generating… (queued)')
+      await tick(4000)
+      expect(polls).toHaveLength(3)
+      expect(screen.getByRole('status')).toHaveTextContent('Generating… (running)')
+      await tick(5000)
+      await tick(5000)
+      await tick(50) // the brief renders only once the clock moves on: its delivery waits on a (fake) timer
+      expect(screen.getByText(BRIEF.summary)).toBeInTheDocument()
+      expect(polls.map((p) => p.at - at)).toEqual([1000, 3000, 7000, 12000, 17000])
+      expect(polls.every((p) => p.jobId === JOB_ID)).toBe(true)
+      await tick(30_000)
+      expect(polls).toHaveLength(5) // done: no more polls
+    })
+
+    it.each([
+      ['AI_BAD_OUTPUT', 'The AI could not write a usable brief for this lead. Try again.', true],
+      ['NOT_FOUND', 'This lead was deleted.', false],
+    ])(
+      'a failed job (%s) shows its message, stops polling, and offers Retry only where it can help',
+      async (code, message, retry) => {
+        const { polls } = await start([{ state: 'running' }, { state: 'failed', error: { code, message } }])
+        await tick(1000)
+        await tick(2000)
+        expect(screen.getByRole('alert')).toHaveTextContent(message)
+        expect(Boolean(screen.queryByRole('button', { name: 'Retry' }))).toBe(retry)
+        await tick(30_000)
+        expect(polls).toHaveLength(2)
+      },
+    )
+
+    it('leaving the page stops the polling', async () => {
+      const { polls, unmount } = await start([{ state: 'queued' }])
+      await tick(1000)
+      expect(polls).toHaveLength(1)
+      unmount()
+      await tick(60_000)
+      expect(polls).toHaveLength(1)
+    })
   })
 })
