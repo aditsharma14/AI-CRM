@@ -119,7 +119,7 @@ the after-size + 10%:
 
 | | Measured | Budget |
 |---|---|---|
-| Entry chunk | 28.9 kB (8.4 gzip) | **31.8 kB (9.2 gzip)** |
+| Entry chunk | 28.9 kB (8.4 gzip) | **31.8 kB (9.2 gzip)**; 9.5 gzip since S2.2, see below |
 | Initial JS | 342.0 kB (110.2 gzip) | **376.2 kB (121.2 gzip)**; 407.8 kB (130.5 gzip) since #48, see below |
 
 Both, because moving code from the entry into a chunk the entry imports statically would pass an entry-only budget
@@ -169,3 +169,20 @@ node scripts/check-bundle-budget.mjs` on `main` and on #48's branch, chunk sizes
 
 **Budget raised by the measured growth:** initial JS 376.2 → 407.8 kB, 121.2 → 130.5 kB gzip. The entry chunk budget
 is unchanged.
+
+## Idempotency-Key in the API client (S2.2)
+
+S2.2 sends an Idempotency-Key with every retryable write ([conventions](../docs/conventions.md#idempotency)). The key
+and its retry loop (`idempotent()`) and `createRecord` live in `api/client.js`, which the entry chunk needs: every
+page's create goes through `useCrudQuery` in `hooks.js`, and `hooks.js` is in the entry. The page-only writes
+(convert, move-stage, the brief) are in `api/mutations.js`, which only lazy pages import. Measured with `npm run build` on `main` and on the S2.2 branch, the entry file's
+bytes from `dist/assets` and `zlib.gzipSync` (what `check-bundle-budget.mjs` uses):
+
+| | `main` | S2.2 | Change |
+|---|---|---|---|
+| `index` chunk (entry) | 31,289 B (9,233 gzip) | 31,735 B (9,473 gzip) | +446 B (+240 gzip) |
+| Initial JS | 353.8 kB | 354.3 kB | +0.5 kB |
+
+**Budget raised by the measured growth:** entry chunk 9.2 -> 9.5 kB gzip (9.2 + 0.24, rounded up to 0.1). The raw entry
+budget (31.8 kB) and the initial-JS budgets are unchanged and still pass.
+
