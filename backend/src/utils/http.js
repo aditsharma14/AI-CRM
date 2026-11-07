@@ -7,6 +7,15 @@
 /** @typedef {import('../types/index.js').ApiResponse<unknown>['meta']} ResponseMeta */
 
 /**
+ * The success branch of the envelope, unsent: lead convert stores it as its idempotent answer before it commits.
+ * @template T
+ * @param {T} data
+ * @param {ResponseMeta} [meta]
+ * @returns {{ success: true, data: T, error: null, meta: ResponseMeta }}
+ */
+export const envelope = (data, meta = null) => ({ success: true, data, error: null, meta })
+
+/**
  * Sends the success branch of the one envelope every endpoint returns.
  * @template T
  * @param {Response} res
@@ -16,7 +25,7 @@
  * @returns {Response}
  */
 export function apiResponse(res, data, meta = null, status = 200) {
-  return res.status(status).json({ success: true, data, error: null, meta })
+  return res.status(status).json(envelope(data, meta))
 }
 
 /** A typed, throwable error that errorHandler.js turns into the envelope's error branch. */

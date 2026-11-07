@@ -1,8 +1,9 @@
-// Deal CRUD + move-stage (moving into won/lost closes the deal).
+// Deal CRUD + move-stage (moving into won/lost closes the deal). Create and move-stage take an Idempotency-Key.
 import { Router } from 'express'
 
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
+import { idempotent } from '../middleware/idempotency.js'
 import { idParam } from '../schemas/common.js'
 import { dealCreate, dealListQuery, dealMoveStage, dealUpdate } from '../schemas/deals.js'
 import * as dealsService from '../services/dealsService.js'
@@ -32,6 +33,7 @@ router.post(
   '/',
   requirePermission('crm', 'write'),
   validate({ body: dealCreate }),
+  idempotent(),
   asyncHandler(async (req, res) => {
     apiResponse(res, await dealsService.create(req.user, req.body), null, 201)
   }),
@@ -58,6 +60,7 @@ router.patch(
   '/:id/move-stage',
   requirePermission('crm', 'write'),
   validate({ params: idParam, body: dealMoveStage }),
+  idempotent(),
   asyncHandler(async (req, res) => {
     const { stageKey, wonLostReason } = req.body
     apiResponse(res, await dealsService.moveStage(req.user, req.params.id, stageKey, wonLostReason))

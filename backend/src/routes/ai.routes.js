@@ -4,6 +4,7 @@ import { Router } from 'express'
 
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
+import { idempotent } from '../middleware/idempotency.js'
 import { jobIdParam, leadBriefBody } from '../schemas/ai.js'
 import { idParam } from '../schemas/common.js'
 import { requestLeadBrief } from '../services/aiBriefService.js'
@@ -13,11 +14,12 @@ import { apiResponse, asyncHandler } from '../utils/http.js'
 const router = Router()
 router.use(auth)
 
-// 200 with the cached brief, or 202 { jobId }: poll GET /jobs/:jobId.
+// 200 with the cached brief, or 202 { jobId }: poll GET /jobs/:jobId. With an Idempotency-Key, a retry gets the same jobId.
 router.post(
   '/leads/:id/brief',
   requirePermission('ai', 'use'),
   validate({ params: idParam, body: leadBriefBody }),
+  idempotent(),
   asyncHandler(async (req, res) => {
     const { status, data } = await requestLeadBrief(req.user, req.params.id, req.body ?? {}, req.log)
     apiResponse(res, data, null, status)
