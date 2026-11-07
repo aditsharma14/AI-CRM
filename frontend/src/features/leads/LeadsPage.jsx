@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 import { z } from 'zod'
 
-import { api } from '../../api/client.js'
+import { convertLead } from '../../api/mutations.js'
 import { DataTable } from '../../components/DataTable.jsx'
 import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
@@ -37,7 +37,7 @@ const STATUS_VARIANT = {
 function useConvertLead() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (id) => (await api.post(`/leads/${id}/convert`)).data.data,
+    mutationFn: convertLead,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
       queryClient.invalidateQueries({ queryKey: ['deals'] })

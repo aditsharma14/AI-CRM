@@ -6,6 +6,7 @@ import { Copy, RefreshCw, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api/client.js'
+import { requestBrief } from '../../api/mutations.js'
 import { Button } from '../../components/ui.jsx'
 import { useAppConfig } from '../../hooks.js'
 import { apiErrorMessage, cn, formatDate } from '../../lib/utils.js'
@@ -78,7 +79,7 @@ export function LeadBriefCard({ leadId, history = [] }) {
       const controller = new AbortController()
       polling.current = controller
       setJobState(null)
-      const res = await api.post(`/ai/leads/${leadId}/brief`, refresh ? { refresh: true } : {})
+      const res = await requestBrief(leadId, refresh)
       if (res.status !== 202) return res.data.data // a cached brief
       setJobState('queued')
       return waitForJob(res.data.data.jobId, { signal: controller.signal, onState: setJobState })
