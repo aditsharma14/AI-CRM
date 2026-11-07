@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { api } from './api/client.js'
+import { api, createRecord } from './api/client.js'
 import { apiErrorMessage, SAVE_FAILED, splitFieldErrors } from './lib/utils.js'
 
 /**
@@ -22,7 +22,7 @@ export function useCrudQuery(resource) {
   const useCreate = () => {
     const queryClient = useQueryClient()
     return useMutation({
-      mutationFn: async (payload) => (await api.post(`/${resource}`, payload)).data.data,
+      mutationFn: (payload) => createRecord(resource, payload),
       onSuccess: () => queryClient.invalidateQueries({ queryKey: [resource] }),
     })
   }

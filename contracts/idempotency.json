@@ -1,0 +1,17 @@
+{
+  "about": "Idempotency-Key (S2.2, docs/conventions.md#idempotency). backend/tests/idempotency.test.js checks the API against this file and frontend/src/demo/idempotency.test.js checks the demo, so neither drifts alone.",
+  "header": "Idempotency-Key",
+  "replayHeader": "Idempotent-Replayed",
+  "keyPattern": "^[A-Za-z0-9._:-]{16,64}$",
+  "endpoints": [
+    "POST /leads",
+    "POST /deals",
+    "POST /leads/:id/convert",
+    "PATCH /deals/:id/move-stage",
+    "POST /ai/leads/:id/brief"
+  ],
+  "errors": {
+    "IDEMPOTENCY_IN_PROGRESS": { "status": 409, "demo": false },
+    "IDEMPOTENCY_KEY_REUSED": { "status": 422, "demo": true }
+  }
+}

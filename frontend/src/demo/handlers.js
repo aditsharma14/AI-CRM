@@ -2,7 +2,7 @@
 // (ownership, roles, strict list queries, stage closing, audit log, notifications) and its exact response shapes.
 // Shapes are pinned by contracts/api-shapes.json (src/demo/contract.test.js). Anything the demo doesn't do answers
 // 400 NOT_AVAILABLE_IN_DEMO.
-import { http } from 'msw'
+import { http, HttpResponse } from 'msw'
 
 import { canModifyRecord, hasPermission } from '../lib/constants.js'
 import { fail, ok } from './envelope.js'
@@ -26,6 +26,18 @@ const notFound = (message) => new ApiError(404, 'NOT_FOUND', message)
 const unauthorized = (message, code = 'UNAUTHORIZED') => new ApiError(401, code, message)
 
 const ID = /^[0-9a-f]{24}$/
+// backend/src/schemas/idempotency.js
+const IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{16,64}$/
+/** JSON with object keys sorted at every depth (the API's idempotencyService.canonicalJson). */
+const canonicalJson = (value) => {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value).filter(([, v]) => v !== undefined)
+    entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`
+  }
+  return JSON.stringify(value ?? null)
+}
 const clone = (value) => structuredClone(value)
 // JSON drops undefined, as the real API never sends a field it didn't store.
 const json = (value) => JSON.parse(JSON.stringify(value))
@@ -151,6 +163,8 @@ export function createDemoApi({ now = () => new Date() } = {}) {
   const briefCache = new Map()
   /** Brief jobs, as the API's queue: jobId -> { key, brief }. The demo's "worker" is instant: the first poll is done. */
   const briefJobs = new Map()
+  /** Idempotency-Key answers, as the API's IdempotencyRecord: `${userId} ${key}` -> { request, status, text }. */
+  const idempotentAnswers = new Map()
   let sequence = 0
   let sessionUserId = null
   const tokens = new Map()
@@ -525,8 +539,12 @@ export function createDemoApi({ now = () => new Date() } = {}) {
   }
 
   // ---- routing
-  /** Wraps a resolver: ApiErrors become the error envelope; `auth` resolvers get the actor. */
-  const route = (method, path, resolver, { auth = true } = {}) =>
+  /**
+   * Wraps a resolver: ApiErrors become the error envelope; `auth` resolvers get the actor. `idempotent` routes honour
+   * Idempotency-Key as the API does, except that only successes are stored (a demo error is the same on every retry)
+   * and there is no 409: the demo answers one request at a time.
+   */
+  const route = (method, path, resolver, { auth = true, idempotent = false } = {}) =>
     http[method](`${API}${path}`, async ({ request, params }) => {
       try {
         const actor = auth ? actorOf(request) : null
@@ -539,14 +557,33 @@ export function createDemoApi({ now = () => new Date() } = {}) {
             throw badRequest('Malformed JSON in request body.', 'BAD_REQUEST')
           }
         }
-        const [data, status = 200, meta = null] = await resolver({
-          actor,
-          params,
-          body,
-          url: new URL(request.url),
-          request,
-        })
-        return ok(json(data), meta, status)
+        const url = new URL(request.url)
+        const key = idempotent ? request.headers.get('idempotency-key') : null
+        const slot = key === null ? null : `${actor.id} ${key}`
+        const signature = `${method} ${url.pathname} ${canonicalJson(body ?? {})}`
+        if (slot) {
+          if (!IDEMPOTENCY_KEY.test(key)) {
+            throw badRequest('idempotency-key: must be a UUID or 16 to 64 of A-Z, a-z, 0-9, ".", "_", ":" or "-"')
+          }
+          const stored = idempotentAnswers.get(slot)
+          if (stored && stored.signature !== signature) {
+            throw new ApiError(
+              422,
+              'IDEMPOTENCY_KEY_REUSED',
+              'This Idempotency-Key was already used for a different request.',
+            )
+          }
+          if (stored) {
+            return new HttpResponse(stored.text, {
+              status: stored.status,
+              headers: { 'Content-Type': 'application/json', 'Idempotent-Replayed': 'true' },
+            })
+          }
+        }
+        const [data, status = 200, meta = null] = await resolver({ actor, params, body, url, request })
+        const response = ok(json(data), meta, status)
+        if (slot) idempotentAnswers.set(slot, { signature, status, text: await response.clone().text() })
+        return response
       } catch (err) {
         if (err instanceof ApiError) return fail(err.status, err.code, err.message)
         throw err
@@ -561,7 +598,9 @@ export function createDemoApi({ now = () => new Date() } = {}) {
     route('get', `/${resource}/:id`, ({ params }) => [
       populated(RESOURCES[resource], findReadable(resource, params.id)),
     ]),
-    route('post', `/${resource}`, ({ actor, body }) => [create(resource, actor, body), 201]),
+    route('post', `/${resource}`, ({ actor, body }) => [create(resource, actor, body), 201], {
+      idempotent: resource === 'leads' || resource === 'deals',
+    }),
     route('patch', `/${resource}/:id`, ({ actor, params, body }) => [update(resource, actor, params.id, body)]),
     route('delete', `/${resource}/:id`, ({ actor, params }) => {
       remove(resource, actor, params.id)
@@ -622,39 +661,49 @@ export function createDemoApi({ now = () => new Date() } = {}) {
     route('get', '/org/pipeline-stages', () => [db.org.pipelineStages]),
     route('get', '/org/email-templates', () => [db.emailTemplates]),
 
-    route('post', '/leads/:id/convert', ({ actor, params, body }) => {
-      const lead = findWritable('leads', actor, params.id)
-      if (lead.status === 'converted') throw badRequest('This lead has already been converted.', 'ALREADY_CONVERTED')
-      const input = body ?? {}
-      const deal = create(
-        'deals',
-        { ...actor, role: 'manager' },
-        {
-          title: input.title || lead.name,
-          value: input.value ?? 0,
-          stageKey: input.stageKey,
-          companyId: lead.companyId,
-          ownerId: lead.ownerId,
-        },
-        { convertedFromLeadId: lead._id },
-      )
-      Object.assign(lead, {
-        status: 'converted',
-        convertedToDealId: deal._id,
-        convertedAt: stamp(),
-        updatedAt: stamp(),
-      })
-      log(actor, 'convert', 'lead', lead, `Converted lead "${lead.name}" into a deal`)
-      notify(lead.ownerId, 'deal', deal, `Lead "${lead.name}" was converted into a deal.`)
-      return [deal, 201]
-    }),
-    route('patch', '/deals/:id/move-stage', ({ actor, params, body }) => {
-      if (typeof body?.stageKey !== 'string' || !body.stageKey.trim()) throw badRequest('stageKey: is required')
-      const deal = findWritable('deals', actor, params.id)
-      const toStage = stageIn(body.stageKey.trim())
-      applyStage(deal, deal.stageKey, toStage, actor, body.wonLostReason?.trim() || undefined)
-      return [deal]
-    }),
+    route(
+      'post',
+      '/leads/:id/convert',
+      ({ actor, params, body }) => {
+        const lead = findWritable('leads', actor, params.id)
+        if (lead.status === 'converted') throw badRequest('This lead has already been converted.', 'ALREADY_CONVERTED')
+        const input = body ?? {}
+        const deal = create(
+          'deals',
+          { ...actor, role: 'manager' },
+          {
+            title: input.title || lead.name,
+            value: input.value ?? 0,
+            stageKey: input.stageKey,
+            companyId: lead.companyId,
+            ownerId: lead.ownerId,
+          },
+          { convertedFromLeadId: lead._id },
+        )
+        Object.assign(lead, {
+          status: 'converted',
+          convertedToDealId: deal._id,
+          convertedAt: stamp(),
+          updatedAt: stamp(),
+        })
+        log(actor, 'convert', 'lead', lead, `Converted lead "${lead.name}" into a deal`)
+        notify(lead.ownerId, 'deal', deal, `Lead "${lead.name}" was converted into a deal.`)
+        return [deal, 201]
+      },
+      { idempotent: true },
+    ),
+    route(
+      'patch',
+      '/deals/:id/move-stage',
+      ({ actor, params, body }) => {
+        if (typeof body?.stageKey !== 'string' || !body.stageKey.trim()) throw badRequest('stageKey: is required')
+        const deal = findWritable('deals', actor, params.id)
+        const toStage = stageIn(body.stageKey.trim())
+        applyStage(deal, deal.stageKey, toStage, actor, body.wonLostReason?.trim() || undefined)
+        return [deal]
+      },
+      { idempotent: true },
+    ),
     route('patch', '/activities/:id/toggle-status', ({ actor, params }) => {
       const activity = findWritable('activities', actor, params.id)
       Object.assign(activity, { status: activity.status === 'done' ? 'open' : 'done', updatedAt: stamp() })
@@ -664,23 +713,28 @@ export function createDemoApi({ now = () => new Date() } = {}) {
 
     // The AI lead brief, answered like the API with the AI service on the fake provider (leadBrief.js): a cached brief
     // at once (200), else a job (202 { jobId }) that GET /ai/jobs/:jobId reports done on the first poll.
-    route('post', '/ai/leads/:id/brief', ({ actor, params, body }) => {
-      requirePermission(actor, 'ai', 'use')
-      const extra = Object.keys(body ?? {}).find((key) => key !== 'refresh')
-      if (extra) throw badRequest(`Unrecognized key: "${extra}"`)
-      if (body?.refresh !== undefined && typeof body.refresh !== 'boolean')
-        throw badRequest('refresh: Invalid input: expected boolean')
-      const lead = db.leads.find((l) => l._id === params.id)
-      if (!lead) throw notFound('Lead not found.')
-      const bundle = buildBundle(db, lead, now().toISOString().slice(0, 10))
-      const key = briefKey(lead, bundle)
-      const entry = briefCache.get(key)
-      if (entry && !body?.refresh) return [presentBrief(entry, true, bundle)]
-      const jobId = newId()
-      briefCache.set(key, { brief: fakeBrief(bundle), generatedAt: now().toISOString() })
-      briefJobs.set(jobId, { key, bundle })
-      return [{ jobId }, 202]
-    }),
+    route(
+      'post',
+      '/ai/leads/:id/brief',
+      ({ actor, params, body }) => {
+        requirePermission(actor, 'ai', 'use')
+        const extra = Object.keys(body ?? {}).find((key) => key !== 'refresh')
+        if (extra) throw badRequest(`Unrecognized key: "${extra}"`)
+        if (body?.refresh !== undefined && typeof body.refresh !== 'boolean')
+          throw badRequest('refresh: Invalid input: expected boolean')
+        const lead = db.leads.find((l) => l._id === params.id)
+        if (!lead) throw notFound('Lead not found.')
+        const bundle = buildBundle(db, lead, now().toISOString().slice(0, 10))
+        const key = briefKey(lead, bundle)
+        const entry = briefCache.get(key)
+        if (entry && !body?.refresh) return [presentBrief(entry, true, bundle)]
+        const jobId = newId()
+        briefCache.set(key, { brief: fakeBrief(bundle), generatedAt: now().toISOString() })
+        briefJobs.set(jobId, { key, bundle })
+        return [{ jobId }, 202]
+      },
+      { idempotent: true },
+    ),
     route('get', '/ai/jobs/:jobId', ({ actor, params }) => {
       requirePermission(actor, 'ai', 'use')
       const job = briefJobs.get(params.jobId)

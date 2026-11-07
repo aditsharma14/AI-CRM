@@ -2,6 +2,7 @@
 // requests, 5xx and 429 free the key, a stuck lease expires, a failed done-write per endpoint kind, replay fidelity,
 // the 64 kB cap, and the TTL index.
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 
 import express from 'express'
 import request from 'supertest'
@@ -17,12 +18,14 @@ import { Lead } from '../src/models/CRM.js'
 import Deal from '../src/models/Deal.js'
 import IdempotencyRecord from '../src/models/IdempotencyRecord.js'
 import { ActivityLog } from '../src/models/Logs.js'
+import { idempotencyHeader } from '../src/schemas/idempotency.js'
 import { ORG_CALLS_PER_HOUR, resetAiBriefState } from '../src/services/aiBriefService.js'
 import { apiResponse, asyncHandler } from '../src/utils/http.js'
 import { startAiStub } from './aiStub.js'
 import { bearer, makeRecord, seedOrg } from './helpers.js'
 
 const api = '/api/v1'
+const contract = JSON.parse(readFileSync(new URL('../../contracts/idempotency.json', import.meta.url), 'utf8'))
 const REPLAYED = 'idempotent-replayed'
 let ctx, other, saved, stub
 
@@ -422,5 +425,38 @@ describe('the model', () => {
   it('every record is scoped by orgId', () => {
     expect(IdempotencyRecord.schema.path('orgId').isRequired).toBe(true)
     expect(IdempotencyRecord.schema.path('userId').isRequired).toBe(true)
+  })
+})
+
+describe('the contract (contracts/idempotency.json)', () => {
+  it('the key pattern and the error codes match what the API sends', async () => {
+    expect(idempotencyHeader.shape['idempotency-key'].safeParse('k'.repeat(16)).success).toBe(true)
+    const pattern = new RegExp(contract.keyPattern)
+    for (const key of [
+      randomUUID(),
+      'a'.repeat(16),
+      'a'.repeat(15),
+      'a'.repeat(8),
+      'k'.repeat(65),
+      'abc',
+      'semi;colon-0123456789',
+    ]) {
+      expect(idempotencyHeader.safeParse({ 'idempotency-key': key }).success, key).toBe(pattern.test(key))
+    }
+    const key = randomUUID()
+    await createLead({ name: 'contract' }, key)
+    const reused = await createLead({ name: 'contract 2' }, key)
+    expect(reused.status).toBe(contract.errors.IDEMPOTENCY_KEY_REUSED.status)
+    expect(reused.body.error.code).toBe('IDEMPOTENCY_KEY_REUSED')
+    const replay = await createLead({ name: 'contract' }, key)
+    expect(replay.headers[contract.replayHeader.toLowerCase()]).toBe('true')
+
+    await IdempotencyRecord.updateOne(
+      { key },
+      { $set: { state: 'in_progress', lockedUntil: new Date(Date.now() + 30_000) } },
+    )
+    const busy = await createLead({ name: 'contract' }, key)
+    expect(busy.status).toBe(contract.errors.IDEMPOTENCY_IN_PROGRESS.status)
+    expect(busy.body.error.code).toBe('IDEMPOTENCY_IN_PROGRESS')
   })
 })

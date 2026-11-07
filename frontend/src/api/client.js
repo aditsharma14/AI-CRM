@@ -1,4 +1,4 @@
-// Axios instance, access-token holder and the refresh-on-401 interceptor.
+// Axios instance, access-token holder, the refresh-on-401 interceptor, and idempotent writes (one key per mutation).
 import axios from 'axios'
 
 export const api = axios.create({
@@ -25,6 +25,37 @@ api.interceptors.request.use((config) => {
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`
   return config
 })
+
+/**
+ * Sends a write the server makes idempotent (docs/conventions.md#idempotency) with one Idempotency-Key for the whole
+ * mutation. A dropped connection or a 409 IDEMPOTENCY_IN_PROGRESS is retried with that same key, so a write the
+ * server already committed is replayed, not repeated. The refresh-on-401 replay below resends the same config, and so
+ * the same key. Any other answer the server gave is final.
+ * @param {(config: import('axios').AxiosRequestConfig) => Promise<import('axios').AxiosResponse>} send
+ * @param {{ retries?: number, delayMs?: number }} [options] delayMs doubles on each retry.
+ */
+export async function idempotent(send, { retries = 2, delayMs = 300 } = {}) {
+  const config = { headers: { 'Idempotency-Key': crypto.randomUUID() } }
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await send(config)
+    } catch (error) {
+      const inProgress = error.response?.data?.error?.code === 'IDEMPOTENCY_IN_PROGRESS'
+      if ((error.response && !inProgress) || attempt >= retries) throw error
+      await new Promise((resolve) => setTimeout(resolve, delayMs * 2 ** attempt))
+    }
+  }
+}
+
+/** Resources whose POST takes an Idempotency-Key. A create anywhere else is sent once, never retried. */
+const IDEMPOTENT_CREATES = new Set(['leads', 'deals'])
+
+/** @returns {Promise<unknown>} The created record. */
+export async function createRecord(resource, payload) {
+  const send = (config) => api.post(`/${resource}`, payload, config)
+  const res = IDEMPOTENT_CREATES.has(resource) ? await idempotent(send) : await send()
+  return res.data.data
+}
 
 let refreshPromise = null
 
