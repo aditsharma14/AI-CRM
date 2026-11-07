@@ -1,6 +1,6 @@
 {
   "label": "s2-1-ai-queue-1w",
-  "date": "2026-11-06T20:02:39.792Z",
+  "date": "2026-11-07T18:11:26.473Z",
   "machine": {
     "cpu": "AMD Ryzen 7 8840HS w/ Radeon 780M Graphics     ",
     "cores": 16,
@@ -9,20 +9,29 @@
   },
   "settings": {
     "workers": 1,
-    "jobs": 199,
+    "briefs": 200,
+    "warmUp": 1,
     "ratePerSecond": 4,
     "pollMs": 500,
     "provider": "fake"
   },
-  "failed": 0,
+  "counts": {
+    "requested": 200,
+    "enqueued": 200,
+    "deduped": 0,
+    "cached": 0,
+    "done": 200,
+    "failed": 0,
+    "unfinished": 0
+  },
   "queueMs": {
-    "p50": 265,
-    "p95": 501,
-    "max": 528
+    "p50": 273,
+    "p95": 508,
+    "max": 517
   },
   "enqueueToDoneMs": {
-    "p50": 285,
-    "p95": 518,
-    "max": 552
+    "p50": 292,
+    "p95": 530,
+    "max": 535
   }
 }
