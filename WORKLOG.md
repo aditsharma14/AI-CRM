@@ -304,13 +304,15 @@ shared limits or a Mongo single-flight (the "3b" asked about doesn't exist); its
   The second Mongo run overwrote the first's file ([s2-1-limiter-mongo.json](bench/results/s2-1-limiter-mongo.json);
   [s2-1-limiter-memory.json](bench/results/s2-1-limiter-memory.json)); run 1's numbers are from its printed table.
 
-**Queue latency**, measured (enqueue to a worker's claim; fake provider; 200 briefs at 4/s; poll 500 ms;
-[scripts/bench/ai-queue.mjs](scripts/bench/ai-queue.mjs)):
+**Queue latency**, measured (enqueue to a worker's claim; fake provider; 200 briefs for 200 leads at 4/s after one
+uncounted warm-up; poll 500 ms; [scripts/bench/ai-queue.mjs](scripts/bench/ai-queue.mjs)). A first version reported
+199 jobs for "200 briefs": the warm-up took one of the 200 leads, so 199 were timed (no job lost, none deduped or
+cached). The bench now times exactly 200 and reports requested = enqueued + deduped + cached, and done + failed:
 
-| Workers | Queue p50 / p95 / max | Enqueue to done p50 / p95 / max | Failed |
-|---|---|---|---|
-| 1 | 265 / 501 / 528 ms | 285 / 518 / 552 ms | 0 of 199 |
-| 2 | 244 / 470 / 517 ms | 263 / 495 / 539 ms | 0 of 199 |
+| Workers | Requested | Enqueued / deduped / cached | Done / failed | Queue p50 / p95 / max | Enqueue to done p50 / p95 / max |
+|---|---|---|---|---|---|
+| 1 | 200 | 200 / 0 / 0 | 200 / 0 | 273 / 508 / 517 ms | 292 / 530 / 535 ms |
+| 2 | 200 | 200 / 0 / 0 | 200 / 0 | 249 / 495 / 510 ms | 274 / 516 / 527 ms |
 
 **Verified** (Windows, before the PR): backend 714 passed, 1 skipped (the SIGTERM-to-a-process test: Windows has no
 catchable SIGTERM, so it runs on Linux CI; the same shutdown path is tested in process); `src/services` 99.61% lines,

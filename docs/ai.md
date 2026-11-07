@@ -125,13 +125,15 @@ sequenceDiagram
 | The AI service's `/v1/info` (5 min) | `infoCache` in [aiProxyService.js](../backend/src/services/aiProxyService.js) | A cache of a value that changes only when the AI service is redeployed. Each process fetching its own copy is correct; two disagreeing for up to 5 minutes can generate one brief twice, nothing worse. |
 | The AI service's metrics counters | [AI/app/metrics.py](../AI/app/metrics.py) | Per instance by design: each instance is scraped on its own. |
 
-**Queue latency**, from enqueue to a worker's claim: the fake provider, 200 briefs at 4 per second, worker poll
-500 ms ([scripts/bench/ai-queue.mjs](../scripts/bench/ai-queue.mjs); AMD Ryzen 7 8840HS, Windows 11, Node 24.16.0):
+**Queue latency**, from enqueue to a worker's claim: the fake provider, 200 briefs for 200 different leads at 4 per
+second after one uncounted warm-up, worker poll 500 ms ([scripts/bench/ai-queue.mjs](../scripts/bench/ai-queue.mjs);
+AMD Ryzen 7 8840HS, Windows 11, Node 24.16.0). Every request is counted as enqueued, deduped (joined a queued job) or
+cached, and every job as done or failed; the bench stops if they don't add up:
 
-| Workers | Queue p50 / p95 / max | Enqueue to done p50 / p95 / max | Failed |
-|---|---|---|---|
-| 1 | 265 / 501 / 528 ms | 285 / 518 / 552 ms | 0 of 199 |
-| 2 | 244 / 470 / 517 ms | 263 / 495 / 539 ms | 0 of 199 |
+| Workers | Requested | Enqueued / deduped / cached | Done / failed | Queue p50 / p95 / max | Enqueue to done p50 / p95 / max |
+|---|---|---|---|---|---|
+| 1 | 200 | 200 / 0 / 0 | 200 / 0 | 273 / 508 / 517 ms | 292 / 530 / 535 ms |
+| 2 | 200 | 200 / 0 / 0 | 200 / 0 | 249 / 495 / 510 ms | 274 / 516 / 527 ms |
 
 The wait is the idle poll: a job queued while every worker sleeps waits up to `AI_WORKER_POLL_MS`. A second worker
 barely helps at this rate: a fake brief runs in about 20 ms (enqueue-to-done minus queue time, above), so one worker

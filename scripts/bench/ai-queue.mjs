@@ -2,8 +2,10 @@
 // Queue latency of the AI lead brief: how long a job waits from POST (createdAt) until a worker claims it (startedAt),
 // and until it is done (finishedAt). Everything real and local: the API (src/server.js) and WORKERS worker processes
 // (src/worker.js, compose's poll interval) on a throwaway in-memory replica set, the AI service on the fake provider
-// (scripts/ai-serve.mjs). JOBS briefs are requested at a steady RATE per second, spread over enough orgs to stay
-// under the 20-per-org-per-hour limit. Writes bench/results/<label>.json and prints one Markdown table row.
+// (scripts/ai-serve.mjs). After one warm-up brief (not counted), JOBS briefs for JOBS different leads are requested at
+// a steady RATE per second, spread over enough orgs to stay under the 20-per-org-per-hour limit. Every request is
+// counted as enqueued, deduped (joined a queued job) or cached, and every job as done or failed; the run stops if the
+// counts don't add up. Writes bench/results/<label>.json and prints one Markdown table row.
 //   WORKERS=1 JOBS=200 RATE=4 node scripts/bench/ai-queue.mjs s2-1-ai-queue-1w
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -90,8 +92,9 @@ try {
   await Promise.all([waitFor(`http://127.0.0.1:${AI_PORT}/health`), waitFor(`http://localhost:${API_PORT}/health`)])
 
   // Orgs and leads first, so the timed part is only the briefs.
+  // JOBS timed briefs plus one warm-up lead, each a different lead (so none is a cache hit or joins another's job).
   const leads = []
-  for (let o = 0; o < Math.ceil(JOBS / PER_ORG); o++) {
+  for (let o = 0; o < Math.ceil((JOBS + 1) / PER_ORG); o++) {
     const reg = await call('POST', '/auth/register-org', null, {
       orgName: `Queue Org ${o}`,
       name: 'Owner',
@@ -99,7 +102,7 @@ try {
       password: randomBytes(12).toString('base64url'),
     })
     const token = reg.body.data.accessToken
-    for (let l = 0; l < PER_ORG && leads.length < JOBS; l++) {
+    for (let l = 0; l < PER_ORG && leads.length < JOBS + 1; l++) {
       const lead = await call('POST', '/leads', token, { name: `Lead ${o}-${l}` })
       leads.push({ id: lead.body.data._id, token })
     }
@@ -113,14 +116,22 @@ try {
     if (state === 'failed') throw new Error('ai-queue: the warm-up job failed')
   }
 
+  // Every request is accounted for: a new job (enqueued), a job another request already queued (deduped by the
+  // single-flight), or a cached brief (200). Anything else stops the run.
   const jobIds = []
+  let deduped = 0
+  let cached = 0
   const t0 = Date.now()
   for (const [i, lead] of leads.entries()) {
     await sleep(Math.max(0, t0 + (i * 1000) / RATE - Date.now()))
     const res = await call('POST', `/ai/leads/${lead.id}/brief`, lead.token, {})
-    if (res.status !== 202) throw new Error(`ai-queue: POST answered ${res.status} ${JSON.stringify(res.body.error)}`)
-    jobIds.push(res.body.data.jobId)
+    if (res.status === 200) cached += 1
+    else if (res.status !== 202)
+      throw new Error(`ai-queue: POST answered ${res.status} ${JSON.stringify(res.body.error)}`)
+    else if (jobIds.includes(res.body.data.jobId)) deduped += 1
+    else jobIds.push(res.body.data.jobId)
   }
+  const requested = leads.length
 
   await mongoose.connect(uri)
   const jobs = mongoose.connection.collection('aijobs')
@@ -130,13 +141,27 @@ try {
     await sleep(100)
   }
   const docs = await jobs.find({ _id: { $in: ids } }).toArray()
-  const failed = docs.filter((d) => d.state !== 'done').length
+  const done = docs.filter((d) => d.state === 'done').length
+  const failed = docs.filter((d) => d.state === 'failed').length
+  const counts = {
+    requested,
+    enqueued: jobIds.length,
+    deduped,
+    cached,
+    done,
+    failed,
+    unfinished: ids.length - done - failed,
+  }
+  if (requested !== counts.enqueued + deduped + cached || counts.unfinished !== 0) {
+    throw new Error(`ai-queue: the counts don't add up: ${JSON.stringify(counts)}`)
+  }
+  const finished = docs.filter((d) => d.state === 'done')
   const pct = (values, p) => {
     const sorted = [...values].sort((a, b) => a - b)
     return sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)]
   }
-  const queue = docs.map((d) => d.startedAt - d.createdAt)
-  const total = docs.filter((d) => d.finishedAt).map((d) => d.finishedAt - d.createdAt)
+  const queue = finished.map((d) => d.startedAt - d.createdAt)
+  const total = finished.map((d) => d.finishedAt - d.createdAt)
   const result = {
     label,
     date: new Date().toISOString(),
@@ -146,17 +171,20 @@ try {
       os: `${os.type()} ${os.release()}`,
       node: process.version,
     },
-    settings: { workers: WORKERS, jobs: docs.length, ratePerSecond: RATE, pollMs: 500, provider: 'fake' },
-    failed,
+    settings: { workers: WORKERS, briefs: JOBS, warmUp: 1, ratePerSecond: RATE, pollMs: 500, provider: 'fake' },
+    counts,
     queueMs: { p50: pct(queue, 50), p95: pct(queue, 95), max: Math.max(...queue) },
     enqueueToDoneMs: { p50: pct(total, 50), p95: pct(total, 95), max: Math.max(...total) },
   }
   mkdirSync(new URL('../../bench/results/', import.meta.url), { recursive: true })
   writeFileSync(new URL(`../../bench/results/${label}.json`, import.meta.url), `${JSON.stringify(result, null, 2)}\n`)
-  console.log('| workers | jobs | rate/s | failed | queue p50 / p95 / max ms | enqueue to done p50 / p95 / max ms |')
+  const c = counts
+  console.log(
+    '| workers | requested | enqueued / deduped / cached | done / failed | queue p50 / p95 / max ms | enqueue to done p50 / p95 / max ms |',
+  )
   console.log('|---|---|---|---|---|---|')
   console.log(
-    `| ${WORKERS} | ${docs.length} | ${RATE} | ${failed} | ${result.queueMs.p50} / ${result.queueMs.p95} / ${result.queueMs.max} | ${result.enqueueToDoneMs.p50} / ${result.enqueueToDoneMs.p95} / ${result.enqueueToDoneMs.max} |`,
+    `| ${WORKERS} | ${c.requested} | ${c.enqueued} / ${c.deduped} / ${c.cached} | ${c.done} / ${c.failed} | ${result.queueMs.p50} / ${result.queueMs.p95} / ${result.queueMs.max} | ${result.enqueueToDoneMs.p50} / ${result.enqueueToDoneMs.p95} / ${result.enqueueToDoneMs.max} |`,
   )
 } finally {
   await stop()
