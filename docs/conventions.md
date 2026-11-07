@@ -140,13 +140,26 @@ The backend stays JavaScript and has no build step. [backend/tsconfig.json](../b
   `PATH`; some agent and Git Bash shells don't. Check with `which taskkill` (Git Bash) or `where.exe taskkill`.
   - **Prevent it:** *append* System32, `export PATH="$PATH:/c/Windows/System32"`. Prepending it shadows Git Bash's
     `timeout`, `find` and `sort` with the Windows tools of the same name.
-  - **Clean up after a hang** (PowerShell; it lists the leftovers first, then stops only those):
+  - **Clean up after a hang** (PowerShell). It finds the e2e servers by **port and command line**, node or Python
+    (the AI service is `python.exe` running uvicorn), adds the Playwright runner and `ai-serve.mjs` wrapper by command
+    line, and the e2e API's worker as that API's child (a `npm run worker` of your own is left alone). It lists them
+    first; a port held by anything else is only reported. Review the list, then run the last line.
 
     ```powershell
-    $left = Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
-      Where-Object CommandLine -Match 'playwright|e2e-server\.js|ai-serve\.mjs|pages-server\.mjs|vite.*--port 5175|mongo_killer'
-    $left | Select-Object ProcessId, CommandLine
-    $left | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+    $ports = 5055, 5056, 5057, 5175, 4176   # e2e API + control port, AI service, Vite, the Pages server
+    $servers = 'e2e-server\.js|uvicorn app\.main:app .*--port 5057|vite.*--port 5175|pages-server\.mjs'
+    $all = Get-CimInstance Win32_Process
+    $owners = $all | Where-Object ProcessId -In (Get-NetTCPConnection -LocalPort $ports -State Listen `
+      -ErrorAction SilentlyContinue).OwningProcess
+    $owners | Where-Object CommandLine -NotMatch $servers |
+      ForEach-Object { Write-Warning "port held by something else, left alone: $($_.ProcessId) $($_.CommandLine)" }
+    $left = @($owners | Where-Object CommandLine -Match $servers)                     # servers: port + command line
+    $left += $all | Where-Object { $_.Name -eq 'node.exe' -and                        # helpers with no port
+      $_.CommandLine -match 'playwright.*\btest\b|ai-serve\.mjs|mongo_killer' }
+    $left += $all | Where-Object { $_.ParentProcessId -in $left.ProcessId -and        # the e2e API's worker
+      $_.CommandLine -match 'src[\\/]worker\.js' }
+    $left | Select-Object ProcessId, Name, CommandLine
+    $left | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     ```
 
     The e2e API's in-memory `mongod.exe` exits on its own once its parent is gone (`mongo_killer.js` watches it).
