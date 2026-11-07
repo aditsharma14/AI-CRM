@@ -1,8 +1,9 @@
-// Lead CRUD + convert-to-deal.
+// Lead CRUD + convert-to-deal. Create and convert take an Idempotency-Key.
 import { Router } from 'express'
 
 import { auth } from '../middleware/auth.js'
 import { requirePermission, validate } from '../middleware/guards.js'
+import { idempotent } from '../middleware/idempotency.js'
 import { idParam } from '../schemas/common.js'
 import { leadConvert, leadCreate, leadListQuery, leadUpdate } from '../schemas/leads.js'
 import * as leadsService from '../services/leadsService.js'
@@ -32,6 +33,7 @@ router.post(
   '/',
   requirePermission('crm', 'write'),
   validate({ body: leadCreate }),
+  idempotent(),
   asyncHandler(async (req, res) => {
     apiResponse(res, await leadsService.crud.create(req.user, req.body), null, 201)
   }),
@@ -58,8 +60,11 @@ router.post(
   '/:id/convert',
   requirePermission('crm', 'write'),
   validate({ params: idParam, body: leadConvert }),
+  idempotent(),
   asyncHandler(async (req, res) => {
-    apiResponse(res, await leadsService.convertToDeal(req.user, req.params.id, req.body), null, 201)
+    // With a key, the done record is saved inside convert's transaction: it can't be lost after the deal commits.
+    const beforeCommit = req.idempotency?.saveInside(201)
+    apiResponse(res, await leadsService.convertToDeal(req.user, req.params.id, req.body, { beforeCommit }), null, 201)
   }),
 )
 
