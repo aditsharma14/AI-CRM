@@ -33,10 +33,12 @@ export const crud = createCrudService(Lead, {
  * @param {AuthUser} actor
  * @param {string} leadId
  * @param {import('../schemas/leads.js').LeadConvertInput} [dealInput]
+ * @param {{ beforeCommit?: (deal: unknown, session: import('mongoose').ClientSession) => Promise<void> }} [options]
+ *   beforeCommit runs last inside the transaction (the Idempotency-Key's done record), so it commits with the deal.
  * @returns {Promise<import('mongoose').HydratedDocument<import('../models/Deal.js').DealRecord>>} The new deal.
  * @throws {import('../utils/http.js').AppError} 400 ALREADY_CONVERTED, 400 VALIDATION_ERROR (stageKey), 403, 404
  */
-export async function convertToDeal(actor, leadId, dealInput = {}) {
+export async function convertToDeal(actor, leadId, dealInput = {}, { beforeCommit } = {}) {
   const { orgId, id: actorId } = actor
   // Converting changes the lead, so it's a write: members may convert only
   // their own. The new deal goes to the lead's owner.
@@ -90,6 +92,7 @@ export async function convertToDeal(actor, leadId, dealInput = {}) {
       },
       { session },
     )
+    if (beforeCommit) await beforeCommit(deal, session)
     return deal
   })
 }

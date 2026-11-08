@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
-import { api } from '../../api/client.js'
+import { moveStage } from '../../api/mutations.js'
 import { DataTable } from '../../components/DataTable.jsx'
 import { ErrorAlert } from '../../components/ErrorAlert.jsx'
 import { FormField, inputClasses } from '../../components/FormField.jsx'
@@ -35,7 +35,7 @@ const STAGE_VARIANT = { won: 'success', lost: 'danger' }
 function useMoveStage() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, stageKey }) => (await api.patch(`/deals/${id}/move-stage`, { stageKey })).data.data,
+    mutationFn: moveStage,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deals'] }),
   })
 }
