@@ -291,6 +291,21 @@ describe('failures', () => {
     expect((await IdempotencyRecord.findOne({ key })).state).toBe('done')
   })
 
+  it('two retries race for an expired lease: one runs, the other is 409', async () => {
+    const key = randomUUID()
+    const name = `race ${randomUUID()}`
+    expect((await createLead({ name }, key)).status).toBe(201)
+    await Lead.deleteMany({ name })
+    await IdempotencyRecord.updateOne(
+      { key },
+      { $set: { state: 'in_progress', lockedUntil: new Date(Date.now() - 1) }, $unset: { status: 1, response: 1 } },
+    )
+    const answers = await Promise.all(Array.from({ length: 8 }, () => createLead({ name }, key)))
+    expect(await leadsNamed(name)).toBe(1)
+    expect(answers.filter((r) => r.status === 201 && !r.headers[REPLAYED])).toHaveLength(1)
+    for (const res of answers.filter((r) => r.status !== 201)) expect(res.status).toBe(409)
+  })
+
   it('a record past its 24 h is treated as absent, before the TTL monitor removes it', async () => {
     const key = randomUUID()
     const name = `aged ${randomUUID()}`
