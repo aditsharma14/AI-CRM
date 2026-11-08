@@ -49,6 +49,20 @@ plus a record of what has been resolved. Newest resolutions first.
   of not flagging "done.It". The model's own resistance covers these; the eval's `email_on_task` measures it. In the
   other direction, a missing space after a full stop in a non-Latin script (`Привет.Как`) reads as an IDN and costs
   a retry; briefs are written in English, so this should be rare.
+- **Idempotency: a lost "done" save can run a write twice** (S2.2, #60). If saving the answer fails after the
+  handler committed, the answer is still sent and the error logged (`idempotency record not saved`), but the key stays
+  in progress. Within its 60 s lease a retry gets 409; after it, the retry runs the handler again: a second lead or
+  deal, or a second move-stage audit entry (the brief's own single-flight and cache usually absorb a second POST).
+  Lead convert has no such window: it saves inside its transaction. Tested both ways in
+  [idempotency.test.js](../backend/tests/idempotency.test.js). Closing it for the others means a transaction around
+  each of them.
+- **Idempotency: a handler slower than its 60 s lease can run twice.** A retry after the lease takes the key over
+  while the first request may still be working. None of the five endpoints comes near 60 s (the brief only queues).
+- **Idempotency: not every write takes a key.** Contacts, companies, activities and notes creates don't (the client
+  never retries them), and `PATCH /activities/:id/toggle-status` flips, so a repeated toggle undoes itself. A
+  repeated `PATCH /:id` writes a second "Updated" audit entry ([conventions](conventions.md#idempotency)).
+- **Idempotency in the demo stores only successes and never answers 409:** a demo error is the same on every retry,
+  and MSW answers one request at a time.
 - **The ESLint toolchain has one moderate advisory, dev only** (#30): minimatch ReDoS, GHSA-g3hv-75wg-m249, under
   `eslint` 10.14 (backend 7 findings, frontend 4, all the same chain). Nothing shipped is affected: `npm audit
   --omit=dev` is clean in both. npm's only fixes are majors (eslint back to 9, `eslint-plugin-jsdoc` to 64), so they

@@ -30,7 +30,7 @@ Read this before changing anything. Overview: [readme.md](readme.md). History: [
 | Path | Role |
 |---|---|
 | [backend/src/config/](backend/src/config/) | Env loading, fail-fast check of required vars, `connectDB()`, the pino `logger` |
-| [backend/src/middleware/](backend/src/middleware/) | `auth` (JWT → `req.user`), `guards` (`requirePermission`, `validate`), `errorHandler`, `observability` |
+| [backend/src/middleware/](backend/src/middleware/) | `auth` (JWT → `req.user`), `guards` (`requirePermission`, `validate`), `errorHandler`, `observability`, `idempotency` (Idempotency-Key, [conventions](docs/conventions.md#idempotency)) |
 | [backend/src/routes/](backend/src/routes/) | HTTP wiring: permission → validation → service → `apiResponse` |
 | [backend/src/services/](backend/src/services/) | Business logic. `crudService` factory, `activityLogService` (sole writer of audit log + notifications) |
 | [backend/src/policies/](backend/src/policies/) | `ownership.js` (which records) and `membership.js` (which members), §5. Pure rules + a 403/404 helper each |
@@ -69,11 +69,12 @@ Error: `GET /api/v1/leads/<unknown id>` → 404 (thrown by `getById` in [crudSer
 
 | Status | Codes | Source |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` (`field: message`, joined by `; `), `BAD_REQUEST`, domain codes like `ALREADY_CONVERTED`, `INVALID_CURSOR` | `validate()` in [guards.js](backend/src/middleware/guards.js), services, bad JSON, Mongoose validation/cast errors |
+| 400 | `VALIDATION_ERROR` (`field: message`, joined by `; `; also a malformed `idempotency-key`), `BAD_REQUEST`, domain codes like `ALREADY_CONVERTED`, `INVALID_CURSOR` | `validate()` in [guards.js](backend/src/middleware/guards.js), services, bad JSON, Mongoose validation/cast errors |
 | 401 | `UNAUTHORIZED`, `INVALID_CREDENTIALS` | [auth.js](backend/src/middleware/auth.js), `authService` |
 | 403 | `FORBIDDEN` | `requirePermission()` |
 | 404 | `NOT_FOUND` | services; unknown routes (but an unknown path under a resource, e.g. `/leads/x/y`, is 401 for a guest: that router authenticates first) |
-| 409 | `DUPLICATE_KEY` | Mongo error 11000 |
+| 409 | `DUPLICATE_KEY`, `IDEMPOTENCY_IN_PROGRESS` | Mongo error 11000, [idempotency.js](backend/src/middleware/idempotency.js) |
+| 422 | `IDEMPOTENCY_KEY_REUSED` | an Idempotency-Key sent with another body or path |
 | 413, 429 | `PAYLOAD_TOO_LARGE` (body over 100 kB), `RATE_LIMITED`, `AI_RATE_LIMITED` | `express.json()`, the `/api` rate limiter, the AI limits |
 | 502, 503 | `AI_BAD_OUTPUT`, `AI_UNAVAILABLE` (AI off, down or too slow) | [aiProxyService.js](backend/src/services/aiProxyService.js) |
 | 500 | `INTERNAL_ERROR` | anything else, logged with the request id |

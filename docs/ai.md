@@ -67,7 +67,9 @@ leaves the machine with either provider.**
 A brief takes milliseconds on the fake provider and up to 90 s on a local model: too long to hold an HTTP request
 open. So the API only queues it, and a worker process runs it. Since S2.1 (#58) nothing about the brief lives in a
 process's memory: the queue, the single-flight, the limits and the cache are all in MongoDB, so any number of API and
-worker processes share them.
+worker processes share them. The POST takes an `Idempotency-Key` (S2.2, #60): a retry gets the same `jobId` and
+status (202, or 200 with the cached brief) and isn't counted against the limits again; a 429 frees the key
+([conventions](conventions.md#idempotency)).
 
 ```mermaid
 sequenceDiagram
