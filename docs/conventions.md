@@ -164,6 +164,71 @@ The backend stays JavaScript and has no build step. [backend/tsconfig.json](../b
 
     The e2e API's in-memory `mongod.exe` exits on its own once its parent is gone (`mongo_killer.js` watches it).
 
+## Idempotency
+
+A client that sends a write and loses the answer (a dropped connection, a timeout, a double click) can't tell
+whether the server committed it. `Idempotency-Key` makes the retry safe: the server runs the request once per key and
+answers every repeat with the stored answer (S2.2, #60).
+
+**Which endpoints take it**, the writes whose repeat would do something a second time:
+
+| Endpoint | A repeat without a key would |
+|---|---|
+| `POST /leads`, `POST /deals` | create a second record |
+| `POST /leads/:id/convert` | answer 400 `ALREADY_CONVERTED` instead of the deal the first call made |
+| `PATCH /deals/:id/move-stage` | write a second audit entry (and, into won/lost, a second notification) |
+| `POST /ai/leads/:id/brief` | count against the AI limits again, and may queue a second job if the first is done |
+
+The header is optional: without it, a request behaves as before. Pinned for the API and the demo in
+[contracts/idempotency.json](../contracts/idempotency.json).
+
+**Why the rest are left out.** There is no `PUT` in this API. `PATCH /:id` sets the given fields to the given
+values, so a repeat leaves the record as the first call did; it does write a second "Updated" audit entry, which is
+honest (two requests arrived). `DELETE /:id` repeated answers 404 and changes nothing more. Two writes are *not*
+naturally idempotent and have no key yet: the other creates (contacts, companies, activities, notes), so the client
+never retries them, and `PATCH /activities/:id/toggle-status`, which flips (known-issues.md).
+
+**The rules** ([middleware/idempotency.js](../backend/src/middleware/idempotency.js),
+[idempotencyService.js](../backend/src/services/idempotencyService.js)):
+- **Key:** a UUID or 16 to 64 of `A-Z a-z 0-9 . _ : -`, else 400 `VALIDATION_ERROR` (`idempotency-key: …`).
+  Scoped per org and per user: the same key from someone else is a different key.
+- **Where it runs:** after `auth`, `requirePermission` and `validate`. A request refused there never ran, so it doesn't
+  use up its key: the client can fix the body and retry with the same key.
+- **First request:** the record is inserted `in_progress` with a 60 s lease. The unique `(orgId, userId, key)` index
+  lets exactly one of any number of parallel requests in.
+- **Same key, same method, path and body:** while in progress, 409 `IDEMPOTENCY_IN_PROGRESS`; once done, the stored
+  answer with its original status, `Content-Type` and `Location` (if any), plus `Idempotent-Replayed: true`. Never
+  `Set-Cookie`: a replay must not hand out a session. The body is the stored JSON text, byte for byte.
+- **Same key, another body or path:** 422 `IDEMPOTENCY_KEY_REUSED`. The body is compared as a sha256 of the validated
+  body with its keys sorted, so field order doesn't matter. `/leads/A/convert` and `/leads/B/convert` are different
+  paths.
+- **A 4xx from the handler** (`ALREADY_CONVERTED`, 403, 404, …) is stored and replayed like a success: the answer
+  won't change on a retry.
+- **A 5xx deletes the record**, so the retry runs the handler again. A 5xx is the server failing, not an answer
+  about the request: the transaction rolled back or the write never happened, and the next attempt may well
+  succeed. Storing it would replay the failure for 24 h to a client that did nothing wrong.
+- **A 429 deletes it too** (`AI_RATE_LIMITED` is thrown inside the brief handler): it means "try later", and once
+  the hour's window allows, the same key must be able to run.
+- **Answers over 64 kB aren't stored** (the record is deleted, the answer is sent): one key can't pin a large
+  document for 24 h. None of the five endpoints answers anything near that.
+- **The answer is saved before it is sent**, so a retry that arrives right after it replays instead of getting a
+  409. Lead convert saves it inside its own transaction (`beforeCommit`), so the deal and the record commit or roll
+  back together; if that save fails, the whole convert is a 500 and the retry converts once. For the other four, a
+  failed save is logged (`idempotency record not saved`, with the key and the request id) and the answer is sent
+  anyway; the key then stays in progress until its lease ends (known-issues.md).
+- **A stuck record** (the process died mid-request) is taken over once its lease has expired: one conditional update,
+  so of two retries only one runs.
+- **Kept 24 h** (TTL index on `createdAt`). The TTL monitor runs about once a minute, so a record past 24 h is
+  treated as absent before it is removed.
+- **The key is logged** on a failed save: it identifies a request, it isn't a credential.
+
+**The client** ([api/client.js](../frontend/src/api/client.js) `idempotent()`, used by `createRecord` for leads and
+deals and by [api/mutations.js](../frontend/src/api/mutations.js)): one `crypto.randomUUID()` per mutation. A dropped
+connection or a 409 `IDEMPOTENCY_IN_PROGRESS` is retried with the same key (2 retries, 300 then 600 ms); the
+refresh-on-401 replay resends the same config and so the same key. Any other answer is final. **The demo** (MSW)
+honours the key the same way, except that it stores only successes and never answers 409 (it answers one request
+at a time).
+
 ## Citing changes
 
 `main` takes changes through pull requests merged with **Rebase and merge**, which replays each commit onto `main`

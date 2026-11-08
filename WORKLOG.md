@@ -325,3 +325,95 @@ so it passed with no unique index); it now sends 8 across both instances behind 
 
 **Next:** Redis for the `/api` limiter (S2.5); alerting on the queue stats (S2.6); push instead of polling (SSE) if
 the poll cost shows up.
+
+## 2026-11-08 · S2.2: Idempotent writes
+
+**Goal:** a client that retries a write it lost the answer to (a dropped connection, a double click) gets the first
+answer back instead of a second write. `Idempotency-Key` on the five writes whose repeat does something twice.
+
+**Changed** (#60, branch `feat/s2.2-idempotency`)
+
+| Area | Change |
+|---|---|
+| API | `idempotent()` middleware ([idempotency.js](backend/src/middleware/idempotency.js)) after `validate()` on `POST /leads`, `POST /deals`, `POST /leads/:id/convert`, `PATCH /deals/:id/move-stage`, `POST /ai/leads/:id/brief`. 409 `IDEMPOTENCY_IN_PROGRESS`, 422 `IDEMPOTENCY_KEY_REUSED`, 400 for a malformed key. Replays status, `Content-Type`, `Location`, never `Set-Cookie`, with `Idempotent-Replayed: true` |
+| Store | `IdempotencyRecord` (unique `{ orgId, userId, key }`, TTL 24 h on `createdAt`, 60 s lease); [idempotencyService.js](backend/src/services/idempotencyService.js) claims, completes, releases. Added to `sync-indexes.js` |
+| Failures | 5xx and 429 delete the record; answers over 64 kB aren't stored; convert saves its record inside its transaction (`beforeCommit`); a failed save elsewhere is logged and the answer sent |
+| Frontend | `idempotent()` and `createRecord` in [client.js](frontend/src/api/client.js); convert, move-stage and the brief in [mutations.js](frontend/src/api/mutations.js). One key per mutation, reused on a dropped connection, a 409 and the 401 replay |
+| Demo, contract | MSW `route(…, { idempotent: true })` replays, 422s, 400s (successes only, no 409). [contracts/idempotency.json](contracts/idempotency.json) pins header, key pattern and codes; both sides test against it |
+| Budget | entry chunk gzip budget 9.2 -> 9.5 kB by the measured growth, +240 B gzip ([bench/frontend.md](bench/frontend.md)) |
+| Docs | [conventions](docs/conventions.md#idempotency), [known-issues](docs/known-issues.md), CLAUDE.md §2 and §3, [docs/ai.md](docs/ai.md#the-job-queue) |
+
+**Decisions** (approved before the build)
+- **The middleware runs after `validate()`:** a request refused by permission or validation never ran, so its key
+  isn't used up and the client can fix the body and retry with it.
+- **429 is freed like a 5xx:** `AI_RATE_LIMITED` comes from inside the brief handler and means "later"; storing it
+  would replay the 429 for 24 h after the window opened.
+- **The answer is saved before it is sent,** so a retry right after it replays instead of getting a 409.
+- **The demo stores successes only:** its errors are deterministic, and it has no concurrency to answer 409 for.
+
+**Tests, red first.** Backend [idempotency.test.js](backend/tests/idempotency.test.js) (30) and frontend
+[mutations.test.js](frontend/src/api/mutations.test.js) (15) and [demo/idempotency.test.js](frontend/src/demo/idempotency.test.js)
+(6). First run: the backend file failed at import (no middleware); with an empty model and a pass-through middleware,
+23 of 28 failed. The 5 that passed hold trivially while nothing is stored (no header, valid keys accepted, the 5xx
+retry, a record past 24 h, the 64 kB cap); each turned red under its mutation below. The frontend files failed at
+import; the demo's, with no demo support, 4 of 5 (keys per user passed trivially, red under its mutation).
+
+**Mutation checks.** One break at a time, the named test run alone, then the file restored (a script; output kept in
+the session). Every break turned its test red:
+
+| Test | Break | Red |
+|---|---|---|
+| header absent: nothing changes | a missing header claimed as a key | yes |
+| malformed key is 400 (4 cases) | key pattern loosened to any 1–100 characters | yes (4) |
+| accepts a UUID and 16–64 safe characters | minimum 17 | yes |
+| double-click convert: one deal | a done record not replayed | yes |
+| network retry replays the same deal id | `Idempotent-Replayed` dropped | yes |
+| POST /leads and /deals write once | `idempotent()` removed from POST /deals | yes |
+| move-stage retried logs one move | `idempotent()` removed from move-stage | yes |
+| brief replays the same jobId (202) | `idempotent()` removed from the brief POST | yes |
+| a handler 4xx is stored and replayed | every 4xx freed like a 5xx | yes |
+| different body is 422 | bodyHash not compared | yes |
+| different path is 422 | path not compared | yes |
+| keys per user and per org | claim scope without `userId`; unique index without `userId` | yes, both |
+| 8 parallel: one write, rest 409 or replay | index not unique | yes |
+| 5xx frees the key | 5xx stored | yes |
+| 429 frees the key | 429 stored | yes |
+| stuck lease: 409, then runs after expiry | expired lease never taken over; live lease taken over | yes, both |
+| two retries race for an expired lease: one runs | takeover not conditional on the old `lockedUntil` | yes (added after coverage showed the path untested) |
+| record past 24 h is absent | the age check removed | yes |
+| done-write fails in convert: rollback, retry once | record saved after commit instead of inside the transaction | yes |
+| done-write fails in POST /leads: 409 until the lease ends, then a second write | a failed save frees the key at once | yes |
+| replay: status, Content-Type, Location, no Set-Cookie | every header stored, Set-Cookie included; replay always 200 | yes, both |
+| body hashed with sorted keys | hashed in field order | yes |
+| over 64 kB not stored | no cap | yes |
+| failed done-write is logged with the key | the error swallowed | yes |
+| TTL 24 h, unique index | TTL 7 days | yes |
+| `orgId`, `userId` required | `orgId` not required | yes |
+| client: fresh UUID per mutation | one fixed key | yes |
+| client: dropped connection retried, same key | a new key per attempt | yes |
+| client: 409 in progress retried | 409 not retried | yes |
+| client: gives up after its retries | no limit | yes |
+| client: an answer (400, 422, 409 DUPLICATE_KEY, 500) not retried | every answer retried | yes (4) |
+| client: 401 replay resends the key | a new key on the replay | yes |
+| client: each of the 5 writes sends a key | deals create, convert, move-stage, brief each sent without one | yes (4) |
+| client: other creates sent once, no key | every create keyed and retried | yes |
+| demo: retry replayed | never replays | yes |
+| demo: convert replayed | convert route not idempotent | yes |
+| demo: 422 on another body or path | neither compared | yes |
+| demo: malformed key 400 | any key accepted | yes |
+| demo: keys per user | keys shared across users | yes |
+| contract (API and demo) | key pattern drifts to 8 characters | yes, after a fix (below) |
+
+47 breaks, all red. **Two weren't at first:** both contract tests stayed green when the key pattern's minimum drifted
+to 8, because their sample keys skipped 8 to 15 characters. They now include 8 and 15 and turn red.
+
+**Verified** (Windows, before the PR): backend 744 tests in 40 files (743 passed, 1 skipped: the SIGTERM test, Linux
+CI only), `src/services` 99.28% lines, 88.26% branches (gate 98.65%); `idempotencyService.js` 95% lines, the one
+uncovered branch is the third failed claim attempt. A first coverage run, alongside e2e, failed one file's `beforeAll`
+(18 skipped); rerun alone, clean. Frontend 358 passed. e2e 3 of 3 passed (ai-brief, reset-password, win-rate:
+create, convert, move to Won); Playwright then hung at teardown on its web servers and they were stopped with the
+[conventions](docs/conventions.md#end-to-end-playwright) cleanup. Root lint, typecheck, format clean. Bundle budget
+passes at the raised entry gzip budget; `check-no-demo` clean.
+
+**Next:** a transaction around the four non-convert writes to close the lost-save window; keys for the other creates
+and an idempotent toggle (`PATCH /activities/:id/status` with the target status).
