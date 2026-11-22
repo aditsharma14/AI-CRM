@@ -53,7 +53,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       # The very files that will be deployed: the build job's artifact, unpacked into dist/.
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: github-pages
           path: frontend
